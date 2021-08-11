@@ -21,16 +21,21 @@ pub fn main() !void {
     defer c.wasm_module_delete(module);
     c.wasm_byte_vec_delete(&wasm);
     // Register
-    std.log.info("Instantiating module ...", .{});
+    std.log.info("Creating callback ...", .{});
     var hello_type = c.wasm_functype_new_0_0();
     var hello_func = c.wasm_func_new(store, hello_type, helloCallback);
     c.wasm_functype_delete(hello_type);
     // Instantiate
+    std.log.info("Instantiating module ...", .{});
+    var externs = [_]?*c.wasm_extern_t{c.wasm_func_as_extern(hello_func)};
+    var imports = c.wasm_extern_vec_t{ .size = externs.len, .data = &externs };
+    var instance = c.wasm_instance_new(store, module, &imports, null) orelse unreachable;
+    c.wasm_func_delete(hello_func);
 }
 
 fn helloCallback(
-    args: [*c]const c.wasm_val_vec_t,
-    results: [*c]c.wasm_val_vec_t,
+    args: ?*const c.wasm_val_vec_t,
+    results: ?*c.wasm_val_vec_t,
 ) callconv(.C) ?*c.wasm_trap_t {
     std.debug.print("Calling back...\n", .{});
     std.debug.print("> Hello World!\n", .{});
