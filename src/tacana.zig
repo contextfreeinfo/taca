@@ -6,9 +6,9 @@ const assert = std.debug.assert;
 pub fn main() !void {
     defer std.log.info("Done.", .{});
     // Init
-    var engine = c.wasm_engine_new() orelse unreachable;
+    var engine = c.wasm_engine_new().?;
     defer c.wasm_engine_delete(engine);
-    var store = c.wasm_store_new(engine) orelse unreachable;
+    var store = c.wasm_store_new(engine).?;
     defer c.wasm_store_delete(store);
     defer std.log.info("Shutting down ...", .{});
     // var context = c.wasmtime_store_context(store);
@@ -21,7 +21,7 @@ pub fn main() !void {
     // assert(err == null);
     // Compile
     std.log.info("Compiling module ...", .{});
-    var module = c.wasm_module_new(store, &wasm) orelse unreachable;
+    var module = c.wasm_module_new(store, &wasm).?;
     // defer c.wasm_module_delete(module);
     c.wasm_byte_vec_delete(&wasm);
     // Register
@@ -33,14 +33,14 @@ pub fn main() !void {
     std.log.info("Instantiating module ...", .{});
     var externs = [_]?*c.wasm_extern_t{c.wasm_func_as_extern(hello_func)};
     var imports = c.wasm_extern_vec_t{ .size = externs.len, .data = &externs };
-    var instance = c.wasm_instance_new(store, module, &imports, null) orelse unreachable;
+    var instance = c.wasm_instance_new(store, module, &imports, null).?;
     c.wasm_func_delete(hello_func);
     // Extract
     std.log.info("Extracting export ...", .{});
     var exports: c.wasm_extern_vec_t = undefined;
     c.wasm_instance_exports(instance, &exports);
     assert(exports.size > 0);
-    var run_func = c.wasm_extern_as_func(exports.data[1]) orelse unreachable;
+    var run_func = c.wasm_extern_as_func(exports.data[1]).?;
     c.wasm_instance_delete(instance);
     c.wasm_module_delete(module);
     // Call
