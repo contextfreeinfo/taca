@@ -13,10 +13,12 @@ pub fn main() !void {
     defer std.log.info("Shutting down ...", .{});
     // var context = c.wasmtime_store_context(store);
     // Load wat and wasm
-    const wat = @embedFile("hello.wat");
+    // const wat = @embedFile("hello.wat");
+    var wasm_bytes = @embedFile("../examples/hello.wasm");
     var wasm: c.wasm_byte_vec_t = undefined;
-    var err = c.wasmtime_wat2wasm(wat, wat.len, &wasm);
-    assert(err == null);
+    c.wasm_byte_vec_new(&wasm, wasm_bytes.len, wasm_bytes);
+    // var err = c.wasmtime_wat2wasm(wat, wat.len, &wasm);
+    // assert(err == null);
     // Compile
     std.log.info("Compiling module ...", .{});
     var module = c.wasm_module_new(store, &wasm) orelse unreachable;
@@ -38,7 +40,7 @@ pub fn main() !void {
     var exports: c.wasm_extern_vec_t = undefined;
     c.wasm_instance_exports(instance, &exports);
     assert(exports.size > 0);
-    var run_func = c.wasm_extern_as_func(exports.data[0]) orelse unreachable;
+    var run_func = c.wasm_extern_as_func(exports.data[1]) orelse unreachable;
     c.wasm_instance_delete(instance);
     c.wasm_module_delete(module);
     // Call
