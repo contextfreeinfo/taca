@@ -39,8 +39,10 @@ pub fn main() !void {
     std.log.info("Extracting export ...", .{});
     var exports: c.wasm_extern_vec_t = undefined;
     c.wasm_instance_exports(instance, &exports);
-    assert(exports.size > 0);
-    var run_func = c.wasm_extern_as_func(exports.data[1]).?;
+    var export_types: c.wasm_exporttype_vec_t = undefined;
+    c.wasm_module_exports(module, &export_types);
+    var start = findExport("_start", exports, export_types).?;
+    var run_func = c.wasm_extern_as_func(start).?;
     c.wasm_instance_delete(instance);
     c.wasm_module_delete(module);
     // Call
@@ -50,6 +52,23 @@ pub fn main() !void {
     var trap = c.wasm_func_call(run_func, &args, &results);
     assert(trap == null);
     c.wasm_extern_vec_delete(&exports);
+}
+
+fn findExport(
+    name: []const u8,
+    exports: c.wasm_extern_vec_t,
+    types: c.wasm_exporttype_vec_t,
+) ?*c.wasm_extern_t {
+    var i = @as(usize, 0);
+    while (i < exports.size) : (i += 1) {
+        const found_name: *const c.wasm_name_t =
+            c.wasm_exporttype_name(types.data[i]);
+        var found_slice = found_name.data[0..found_name.size];
+        if (std.mem.eql(u8, name, found_slice)) {
+            return exports.data[i];
+        }
+    }
+    return null;
 }
 
 fn helloCallback(
