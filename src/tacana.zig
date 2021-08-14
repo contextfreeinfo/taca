@@ -4,6 +4,60 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 pub fn main() !void {
+    runWasm();
+    runSdl();
+}
+
+fn findExport(
+    name: []const u8,
+    exports: c.wasm_extern_vec_t,
+    types: c.wasm_exporttype_vec_t,
+) ?*c.wasm_extern_t {
+    var i = @as(usize, 0);
+    while (i < exports.size) : (i += 1) {
+        const found_name: *const c.wasm_name_t =
+            c.wasm_exporttype_name(types.data[i]);
+        var found_slice = found_name.data[0..found_name.size];
+        if (std.mem.eql(u8, name, found_slice)) {
+            return exports.data[i];
+        }
+    }
+    return null;
+}
+
+fn helloCallback(
+    args: ?*const c.wasm_val_vec_t,
+    results: ?*c.wasm_val_vec_t,
+) callconv(.C) ?*c.wasm_trap_t {
+    std.debug.print("Calling back...\n", .{});
+    std.debug.print("> Hello World!\n", .{});
+    return null;
+}
+
+fn runSdl() void {
+    var init_result = c.SDL_Init(c.SDL_INIT_VIDEO);
+    assert(init_result >= 0);
+    defer c.SDL_Quit();
+    var window = c.SDL_CreateWindow(
+        "Hi!",
+        c.SDL_WINDOWPOS_UNDEFINED,
+        c.SDL_WINDOWPOS_UNDEFINED,
+        640,
+        480,
+        c.SDL_WINDOW_SHOWN,
+    ).?;
+    defer c.SDL_DestroyWindow(window);
+    var surface: *c.SDL_Surface = c.SDL_GetWindowSurface(window);
+    _ = c.SDL_FillRect(
+        surface,
+        null,
+        c.SDL_MapRGB(surface.format, 0x10, 0x20, 0x30),
+    );
+    _ = c.SDL_UpdateWindowSurface(window);
+    c.SDL_Delay(2000);
+}
+
+fn runWasm() void {
     defer std.log.info("Done.", .{});
     // Init
     var engine = c.wasm_engine_new().?;
@@ -52,30 +106,4 @@ pub fn main() !void {
     var trap = c.wasm_func_call(run_func, &args, &results);
     assert(trap == null);
     c.wasm_extern_vec_delete(&exports);
-}
-
-fn findExport(
-    name: []const u8,
-    exports: c.wasm_extern_vec_t,
-    types: c.wasm_exporttype_vec_t,
-) ?*c.wasm_extern_t {
-    var i = @as(usize, 0);
-    while (i < exports.size) : (i += 1) {
-        const found_name: *const c.wasm_name_t =
-            c.wasm_exporttype_name(types.data[i]);
-        var found_slice = found_name.data[0..found_name.size];
-        if (std.mem.eql(u8, name, found_slice)) {
-            return exports.data[i];
-        }
-    }
-    return null;
-}
-
-fn helloCallback(
-    args: ?*const c.wasm_val_vec_t,
-    results: ?*c.wasm_val_vec_t,
-) callconv(.C) ?*c.wasm_trap_t {
-    std.debug.print("Calling back...\n", .{});
-    std.debug.print("> Hello World!\n", .{});
-    return null;
 }
