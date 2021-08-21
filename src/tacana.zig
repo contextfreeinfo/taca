@@ -68,7 +68,8 @@ fn runWasm() void {
     // var context = c.wasmtime_store_context(store);
     // Load wat and wasm
     // const wat = @embedFile("hello.wat");
-    var wasm_bytes = @embedFile("../examples/hello.wasm");
+    // var wasm_bytes = @embedFile("../examples/hello.wasm");
+    var wasm_bytes = @embedFile("../examples/as/build/optimized.wasm");
     var wasm: c.wasm_byte_vec_t = undefined;
     c.wasm_byte_vec_new(&wasm, wasm_bytes.len, wasm_bytes);
     // var err = c.wasmtime_wat2wasm(wat, wat.len, &wasm);

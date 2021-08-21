@@ -16,5 +16,7 @@
       "noAssert": false
     }
   },
-  "options": {}
+  "options": {
+    "explicitStart": true
+  }
 }

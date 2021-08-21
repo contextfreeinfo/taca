@@ -1,4 +1,5 @@
-(
+(cd examples/as && npm run asbuild) \
+&& (
     cd examples \
     && zig build-exe -Izig zig/hello.zig -target wasm32-freestanding -dynamic \
 ) \
