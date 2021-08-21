@@ -1,4 +1,4 @@
-(cd examples && zig build-exe hello.zig -target wasm32-freestanding -dynamic) \
+(cd examples && zig build-exe -I. hello.zig -target wasm32-freestanding -dynamic) \
 && zig build-exe \
     -Ivendor/sdl/include/SDL2 -Lvendor/sdl/lib \
     -Ivendor/wasmtime/include -Lvendor/wasmtime/lib \

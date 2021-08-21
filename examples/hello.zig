@@ -1,10 +1,12 @@
-// const c = @cImport({
-//     @cInclude("hello.h");
-// });
+const c = @cImport({
+    @cInclude("hello.h");
+});
 
-extern fn hello() void;
+const z = struct {
+    extern fn hello() void;
+};
 
 pub fn main() void {
-    // c.hello();
-    hello();
+    c.hello();
+    z.hello();
 }
