@@ -5,5 +5,7 @@ tacana.exe
 tacana.pdb
 vendor
 zig-cache
+*.asm.js
 *.wasm
+*.wasm.map
 *.wat
