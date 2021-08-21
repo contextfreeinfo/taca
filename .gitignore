@@ -1,4 +1,7 @@
+SDL2.dll
 tacana
+tacana.exe
+tacana.pdb
 vendor
 zig-cache
 *.wasm
