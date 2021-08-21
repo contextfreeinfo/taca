@@ -6,3 +6,4 @@ tacana.pdb
 vendor
 zig-cache
 *.wasm
+*.wat
