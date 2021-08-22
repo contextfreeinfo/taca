@@ -4,7 +4,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 pub fn main() !void {
-    runWasm();
+    try runWasm();
     runSdl();
 }
 
@@ -34,6 +34,15 @@ fn helloCallback(
     return null;
 }
 
+fn loadFile(alloc: *std.mem.Allocator, name: []const u8) ![]u8 {
+    const path = try std.fs.path.resolve(alloc, &.{name});
+    defer alloc.free(path);
+    const file = try std.fs.openFileAbsolute(path, .{ .read = true });
+    defer file.close();
+    std.debug.print("hi: {s}\n", .{path});
+    return try file.readToEndAlloc(alloc, (try file.stat()).size);
+}
+
 fn runSdl() void {
     var init_result = c.SDL_Init(c.SDL_INIT_VIDEO);
     assert(init_result >= 0);
@@ -54,11 +63,17 @@ fn runSdl() void {
         c.SDL_MapRGB(surface.format, 0x10, 0x20, 0x30),
     );
     _ = c.SDL_UpdateWindowSurface(window);
-    c.SDL_Delay(2000);
+    c.SDL_Delay(500);
 }
 
-fn runWasm() void {
+fn runWasm() !void {
     defer std.log.info("Done.", .{});
+    // Args
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa = &general_purpose_allocator.allocator;
+    const cli_args = try std.process.argsAlloc(gpa);
+    defer std.process.argsFree(gpa, cli_args);
+    assert(cli_args.len > 1);
     // Init
     var engine = c.wasm_engine_new().?;
     defer c.wasm_engine_delete(engine);
@@ -68,17 +83,20 @@ fn runWasm() void {
     // var context = c.wasmtime_store_context(store);
     // Load wat and wasm
     // const wat = @embedFile("hello.wat");
+    var wasm_bytes = try loadFile(gpa, cli_args[1]);
     // var wasm_bytes = @embedFile("../examples/hello.wasm");
-    var wasm_bytes = @embedFile("../examples/as/build/optimized.wasm");
-    var wasm: c.wasm_byte_vec_t = undefined;
-    c.wasm_byte_vec_new(&wasm, wasm_bytes.len, wasm_bytes);
+    // var wasm_bytes = @embedFile("../examples/as/build/optimized.wasm");
+    var wasm = c.wasm_byte_vec_t{
+        .size = wasm_bytes.len,
+        .data = wasm_bytes.ptr,
+    };
     // var err = c.wasmtime_wat2wasm(wat, wat.len, &wasm);
     // assert(err == null);
     // Compile
     std.log.info("Compiling module ...", .{});
     var module = c.wasm_module_new(store, &wasm).?;
     // defer c.wasm_module_delete(module);
-    c.wasm_byte_vec_delete(&wasm);
+    gpa.free(wasm_bytes);
     // Register
     std.log.info("Creating callback ...", .{});
     var hello_type = c.wasm_functype_new_0_0();
@@ -94,8 +112,10 @@ fn runWasm() void {
     std.log.info("Extracting export ...", .{});
     var exports: c.wasm_extern_vec_t = undefined;
     c.wasm_instance_exports(instance, &exports);
+    defer c.wasm_extern_vec_delete(&exports);
     var export_types: c.wasm_exporttype_vec_t = undefined;
     c.wasm_module_exports(module, &export_types);
+    defer c.wasm_exporttype_vec_delete(&export_types);
     var start = findExport("_start", exports, export_types).?;
     var run_func = c.wasm_extern_as_func(start).?;
     c.wasm_instance_delete(instance);
@@ -106,5 +126,4 @@ fn runWasm() void {
     var results = c.wasm_val_vec_t{ .size = 0, .data = null };
     var trap = c.wasm_func_call(run_func, &args, &results);
     assert(trap == null);
-    c.wasm_extern_vec_delete(&exports);
 }
