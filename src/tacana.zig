@@ -29,6 +29,8 @@ fn helloCallback(
     args: ?*const c.wasm_val_vec_t,
     results: ?*c.wasm_val_vec_t,
 ) callconv(.C) ?*c.wasm_trap_t {
+    _ = args;
+    _ = results;
     std.debug.print("Calling back...\n", .{});
     std.debug.print("> Hello World!\n", .{});
     return null;

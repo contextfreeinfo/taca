@@ -6,6 +6,12 @@ tacana.pdb
 vendor
 zig-cache
 *.asm.js
+*.o
 *.wasm
 *.wasm.map
 *.wat
+
+
+# Added by cargo
+
+/target
