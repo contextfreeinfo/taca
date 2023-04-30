@@ -8,10 +8,13 @@ use winit::{
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
+
     let module_wat = r#"
         (import "host" "hello" (func $host_hello (param i32)))
 
-        (func (export "hello") (param $n i32) (result i32)
+        (func (export "add_one") (param $n i32) (result i32)
             (local.set $n (i32.add (local.get $n) (i32.const 1)))
             (call $host_hello (local.get $n))
             local.get $n
@@ -29,12 +32,9 @@ fn main() -> anyhow::Result<()> {
     };
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let add_one = instance.exports.get_function("hello")?;
+    let add_one = instance.exports.get_function("add_one")?;
     let result = add_one.call(&mut store, &[Value::I32(42)])?;
     println!("After: {}", result[0].unwrap_i32());
-
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
