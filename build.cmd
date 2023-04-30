@@ -1,11 +1,11 @@
-@REM cd examples\as
+@REM pushd examples\as
 @REM npm install
-@REM npm run asbuild
-@REM cd ..\..
+@REM npm run build
+@REM popd
 
-cd examples\zig
-zig build-exe hello.zig -target wasm32-freestanding -dynamic
-cd ..
+pushd examples\zig
+zig build-exe -I. hello.zig -target wasm32-freestanding -dynamic
+popd
 
 zig build-exe ^
     -Ivendor/sdl/include -Lvendor/sdl/lib/x64 ^

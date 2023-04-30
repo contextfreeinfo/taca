@@ -1,4 +1,4 @@
-# (cd examples/as && npm install && npm run asbuild) && \
+# (cd examples/as && npm install && npx run build) && \
 (
     cd examples/zig \
     && zig build-exe -I. hello.zig -lc \
