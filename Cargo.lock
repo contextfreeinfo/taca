@@ -1949,6 +1949,7 @@ dependencies = [
  "env_logger",
  "log",
  "pollster",
+ "raw-window-handle",
  "wasmer",
  "wgpu",
  "wgpu-native",

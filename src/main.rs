@@ -76,15 +76,15 @@ async fn run() -> anyhow::Result<()> {
             }
             Event::RedrawRequested(window_id) if window_id == state.window().id() => {
                 state.update();
-                match state.render() {
-                    Ok(_) => {}
-                    // Reconfigure the surface if it's lost or outdated
-                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => state.resize(state.size),
-                    // The system is out of memory, we should probably quit
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                // match state.render() {
+                //     Ok(_) => {}
+                //     // Reconfigure the surface if it's lost or outdated
+                //     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => state.resize(state.size),
+                //     // The system is out of memory, we should probably quit
+                //     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     
-                    Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
-                }
+                //     Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
+                // }
             }
             Event::RedrawEventsCleared => {
                 // RedrawRequested will only trigger once, unless we manually

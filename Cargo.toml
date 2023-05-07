@@ -10,6 +10,7 @@ anyhow = "1.0.71"
 env_logger = "0.10.0"
 log = "0.4.17"
 pollster = "0.3.0"
+raw-window-handle = "0.5.2"
 wasmer = "3.2.1"
 wgpu = "0.16.0"
 wgpu-native = { git = "https://github.com/gfx-rs/wgpu-native.git", tag = "v0.16.0.1" }
