@@ -42,8 +42,16 @@ async fn run() -> anyhow::Result<()> {
     let result = add_one.call(&mut store, &[Value::I32(42)])?;
     println!("After: {}", result[0].unwrap_i32());
 
-    let mut state = State::new(window).await;
+    // let state = State::new(window).await;
+    // TODO https://users.rust-lang.org/t/can-you-turn-a-callback-into-a-future-into-async-await/49378/16
+    // TODO Does this guarantee to wait on anything???
+    State::new(window, |state| {
+        run_loop(event_loop, state);
+    });
+    Ok(())
+}
 
+fn run_loop(event_loop: EventLoop<()>, mut state: State) {
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -82,7 +90,7 @@ async fn run() -> anyhow::Result<()> {
                 //     Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => state.resize(state.size),
                 //     // The system is out of memory, we should probably quit
                 //     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    
+
                 //     Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
                 // }
             }

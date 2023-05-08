@@ -2,25 +2,26 @@ use wgpu_native::native;
 use winit::{event::WindowEvent, window::Window};
 
 pub struct State {
-    // surface: wgpu::Surface,
-    // device: wgpu::Device,
-    // queue: wgpu::Queue,
+    surface: native::WGPUSurface,
+    device: native::WGPUDevice,
+    queue: native::WGPUQueue,
     // config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     window: Window,
 }
 
 impl State {
-    pub async fn new(window: Window) -> Self {
-        let size = window.inner_size();
-
+    pub fn new<Callback>(window: Window, callback: Callback)
+    where
+        Callback: FnOnce(Self),
+    {
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            dx12_shader_compiler: Default::default(),
-        });
-        let _instance = unsafe {
+        // let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        //     backends: wgpu::Backends::all(),
+        //     dx12_shader_compiler: Default::default(),
+        // });
+        let instance = unsafe {
             wgpu_native::wgpuCreateInstance(Some(&native::WGPUInstanceDescriptor {
                 nextInChain: std::ptr::null(),
             }))
@@ -30,11 +31,10 @@ impl State {
         //
         // The surface needs to live as long as the window that created it.
         // State owns the window so this should be safe.
-        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        // let surface = unsafe { instance.create_surface(&window) }.unwrap();
         // TODO Need our own "create surface"???
-        let _surface = unsafe { wgpu_instance_create_surface(_instance, &window) };
+        let surface = unsafe { wgpu_instance_create_surface(instance, &window) };
 
-        // TODO https://users.rust-lang.org/t/can-you-turn-a-callback-into-a-future-into-async-await/49378/16
         // let adapter = instance
         //     .request_adapter(&wgpu::RequestAdapterOptions {
         //         power_preference: wgpu::PowerPreference::default(),
@@ -43,6 +43,28 @@ impl State {
         //     })
         //     .await
         //     .unwrap();
+        let request_adapter_callback_data = Box::new(RequestAdapterCallbackData {
+            callback,
+            instance,
+            surface,
+            window,
+        });
+        unsafe {
+            wgpu_native::device::wgpuInstanceRequestAdapter(
+                instance,
+                Some(&native::WGPURequestAdapterOptions {
+                    nextInChain: std::ptr::null(),
+                    compatibleSurface: surface,
+                    powerPreference: native::WGPUPowerPreference_Undefined,
+                    forceFallbackAdapter: false,
+                }),
+                Some(request_adapter_callback::<Callback>),
+                Box::into_raw(request_adapter_callback_data) as *mut std::ffi::c_void,
+            )
+        };
+        // Supposedly in practice, the adapter is ready immediately after the
+        // call returns, but officially, it's not.
+        // https://eliemichel.github.io/LearnWebGPU/getting-started/the-adapter.html
 
         // let (device, queue) = adapter
         //     .request_device(
@@ -56,6 +78,79 @@ impl State {
         //     )
         //     .await
         //     .unwrap();
+        struct RequestAdapterCallbackData<Callback> {
+            callback: Callback,
+            instance: native::WGPUInstance,
+            surface: native::WGPUSurface,
+            window: Window,
+        }
+
+        extern "C" fn request_adapter_callback<Callback>(
+            status: native::WGPURequestAdapterStatus,
+            adapter: native::WGPUAdapter,
+            message: *const ::std::os::raw::c_char,
+            request_adapter_callback_data: *mut ::std::os::raw::c_void,
+        ) where
+            Callback: FnOnce(State),
+        {
+            if status != native::WGPURequestDeviceStatus_Success {
+                panic!("WGPURequestAdapterStatus {status}: {message:?}");
+            }
+            let request_adapter_callback_data =
+                request_adapter_callback_data as *mut RequestAdapterCallbackData<Callback>;
+            unsafe {
+                // I think we can drop the instance while still using things from it???
+                wgpu_native::wgpuInstanceDrop((*request_adapter_callback_data).instance);
+                let request_adapter_callback_data = Box::from_raw(request_adapter_callback_data);
+                let request_device_callback_data = Box::new(RequestDeviceCallbackData {
+                    adapter,
+                    callback: request_adapter_callback_data.callback,
+                    surface: request_adapter_callback_data.surface,
+                    window: request_adapter_callback_data.window,
+                });
+                wgpu_native::device::wgpuAdapterRequestDevice(
+                    adapter,
+                    None,
+                    Some(request_device_callback::<Callback>),
+                    Box::into_raw(request_device_callback_data) as *mut std::ffi::c_void,
+                );
+            }
+        }
+
+        struct RequestDeviceCallbackData<Callback> {
+            adapter: native::WGPUAdapter,
+            callback: Callback,
+            surface: native::WGPUSurface,
+            window: Window,
+        }
+
+        extern "C" fn request_device_callback<Callback>(
+            status: native::WGPURequestDeviceStatus,
+            device: native::WGPUDevice,
+            message: *const ::std::os::raw::c_char,
+            request_device_callback_data: *mut ::std::os::raw::c_void,
+        ) where
+            Callback: FnOnce(State),
+        {
+            if status != native::WGPURequestDeviceStatus_Success {
+                panic!("WGPURequestAdapterStatus {status}: {message:?}");
+            }
+            let request_device_callback_data =
+                request_device_callback_data as *mut RequestDeviceCallbackData<Callback>;
+            unsafe {
+                let request_device_callback_data = Box::from_raw(request_device_callback_data);
+                let queue = wgpu_native::device::wgpuDeviceGetQueue(device);
+                let state = State {
+                    surface: request_device_callback_data.surface,
+                    device,
+                    queue,
+                    // config,
+                    size: request_device_callback_data.window.inner_size(),
+                    window: request_device_callback_data.window,
+                };
+                (request_device_callback_data.callback)(state);
+            }
+        }
 
         // let surface_caps = surface.get_capabilities(&adapter);
         // // Shader code in this tutorial assumes an Srgb surface texture. Using a different
@@ -78,15 +173,6 @@ impl State {
         //     view_formats: vec![],
         // };
         // surface.configure(&device, &config);
-
-        Self {
-            // surface,
-            // device,
-            // queue,
-            // config,
-            size,
-            window,
-        }
     }
 
     pub fn window(&self) -> &Window {
