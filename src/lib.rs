@@ -99,13 +99,15 @@ impl State {
             let request_adapter_callback_data =
                 request_adapter_callback_data as *mut RequestAdapterCallbackData<Callback>;
             unsafe {
-                // I think we can drop the instance while still using things from it???
                 let RequestAdapterCallbackData {
                     callback,
+                    instance,
                     surface,
                     window,
-                    ..
                 } = *Box::from_raw(request_adapter_callback_data);
+                // I think we can drop the instance while still using things from it???
+                // TODO Impl drop for State to clean up others later?
+                wgpu_native::wgpuInstanceDrop(instance);
                 wgpu_native::device::wgpuAdapterRequestDevice(
                     adapter,
                     None,
