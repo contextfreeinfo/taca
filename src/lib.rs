@@ -43,12 +43,12 @@ impl State {
         //     })
         //     .await
         //     .unwrap();
-        let request_adapter_callback_data = Box::new(RequestAdapterCallbackData {
+        let request_adapter_callback_data = Box::into_raw(Box::new(RequestAdapterCallbackData {
             callback,
             instance,
             surface,
             window,
-        });
+        })) as *mut std::ffi::c_void;
         unsafe {
             wgpu_native::device::wgpuInstanceRequestAdapter(
                 instance,
@@ -59,7 +59,7 @@ impl State {
                     forceFallbackAdapter: false,
                 }),
                 Some(request_adapter_callback::<Callback>),
-                Box::into_raw(request_adapter_callback_data) as *mut std::ffi::c_void,
+                request_adapter_callback_data,
             )
         };
         // Supposedly in practice, the adapter is ready immediately after the
