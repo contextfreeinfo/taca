@@ -88,8 +88,8 @@ impl State {
         extern "C" fn request_adapter_callback<Callback>(
             status: native::WGPURequestAdapterStatus,
             adapter: native::WGPUAdapter,
-            message: *const ::std::os::raw::c_char,
-            request_adapter_callback_data: *mut ::std::os::raw::c_void,
+            message: *const std::os::raw::c_char,
+            request_adapter_callback_data: *mut std::os::raw::c_void,
         ) where
             Callback: FnOnce(State),
         {
@@ -130,8 +130,8 @@ impl State {
         extern "C" fn request_device_callback<Callback>(
             status: native::WGPURequestDeviceStatus,
             device: native::WGPUDevice,
-            message: *const ::std::os::raw::c_char,
-            request_device_callback_data: *mut ::std::os::raw::c_void,
+            message: *const std::os::raw::c_char,
+            request_device_callback_data: *mut std::os::raw::c_void,
         ) where
             Callback: FnOnce(State),
         {
