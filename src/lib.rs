@@ -100,19 +100,22 @@ impl State {
                 request_adapter_callback_data as *mut RequestAdapterCallbackData<Callback>;
             unsafe {
                 // I think we can drop the instance while still using things from it???
-                wgpu_native::wgpuInstanceDrop((*request_adapter_callback_data).instance);
-                let request_adapter_callback_data = Box::from_raw(request_adapter_callback_data);
-                let request_device_callback_data = Box::new(RequestDeviceCallbackData {
-                    adapter,
-                    callback: request_adapter_callback_data.callback,
-                    surface: request_adapter_callback_data.surface,
-                    window: request_adapter_callback_data.window,
-                });
+                let RequestAdapterCallbackData {
+                    callback,
+                    surface,
+                    window,
+                    ..
+                } = *Box::from_raw(request_adapter_callback_data);
                 wgpu_native::device::wgpuAdapterRequestDevice(
                     adapter,
                     None,
                     Some(request_device_callback::<Callback>),
-                    Box::into_raw(request_device_callback_data) as *mut std::ffi::c_void,
+                    Box::into_raw(Box::new(RequestDeviceCallbackData {
+                        adapter,
+                        callback,
+                        surface,
+                        window,
+                    })) as *mut std::ffi::c_void,
                 );
             }
         }
@@ -138,17 +141,22 @@ impl State {
             let request_device_callback_data =
                 request_device_callback_data as *mut RequestDeviceCallbackData<Callback>;
             unsafe {
-                let request_device_callback_data = Box::from_raw(request_device_callback_data);
+                let RequestDeviceCallbackData {
+                    callback,
+                    surface,
+                    window,
+                    ..
+                } = *Box::from_raw(request_device_callback_data);
                 let queue = wgpu_native::device::wgpuDeviceGetQueue(device);
                 let state = State {
-                    surface: request_device_callback_data.surface,
+                    surface,
                     device,
                     queue,
                     // config,
-                    size: request_device_callback_data.window.inner_size(),
-                    window: request_device_callback_data.window,
+                    size: window.inner_size(),
+                    window: window,
                 };
-                (request_device_callback_data.callback)(state);
+                callback(state);
             }
         }
 
