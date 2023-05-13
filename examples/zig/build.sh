@@ -1,6 +1,6 @@
 zig build-obj -target wasm32-wasi -O ReleaseSmall -I ../wgpu-native/ffi \
     explore-webgpu.zig && \
-zig clang -target wasm32-freestanding -nostdlib -Wl,--export-table \
+zig clang -target wasm32-wasi -nostdlib -Wl,--export-table \
     explore-webgpu.o -o explore-webgpu.wasm && \
 wasm2wat --generate-names --fold-exprs --inline-exports --inline-imports \
     explore-webgpu.wasm -o explore-webgpu.wat
