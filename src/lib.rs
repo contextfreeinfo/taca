@@ -1,3 +1,5 @@
+use std::ffi::CStr;
+
 use wgpu_native::native;
 use winit::{event::WindowEvent, window::Window};
 
@@ -5,8 +7,9 @@ pub struct State {
     surface: native::WGPUSurface,
     device: native::WGPUDevice,
     queue: native::WGPUQueue,
-    // config: wgpu::SurfaceConfiguration,
+    format: native::WGPUTextureFormat,
     pub size: winit::dpi::PhysicalSize<u32>,
+    swap_chain: native::WGPUSwapChain,
     window: Window,
 }
 
@@ -144,19 +147,34 @@ impl State {
                 request_device_callback_data as *mut RequestDeviceCallbackData<Callback>;
             unsafe {
                 let RequestDeviceCallbackData {
+                    adapter,
                     callback,
                     surface,
                     window,
-                    ..
                 } = *Box::from_raw(request_device_callback_data);
                 let queue = wgpu_native::device::wgpuDeviceGetQueue(device);
+                let size = window.inner_size();
+                let format = wgpu_native::wgpuSurfaceGetPreferredFormat(surface, adapter);
+                let config = native::WGPUSwapChainDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: std::ptr::null(),
+                    usage: native::WGPUTextureUsage_RenderAttachment,
+                    format,
+                    width: size.width,
+                    height: size.height,
+                    presentMode: native::WGPUPresentMode_Fifo,
+                };
+                let swap_chain =
+                    wgpu_native::device::wgpuDeviceCreateSwapChain(device, surface, Some(&config));
+                assert!(swap_chain != std::ptr::null_mut());
                 let state = State {
                     surface,
                     device,
                     queue,
-                    // config,
-                    size: window.inner_size(),
-                    window: window,
+                    format,
+                    size,
+                    swap_chain,
+                    window,
                 };
                 callback(state);
             }
@@ -204,6 +222,54 @@ impl State {
     }
 
     pub fn update(&mut self) {}
+
+    pub fn render(&mut self) {
+        unsafe {
+            let view = wgpu_native::device::wgpuSwapChainGetCurrentTextureView(self.swap_chain);
+            let encoder = wgpu_native::device::wgpuDeviceCreateCommandEncoder(
+                self.device,
+                Some(&native::WGPUCommandEncoderDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: CStr::from_bytes_with_nul_unchecked(b"Render Encoder\0").as_ptr(),
+                }),
+            );
+            let render_pass = wgpu_native::command::wgpuCommandEncoderBeginRenderPass(
+                encoder,
+                Some(&native::WGPURenderPassDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: CStr::from_bytes_with_nul_unchecked(b"Render Pass\0").as_ptr(),
+                    colorAttachmentCount: 1,
+                    colorAttachments: &native::WGPURenderPassColorAttachment {
+                        view,
+                        resolveTarget: std::ptr::null_mut(),
+                        loadOp: native::WGPULoadOp_Clear,
+                        storeOp: native::WGPUStoreOp_Store,
+                        clearValue: native::WGPUColor {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        },
+                    },
+                    depthStencilAttachment: std::ptr::null(),
+                    occlusionQuerySet: std::ptr::null_mut(),
+                    timestampWriteCount: 0,
+                    timestampWrites: std::ptr::null(),
+                }),
+            );
+            wgpu_native::command::wgpuRenderPassEncoderEnd(render_pass);
+            wgpu_native::device::wgpuTextureViewDrop(view);
+            let command_buffer = wgpu_native::command::wgpuCommandEncoderFinish(
+                encoder,
+                Some(&native::WGPUCommandBufferDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: CStr::from_bytes_with_nul_unchecked(b"Command Buffer\0").as_ptr(),
+                }),
+            );
+            wgpu_native::device::wgpuQueueSubmit(self.queue, 1, &command_buffer);
+            wgpu_native::device::wgpuSwapChainPresent(self.swap_chain);
+        }
+    }
 
     // pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
     //     let output = self.surface.get_current_texture()?;

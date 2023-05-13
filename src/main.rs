@@ -16,6 +16,7 @@ async fn run() -> anyhow::Result<()> {
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
+    window.set_title("Tacaná");
 
     let module_wat = r#"
         (import "host" "hello" (func $host_hello (param i32)))
@@ -84,6 +85,7 @@ fn run_loop(event_loop: EventLoop<()>, mut state: State) {
             }
             Event::RedrawRequested(window_id) if window_id == state.window().id() => {
                 state.update();
+                state.render();
                 // match state.render() {
                 //     Ok(_) => {}
                 //     // Reconfigure the surface if it's lost or outdated
