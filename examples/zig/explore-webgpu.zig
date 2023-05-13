@@ -4,19 +4,20 @@ const g = @cImport({
 });
 
 pub fn main() void {
-    // Instance.
+    // Instance
     const instance = g.wgpuCreateInstance(&g.WGPUInstanceDescriptor{
         .nextInChain = null,
     }) orelse unreachable;
     defer g.wgpuInstanceDrop(instance);
-    // Surface.
+
+    // Surface
     const surface = g.wgpuInstanceCreateSurface(
         instance,
         &g.WGPUSurfaceDescriptor{
             .nextInChain = @ptrCast(
                 *const g.WGPUChainedStruct,
                 &g.WGPUSurfaceDescriptorFromCanvasHTMLSelector{
-                    .chain = g.WGPUChainedStruct{
+                    .chain = .{
                         .next = null,
                         .sType = g.WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
                     },
@@ -27,4 +28,29 @@ pub fn main() void {
         },
     ) orelse unreachable;
     defer g.wgpuSurfaceDrop(surface);
+
+    // Adapter
+    g.wgpuInstanceRequestAdapter(
+        instance,
+        &g.WGPURequestAdapterOptions{
+            .nextInChain = null,
+            .compatibleSurface = surface,
+            .powerPreference = g.WGPUPowerPreference_Undefined,
+            .forceFallbackAdapter = false,
+        },
+        requestAdapterCallback,
+        null,
+    );
+}
+
+fn requestAdapterCallback(
+    status: g.WGPURequestAdapterStatus,
+    adapter: g.WGPUAdapter,
+    message: [*c]const u8,
+    userdata: ?*anyopaque,
+) callconv(.C) void {
+    _ = status;
+    _ = adapter;
+    _ = message;
+    _ = userdata;
 }
