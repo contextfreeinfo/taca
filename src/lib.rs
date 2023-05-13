@@ -155,27 +155,16 @@ impl State {
                 let queue = wgpu_native::device::wgpuDeviceGetQueue(device);
                 let size = window.inner_size();
                 let format = wgpu_native::wgpuSurfaceGetPreferredFormat(surface, adapter);
-                let config = native::WGPUSwapChainDescriptor {
-                    nextInChain: std::ptr::null(),
-                    label: std::ptr::null(),
-                    usage: native::WGPUTextureUsage_RenderAttachment,
-                    format,
-                    width: size.width,
-                    height: size.height,
-                    presentMode: native::WGPUPresentMode_Fifo,
-                };
-                let swap_chain =
-                    wgpu_native::device::wgpuDeviceCreateSwapChain(device, surface, Some(&config));
-                assert!(swap_chain != std::ptr::null_mut());
-                let state = State {
+                let mut state = State {
                     surface,
                     device,
                     queue,
                     format,
                     size,
-                    swap_chain,
+                    swap_chain: std::ptr::null_mut(),
                     window,
                 };
+                state.create_swap_chain();
                 callback(state);
             }
         }
@@ -203,6 +192,27 @@ impl State {
         // surface.configure(&device, &config);
     }
 
+    fn create_swap_chain(&mut self) {
+        let State { device, format, size, surface, .. } = *self;
+        unsafe {
+            let swap_chain = wgpu_native::device::wgpuDeviceCreateSwapChain(
+                device,
+                surface,
+                Some(&native::WGPUSwapChainDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: std::ptr::null(),
+                    usage: native::WGPUTextureUsage_RenderAttachment,
+                    format,
+                    width: size.width,
+                    height: size.height,
+                    presentMode: native::WGPUPresentMode_Fifo,
+                }),
+            );
+            assert!(swap_chain != std::ptr::null_mut());
+            self.swap_chain = swap_chain;
+        }
+    }
+
     pub fn window(&self) -> &Window {
         &self.window
     }
@@ -210,9 +220,10 @@ impl State {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
-            // self.config.width = new_size.width;
-            // self.config.height = new_size.height;
-            // self.surface.configure(&self.device, &self.config);
+            unsafe {
+                wgpu_native::device::wgpuSwapChainDrop(self.swap_chain);
+            }
+            self.create_swap_chain();
         }
     }
 
@@ -284,19 +295,6 @@ impl State {
     //         });
 
     //     {
-    //         // unsafe {
-    //         //     let mut native_encoder = native::WGPUCommandEncoderImpl {
-    //         //         context: Arc::clone(&self.device)
-    //         //     };
-    //         //     wgpuCommandEncoderBeginRenderPass(
-    //         //         &mut native_encoder,
-    //         //         Some(
-    //         //             native::WGPURenderPassDescriptor(
-    //         //                 //let descriptor_chain =
-    //         //             )
-    //         //         ),
-    //         //     );
-    //         // }
     //         let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
     //             label: Some("Render Pass"),
     //             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
