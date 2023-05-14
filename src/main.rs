@@ -3,7 +3,7 @@ use std::fmt;
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use tacana::State;
-use wasmer::{imports, Function, Instance, Module, Store, Value};
+use wasmer::{imports, Function, Instance, Module, Store, Value, Memory, FunctionEnv, FunctionEnvMut, AsStoreRef};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -55,6 +55,10 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
+struct Env {
+    memory: Option<Memory>,
+}
+
 fn run_app(args: &RunArgs) -> Result<()> {
     println!("Run: {}", args.app);
 
@@ -70,12 +74,12 @@ fn run_app(args: &RunArgs) -> Result<()> {
 
     let mut store = Store::default();
     let module = Module::from_file(&store, args.app.as_str())?;
+    let env = FunctionEnv::new(&mut store, Env {
+        memory: None,
+    });
     let import_object = imports! {
         "env" => {
-            "wgpuCreateInstance" => Function::new_typed(&mut store, |descriptor: u32| -> u32 {
-                println!("wgpuCreateInstance({descriptor})");
-                0
-            }),
+            "wgpuCreateInstance" => Function::new_typed_with_env(&mut store, &env, wgpu_create_instance),
             "wgpuInstanceCreateSurface" => Function::new_typed(&mut store, |instance: u32, descriptor: u32| -> u32 {
                 println!("wgpuInstanceCreateSurface({instance}, {descriptor})");
                 0
@@ -96,11 +100,14 @@ fn run_app(args: &RunArgs) -> Result<()> {
         },
     };
     let instance = Instance::new(&mut store, &module, &import_object)?;
-    let _memory = instance.exports.get_memory("memory")?;
+    let env_mut = env.as_mut(&mut store);
+    env_mut.memory = Some(instance.exports.get_memory("memory")?.clone());
     // See for memory access: https://github.com/wasmerio/wasmer/blob/ef5dbd498722d1852ef05774f2c50f886c32ba80/examples/wasi_manual_setup.rs
-    // Something like this? -> wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    // Something like this: wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    // TODO Check function type to see if cli args are expected?
     let _start = instance.exports.get_function("_start")?;
-    // let _functions = instance.exports.get_function("__indirect_function_table")?;
+    let _functions = instance.exports.get_table("__indirect_function_table")?;
+    println!("Functions: {}", _functions.size(&store));
 
     match _start.call(&mut store, &[]) {
         Ok(_) => {
@@ -120,6 +127,14 @@ fn run_app(args: &RunArgs) -> Result<()> {
     // println!("After: {}", result[0].unwrap_i32());
 
     Ok(())
+}
+
+fn wgpu_create_instance(env: FunctionEnvMut<Env>, descriptor: u32) -> u32 {
+    let memory = env.data().memory.as_ref().unwrap();
+    let store = env.as_store_ref();
+    let size = memory.view(&store).size();
+    println!("wgpuCreateInstance({descriptor}) for memory size {size:?}");
+    0
 }
 
 #[derive(Debug, Clone, Copy)]
