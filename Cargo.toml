@@ -1,5 +1,6 @@
 [package]
 name = "tacana"
+description = "A wasm runtime for multimedia apps and more"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.71"
+clap = { version = "4.2.7", features = ["derive"] }
 env_logger = "0.10.0"
 log = "0.4.17"
 pollster = "0.3.0"

@@ -193,7 +193,13 @@ impl State {
     }
 
     fn create_swap_chain(&mut self) {
-        let State { device, format, size, surface, .. } = *self;
+        let State {
+            device,
+            format,
+            size,
+            surface,
+            ..
+        } = *self;
         unsafe {
             let swap_chain = wgpu_native::device::wgpuDeviceCreateSwapChain(
                 device,
