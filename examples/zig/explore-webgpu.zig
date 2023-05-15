@@ -1,3 +1,4 @@
+const assert = @import("std").debug.assert;
 const g = @cImport({
     @cInclude("wgpu.h");
     @cInclude("webgpu-headers/webgpu.h");
@@ -30,6 +31,12 @@ pub fn main() void {
     defer g.wgpuSurfaceDrop(surface);
 
     // Adapter
+    // This only works because the callback is effectively synchronous.
+    // Otherwise, we'd need to allocate on the heap or global.
+    var requestAdapterCallbackData = RequestAdapterCallbackData{
+        .instance = instance,
+        .surface = surface,
+    };
     g.wgpuInstanceRequestAdapter(
         instance,
         &g.WGPURequestAdapterOptions{
@@ -39,9 +46,33 @@ pub fn main() void {
             .forceFallbackAdapter = false,
         },
         requestAdapterCallback,
-        null,
+        &requestAdapterCallbackData,
     );
+    const adapter = requestAdapterCallbackData.adapter orelse unreachable;
+
+    // Device & Queue
+    var requestDeviceCallbackData = RequestDeviceCallbackData{
+        .adapter = adapter,
+        .surface = surface,
+    };
+    g.wgpuAdapterRequestDevice(
+        adapter,
+        null,
+        requestDeviceCallback,
+        &requestDeviceCallbackData,
+    );
+    const device = requestDeviceCallbackData.device orelse unreachable;
+    const queue = g.wgpuDeviceGetQueue(device);
+    _ = queue;
 }
+
+// Adapter
+
+const RequestAdapterCallbackData = struct {
+    adapter: ?g.WGPUAdapter = null,
+    instance: g.WGPUInstance,
+    surface: g.WGPUSurface,
+};
 
 fn requestAdapterCallback(
     status: g.WGPURequestAdapterStatus,
@@ -49,8 +80,34 @@ fn requestAdapterCallback(
     message: [*c]const u8,
     userdata: ?*anyopaque,
 ) callconv(.C) void {
-    _ = status;
-    _ = adapter;
+    assert(status == g.WGPURequestDeviceStatus_Success);
     _ = message;
-    _ = userdata;
+    var data = @ptrCast(
+        *RequestAdapterCallbackData,
+        @alignCast(@alignOf(*RequestAdapterCallbackData), userdata),
+    );
+    data.adapter = adapter;
+}
+
+// Device
+
+const RequestDeviceCallbackData = struct {
+    adapter: g.WGPUAdapter,
+    device: ?g.WGPUDevice = null,
+    surface: g.WGPUSurface,
+};
+
+fn requestDeviceCallback(
+    status: g.WGPURequestDeviceStatus,
+    device: g.WGPUDevice,
+    message: [*c]const u8,
+    userdata: ?*anyopaque,
+) callconv(.C) void {
+    assert(status == g.WGPURequestDeviceStatus_Success);
+    _ = message;
+    var data = @ptrCast(
+        *RequestDeviceCallbackData,
+        @alignCast(@alignOf(*RequestDeviceCallbackData), userdata),
+    );
+    data.device = device;
 }
