@@ -1,6 +1,6 @@
 node_modules
 SDL2.dll
-tacana
+# tacana
 tacana.exe
 tacana.pdb
 vendor

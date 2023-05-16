@@ -1,4 +1,4 @@
-use std::{fmt, num::Wrapping};
+use std::fmt;
 
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
@@ -11,6 +11,9 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+
+#[allow(non_upper_case_globals)]
+mod wgpu_native;
 
 fn main() -> Result<()> {
     pollster::block_on(run())?;
@@ -93,13 +96,17 @@ fn run_app(args: &RunArgs) -> Result<()> {
     let env = FunctionEnv::new(&mut store, System::new(window));
     let import_object = imports! {
         "env" => {
+            "tac_windowGetSize" => Function::new_typed_with_env(&mut store, &env, tac_window_get_size),
+            "wgpuAdapterDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_drop),
             "wgpuAdapterRequestDevice" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_request_device),
             "wgpuCreateInstance" => Function::new_typed_with_env(&mut store, &env, wgpu_create_instance),
+            "wgpuDeviceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_device_drop),
             "wgpuDeviceGetQueue" => Function::new_typed_with_env(&mut store, &env, wgpu_device_get_queue),
             "wgpuInstanceCreateSurface" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_create_surface),
             "wgpuInstanceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_drop),
             "wgpuInstanceRequestAdapter" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_request_adapter),
             "wgpuSurfaceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_drop),
+            "wgpuSurfaceGetPreferredFormat" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_get_preferred_format),
         },
         // TODO Combine ours with wasmer_wasix::WasiEnv
         "wasi_snapshot_preview1" => {
@@ -138,6 +145,23 @@ fn run_app(args: &RunArgs) -> Result<()> {
     // println!("After: {}", result[0].unwrap_i32());
 
     Ok(())
+}
+
+fn tac_window_get_size(mut env: FunctionEnvMut<System>, result: u32) {
+    println!("tac_windowGetSize({result})");
+    let (system, mut store) = env.data_and_store_mut();
+    let memory = system.memory.as_ref().unwrap().view(&mut store);
+    let size = system.window.inner_size();
+    let result = result as u64;
+    memory.write(result, &size.width.to_le_bytes()).unwrap();
+    memory
+        .write(result + 4, &size.height.to_le_bytes())
+        .unwrap();
+}
+
+fn wgpu_adapter_drop(_env: FunctionEnvMut<System>, adapter: u32) {
+    // Let it die with the system.
+    println!("wgpuAdapterDrop({adapter})");
 }
 
 fn wgpu_adapter_request_device(
@@ -195,6 +219,11 @@ fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) -> u32
         system.instance = Some(instance);
     }
     1
+}
+
+fn wgpu_device_drop(_env: FunctionEnvMut<System>, device: u32) {
+    // Let it die with the system.
+    println!("wgpuDeviceDrop({device})");
 }
 
 fn wgpu_device_get_queue(_env: FunctionEnvMut<System>, adapter: u32) -> u32 {
@@ -284,6 +313,20 @@ fn wgpu_instance_request_adapter(
 fn wgpu_surface_drop(_env: FunctionEnvMut<System>, surface: u32) {
     // Let it die with the system.
     println!("wgpuSurfaceDrop({surface})");
+}
+
+// WGPU_EXPORT WGPUTextureFormat wgpuSurfaceGetPreferredFormat(WGPUSurface surface, WGPUAdapter adapter);
+
+fn wgpu_surface_get_preferred_format(env: FunctionEnvMut<System>, surface: u32, adapter: u32) -> u32 {
+    println!("wgpuSurfaceGetPreferredFormat({surface}, {adapter})");
+    let system = env.data();
+    let capabilities = system
+        .surface
+        .as_ref()
+        .unwrap()
+        .get_capabilities(system.adapter.as_ref().unwrap());
+    let format = *capabilities.formats.first().unwrap();
+    wgpu_native::to_native_texture_format(format).unwrap()
 }
 
 #[derive(Debug, Clone, Copy)]

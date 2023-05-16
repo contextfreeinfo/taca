@@ -3,6 +3,9 @@ const g = @cImport({
     @cInclude("wgpu.h");
     @cInclude("webgpu-headers/webgpu.h");
 });
+const t = @cImport({
+    @cInclude("tacana.h");
+});
 
 pub fn main() void {
     // Instance
@@ -25,7 +28,7 @@ pub fn main() void {
                     .selector = "",
                 },
             ),
-            .label = "Surface",
+            .label = null,
         },
     ) orelse unreachable;
     defer g.wgpuSurfaceDrop(surface);
@@ -49,6 +52,7 @@ pub fn main() void {
         &requestAdapterCallbackData,
     );
     const adapter = requestAdapterCallbackData.adapter orelse unreachable;
+    defer g.wgpuAdapterDrop(adapter);
 
     // Device & Queue
     var requestDeviceCallbackData = RequestDeviceCallbackData{
@@ -62,8 +66,27 @@ pub fn main() void {
         &requestDeviceCallbackData,
     );
     const device = requestDeviceCallbackData.device orelse unreachable;
+    defer g.wgpuDeviceDrop(device);
     const queue = g.wgpuDeviceGetQueue(device);
     _ = queue;
+
+    // Swap Chain
+    const size = t.tac_windowGetSize();
+    const format = g.wgpuSurfaceGetPreferredFormat(surface, adapter);
+    _ = size;
+    _ = format;
+//                 let size = window.inner_size();
+//                 let format = wgpu_native::wgpuSurfaceGetPreferredFormat(surface, adapter);
+//                 let mut state = State {
+//                     surface,
+//                     device,
+//                     queue,
+//                     format,
+//                     size,
+//                     swap_chain: std::ptr::null_mut(),
+//                     window,
+//                 };
+//                 state.create_swap_chain();
 }
 
 // Adapter
