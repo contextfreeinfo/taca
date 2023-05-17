@@ -71,23 +71,77 @@ pub fn main() void {
     _ = queue;
 
     // Swap Chain
-    const size = t.tac_windowGetSize();
+    const size = t.tac_windowGetInnerSize();
     const format = g.wgpuSurfaceGetPreferredFormat(surface, adapter);
-    _ = size;
-    _ = format;
-//                 let size = window.inner_size();
-//                 let format = wgpu_native::wgpuSurfaceGetPreferredFormat(surface, adapter);
-//                 let mut state = State {
-//                     surface,
-//                     device,
-//                     queue,
-//                     format,
-//                     size,
-//                     swap_chain: std::ptr::null_mut(),
-//                     window,
-//                 };
-//                 state.create_swap_chain();
+    const swap_chain = createSwapChain(.{
+        .device = device,
+        .format = format,
+        .size = size,
+        .surface = surface,
+    });
+    _ = swap_chain;
+    //                 let mut state = State {
+    //                     surface,
+    //                     device,
+    //                     queue,
+    //                     format,
+    //                     size,
+    //                     swap_chain: std::ptr::null_mut(),
+    //                     window,
+    //                 };
+    //                 state.create_swap_chain();
 }
+
+const CreateSwapChainData = struct {
+    device: g.WGPUDevice,
+    format: g.WGPUTextureFormat,
+    size: t.tac_Vec2,
+    surface: g.WGPUSurface,
+};
+
+fn createSwapChain(data: CreateSwapChainData) g.WGPUSwapChain {
+    const swap_chain = g.wgpuDeviceCreateSwapChain(
+        data.device,
+        data.surface,
+        &g.WGPUSwapChainDescriptor{
+            .nextInChain = null,
+            .label = null,
+            .usage = g.WGPUTextureUsage_RenderAttachment,
+            .format = data.format,
+            .width = @intCast(u32, data.size.x),
+            .height = @intCast(u32, data.size.y),
+            .presentMode = g.WGPUPresentMode_Fifo,
+        },
+    ) orelse unreachable;
+    return swap_chain;
+}
+
+//     fn create_swap_chain(&mut self) {
+//         let State {
+//             device,
+//             format,
+//             size,
+//             surface,
+//             ..
+//         } = *self;
+//         unsafe {
+//             let swap_chain = wgpu_native::device::wgpuDeviceCreateSwapChain(
+//                 device,
+//                 surface,
+//                 Some(&native::WGPUSwapChainDescriptor {
+//                     nextInChain: std::ptr::null(),
+//                     label: std::ptr::null(),
+//                     usage: native::WGPUTextureUsage_RenderAttachment,
+//                     format,
+//                     width: size.width,
+//                     height: size.height,
+//                     presentMode: native::WGPUPresentMode_Fifo,
+//                 }),
+//             );
+//             assert!(swap_chain != std::ptr::null_mut());
+//             self.swap_chain = swap_chain;
+//         }
+//     }
 
 // Adapter
 

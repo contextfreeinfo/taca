@@ -44,7 +44,7 @@ typedef struct tac_WindowEvent {
 
 typedef void (*tac_WindowListenCallback)(tac_WindowEvent event, void* userdata);
 
-tac_EXPORT tac_Vec2 tac_windowGetSize(void);
+tac_EXPORT tac_Vec2 tac_windowGetInnerSize(void);
 tac_EXPORT void tac_windowListen(tac_WindowListenCallback callback, void* userdata);
 tac_EXPORT void tac_windowSetTitle(const char* title);
 

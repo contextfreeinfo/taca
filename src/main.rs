@@ -58,6 +58,7 @@ async fn run() -> Result<()> {
 
 struct System {
     adapter: Option<wgpu::Adapter>,
+    config: Option<wgpu::SurfaceConfiguration>,
     device: Option<wgpu::Device>,
     functions: Option<Table>,
     // TODO Track process ownership for multi-process mode.
@@ -75,6 +76,7 @@ impl System {
     fn new(window: Window) -> System {
         System {
             adapter: None,
+            config: None,
             device: None,
             functions: None,
             instance: None,
@@ -96,10 +98,11 @@ fn run_app(args: &RunArgs) -> Result<()> {
     let env = FunctionEnv::new(&mut store, System::new(window));
     let import_object = imports! {
         "env" => {
-            "tac_windowGetSize" => Function::new_typed_with_env(&mut store, &env, tac_window_get_size),
+            "tac_windowGetInnerSize" => Function::new_typed_with_env(&mut store, &env, tac_window_get_size),
             "wgpuAdapterDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_drop),
             "wgpuAdapterRequestDevice" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_request_device),
             "wgpuCreateInstance" => Function::new_typed_with_env(&mut store, &env, wgpu_create_instance),
+            "wgpuDeviceCreateSwapChain" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_swap_chain),
             "wgpuDeviceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_device_drop),
             "wgpuDeviceGetQueue" => Function::new_typed_with_env(&mut store, &env, wgpu_device_get_queue),
             "wgpuInstanceCreateSurface" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_create_surface),
@@ -107,6 +110,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuInstanceRequestAdapter" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_request_adapter),
             "wgpuSurfaceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_drop),
             "wgpuSurfaceGetPreferredFormat" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_get_preferred_format),
+            // wgpuSwapChainDrop
         },
         // TODO Combine ours with wasmer_wasix::WasiEnv
         "wasi_snapshot_preview1" => {
@@ -148,7 +152,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
 }
 
 fn tac_window_get_size(mut env: FunctionEnvMut<System>, result: u32) {
-    println!("tac_windowGetSize({result})");
+    println!("tac_windowGetInnerSize({result})");
     let (system, mut store) = env.data_and_store_mut();
     let memory = system.memory.as_ref().unwrap().view(&mut store);
     let size = system.window.inner_size();
@@ -218,6 +222,75 @@ fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) -> u32
         });
         system.instance = Some(instance);
     }
+    1
+}
+
+// #[derive(Default)]
+// #[repr(C)]
+// struct WGPUSwapChainDescriptor {
+//     nextInChain: u32, // WGPUChainedStruct const*
+//     label: u32,       // char const* // nullable
+//     usage: u32,       // WGPUTextureUsageFlags
+//     format: wgpu_native::WGPUTextureFormat,
+//     width: u32,
+//     height: u32,
+//     presentMode: u32, // WGPUPresentMode
+// }
+
+fn wgpu_device_create_swap_chain(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    surface: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateSwapChain({device}, {surface}, {descriptor})");
+    let (system, mut store) = env.data_and_store_mut();
+    let memory = system.memory.as_ref().unwrap().view(&mut store);
+    let address = descriptor as u64;
+    // Read
+    let mut buffer = [0u8; 4];
+    // typedef struct WGPUSwapChainDescriptorExtras {
+    //     WGPUChainedStruct chain;
+    //     WGPUCompositeAlphaMode alphaMode;
+    //     size_t viewFormatCount;
+    //     WGPUTextureFormat const * viewFormats;
+    // } WGPUSwapChainDescriptorExtras;
+    memory.read(address + 8, &mut buffer).unwrap();
+    let usage = match u32::from_le_bytes(buffer) {
+        wgpu_native::WGPUTextureUsage_CopySrc => wgpu::TextureUsages::COPY_SRC,
+        wgpu_native::WGPUTextureUsage_CopyDst => wgpu::TextureUsages::COPY_DST,
+        wgpu_native::WGPUTextureUsage_TextureBinding => wgpu::TextureUsages::TEXTURE_BINDING,
+        wgpu_native::WGPUTextureUsage_StorageBinding => wgpu::TextureUsages::STORAGE_BINDING,
+        wgpu_native::WGPUTextureUsage_RenderAttachment => wgpu::TextureUsages::RENDER_ATTACHMENT,
+        _ => panic!("bad usage"),
+    };
+    memory.read(address + 12, &mut buffer).unwrap();
+    let format = wgpu_native::map_texture_format(u32::from_le_bytes(buffer)).unwrap();
+    memory.read(address + 16, &mut buffer).unwrap();
+    let width = u32::from_le_bytes(buffer);
+    memory.read(address + 20, &mut buffer).unwrap();
+    let height = u32::from_le_bytes(buffer);
+    memory.read(address + 24, &mut buffer).unwrap();
+    let present_mode = match u32::from_le_bytes(buffer) {
+        wgpu_native::WGPUPresentMode_Immediate => wgpu::PresentMode::Immediate,
+        wgpu_native::WGPUPresentMode_Mailbox => wgpu::PresentMode::Mailbox,
+        wgpu_native::WGPUPresentMode_Fifo => wgpu::PresentMode::Fifo,
+        _ => panic!("bad present mode"),
+    };
+    // Configure
+    let config = wgpu::SurfaceConfiguration {
+        usage,
+        format,
+        width,
+        height,
+        present_mode,
+        alpha_mode: wgpu::CompositeAlphaMode::Opaque,
+        view_formats: vec![],
+    };
+    let device = system.device.as_ref().unwrap();
+    let surface = system.surface.as_ref().unwrap();
+    surface.configure(device, &config);
+    system.config = Some(config);
     1
 }
 
@@ -317,7 +390,11 @@ fn wgpu_surface_drop(_env: FunctionEnvMut<System>, surface: u32) {
 
 // WGPU_EXPORT WGPUTextureFormat wgpuSurfaceGetPreferredFormat(WGPUSurface surface, WGPUAdapter adapter);
 
-fn wgpu_surface_get_preferred_format(env: FunctionEnvMut<System>, surface: u32, adapter: u32) -> u32 {
+fn wgpu_surface_get_preferred_format(
+    env: FunctionEnvMut<System>,
+    surface: u32,
+    adapter: u32,
+) -> u32 {
     println!("wgpuSurfaceGetPreferredFormat({surface}, {adapter})");
     let system = env.data();
     let capabilities = system
@@ -326,6 +403,7 @@ fn wgpu_surface_get_preferred_format(env: FunctionEnvMut<System>, surface: u32, 
         .unwrap()
         .get_capabilities(system.adapter.as_ref().unwrap());
     let format = *capabilities.formats.first().unwrap();
+    // TODO Store alpha mode for swap chain??? Requery there?
     wgpu_native::to_native_texture_format(format).unwrap()
 }
 

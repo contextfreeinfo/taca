@@ -1,6 +1,11 @@
 // Copied from wgpu-native.
 // TODO Work out how to use wgpu-native and wgpu-rs in same app?
 
+pub type WGPUPresentMode = u32;
+pub const WGPUPresentMode_Immediate: WGPUPresentMode = 0x00000000;
+pub const WGPUPresentMode_Mailbox: WGPUPresentMode = 0x00000001;
+pub const WGPUPresentMode_Fifo: WGPUPresentMode = 0x00000002;
+
 pub type WGPUTextureFormat = u32;
 #[allow(dead_code)]
 pub const WGPUTextureFormat_Undefined: WGPUTextureFormat = 0;
@@ -98,8 +103,116 @@ pub const WGPUTextureFormat_ASTC12x10Unorm: WGPUTextureFormat = 91;
 pub const WGPUTextureFormat_ASTC12x10UnormSrgb: WGPUTextureFormat = 92;
 pub const WGPUTextureFormat_ASTC12x12Unorm: WGPUTextureFormat = 93;
 pub const WGPUTextureFormat_ASTC12x12UnormSrgb: WGPUTextureFormat = 94;
-#[allow(dead_code)]
-pub const WGPUTextureFormat_Force32: WGPUTextureFormat = 0x7FFFFFFF;
+
+pub type WGPUTextureUsage = u32;
+pub const WGPUTextureUsage_None: WGPUTextureUsage = 0x00000000;
+pub const WGPUTextureUsage_CopySrc: WGPUTextureUsage = 0x00000001;
+pub const WGPUTextureUsage_CopyDst: WGPUTextureUsage = 0x00000002;
+pub const WGPUTextureUsage_TextureBinding: WGPUTextureUsage = 0x00000004;
+pub const WGPUTextureUsage_StorageBinding: WGPUTextureUsage = 0x00000008;
+pub const WGPUTextureUsage_RenderAttachment: WGPUTextureUsage = 0x00000010;
+
+#[rustfmt::skip]
+pub fn map_texture_format(value: WGPUTextureFormat) -> Option<wgpu::TextureFormat> {
+    use wgpu::{AstcBlock, AstcChannel};
+    match value {
+        WGPUTextureFormat_R8Unorm => Some(wgpu::TextureFormat::R8Unorm),
+        WGPUTextureFormat_R8Snorm => Some(wgpu::TextureFormat::R8Snorm),
+        WGPUTextureFormat_R8Uint => Some(wgpu::TextureFormat::R8Uint),
+        WGPUTextureFormat_R8Sint => Some(wgpu::TextureFormat::R8Sint),
+        WGPUTextureFormat_R16Uint => Some(wgpu::TextureFormat::R16Uint),
+        WGPUTextureFormat_R16Sint => Some(wgpu::TextureFormat::R16Sint),
+        WGPUTextureFormat_R16Float => Some(wgpu::TextureFormat::R16Float),
+        WGPUTextureFormat_RG8Unorm => Some(wgpu::TextureFormat::Rg8Unorm),
+        WGPUTextureFormat_RG8Snorm => Some(wgpu::TextureFormat::Rg8Snorm),
+        WGPUTextureFormat_RG8Uint => Some(wgpu::TextureFormat::Rg8Uint),
+        WGPUTextureFormat_RG8Sint => Some(wgpu::TextureFormat::Rg8Sint),
+        WGPUTextureFormat_R32Float => Some(wgpu::TextureFormat::R32Float),
+        WGPUTextureFormat_R32Uint => Some(wgpu::TextureFormat::R32Uint),
+        WGPUTextureFormat_R32Sint => Some(wgpu::TextureFormat::R32Sint),
+        WGPUTextureFormat_RG16Uint => Some(wgpu::TextureFormat::Rg16Uint),
+        WGPUTextureFormat_RG16Sint => Some(wgpu::TextureFormat::Rg16Sint),
+        WGPUTextureFormat_RG16Float => Some(wgpu::TextureFormat::Rg16Float),
+        WGPUTextureFormat_RGBA8Unorm => Some(wgpu::TextureFormat::Rgba8Unorm),
+        WGPUTextureFormat_RGBA8UnormSrgb => Some(wgpu::TextureFormat::Rgba8UnormSrgb),
+        WGPUTextureFormat_RGBA8Snorm => Some(wgpu::TextureFormat::Rgba8Snorm),
+        WGPUTextureFormat_RGBA8Uint => Some(wgpu::TextureFormat::Rgba8Uint),
+        WGPUTextureFormat_RGBA8Sint => Some(wgpu::TextureFormat::Rgba8Sint),
+        WGPUTextureFormat_BGRA8Unorm => Some(wgpu::TextureFormat::Bgra8Unorm),
+        WGPUTextureFormat_BGRA8UnormSrgb => Some(wgpu::TextureFormat::Bgra8UnormSrgb),
+        WGPUTextureFormat_RGB10A2Unorm => Some(wgpu::TextureFormat::Rgb10a2Unorm),
+        WGPUTextureFormat_RG11B10Ufloat => Some(wgpu::TextureFormat::Rg11b10Float),
+        WGPUTextureFormat_RGB9E5Ufloat => Some(wgpu::TextureFormat::Rgb9e5Ufloat),
+        WGPUTextureFormat_RG32Float => Some(wgpu::TextureFormat::Rg32Float),
+        WGPUTextureFormat_RG32Uint => Some(wgpu::TextureFormat::Rg32Uint),
+        WGPUTextureFormat_RG32Sint => Some(wgpu::TextureFormat::Rg32Sint),
+        WGPUTextureFormat_RGBA16Uint => Some(wgpu::TextureFormat::Rgba16Uint),
+        WGPUTextureFormat_RGBA16Sint => Some(wgpu::TextureFormat::Rgba16Sint),
+        WGPUTextureFormat_RGBA16Float => Some(wgpu::TextureFormat::Rgba16Float),
+        WGPUTextureFormat_RGBA32Float => Some(wgpu::TextureFormat::Rgba32Float),
+        WGPUTextureFormat_RGBA32Uint => Some(wgpu::TextureFormat::Rgba32Uint),
+        WGPUTextureFormat_RGBA32Sint => Some(wgpu::TextureFormat::Rgba32Sint),
+        WGPUTextureFormat_Stencil8 => Some(wgpu::TextureFormat::Stencil8),
+        WGPUTextureFormat_Depth16Unorm => Some(wgpu::TextureFormat::Depth16Unorm),
+        WGPUTextureFormat_Depth24Plus => Some(wgpu::TextureFormat::Depth24Plus),
+        WGPUTextureFormat_Depth24PlusStencil8 => Some(wgpu::TextureFormat::Depth24PlusStencil8),
+        WGPUTextureFormat_Depth32Float => Some(wgpu::TextureFormat::Depth32Float),
+        WGPUTextureFormat_Depth32FloatStencil8 => Some(wgpu::TextureFormat::Depth32FloatStencil8),
+        WGPUTextureFormat_BC1RGBAUnorm => Some(wgpu::TextureFormat::Bc1RgbaUnorm),
+        WGPUTextureFormat_BC1RGBAUnormSrgb => Some(wgpu::TextureFormat::Bc1RgbaUnormSrgb),
+        WGPUTextureFormat_BC2RGBAUnorm => Some(wgpu::TextureFormat::Bc2RgbaUnorm),
+        WGPUTextureFormat_BC2RGBAUnormSrgb => Some(wgpu::TextureFormat::Bc2RgbaUnormSrgb),
+        WGPUTextureFormat_BC3RGBAUnorm => Some(wgpu::TextureFormat::Bc3RgbaUnorm),
+        WGPUTextureFormat_BC3RGBAUnormSrgb => Some(wgpu::TextureFormat::Bc3RgbaUnormSrgb),
+        WGPUTextureFormat_BC4RUnorm => Some(wgpu::TextureFormat::Bc4RUnorm),
+        WGPUTextureFormat_BC4RSnorm => Some(wgpu::TextureFormat::Bc4RSnorm),
+        WGPUTextureFormat_BC5RGUnorm => Some(wgpu::TextureFormat::Bc5RgUnorm),
+        WGPUTextureFormat_BC5RGSnorm => Some(wgpu::TextureFormat::Bc5RgSnorm),
+        WGPUTextureFormat_BC6HRGBUfloat => Some(wgpu::TextureFormat::Bc6hRgbUfloat),
+        WGPUTextureFormat_BC6HRGBFloat => Some(wgpu::TextureFormat::Bc6hRgbFloat),
+        WGPUTextureFormat_BC7RGBAUnorm => Some(wgpu::TextureFormat::Bc7RgbaUnorm),
+        WGPUTextureFormat_BC7RGBAUnormSrgb => Some(wgpu::TextureFormat::Bc7RgbaUnormSrgb),
+        WGPUTextureFormat_ETC2RGB8Unorm => Some(wgpu::TextureFormat::Etc2Rgb8Unorm),
+        WGPUTextureFormat_ETC2RGB8UnormSrgb => Some(wgpu::TextureFormat::Etc2Rgb8UnormSrgb),
+        WGPUTextureFormat_ETC2RGB8A1Unorm => Some(wgpu::TextureFormat::Etc2Rgb8A1Unorm),
+        WGPUTextureFormat_ETC2RGB8A1UnormSrgb => Some(wgpu::TextureFormat::Etc2Rgb8A1UnormSrgb),
+        WGPUTextureFormat_ETC2RGBA8Unorm => Some(wgpu::TextureFormat::Etc2Rgba8Unorm),
+        WGPUTextureFormat_ETC2RGBA8UnormSrgb => Some(wgpu::TextureFormat::Etc2Rgba8UnormSrgb),
+        WGPUTextureFormat_EACR11Unorm => Some(wgpu::TextureFormat::EacR11Unorm),
+        WGPUTextureFormat_EACR11Snorm => Some(wgpu::TextureFormat::EacR11Snorm),
+        WGPUTextureFormat_EACRG11Unorm => Some(wgpu::TextureFormat::EacRg11Unorm),
+        WGPUTextureFormat_EACRG11Snorm => Some(wgpu::TextureFormat::EacRg11Snorm),
+        WGPUTextureFormat_ASTC4x4Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B4x4, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC4x4UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B4x4, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC5x4Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B5x4, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC5x4UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B5x4, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC5x5Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B5x5, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC5x5UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B5x5, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC6x5Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B6x5, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC6x5UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B6x5, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC6x6Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B6x6, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC6x6UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B6x6, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC8x5Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B8x5, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC8x5UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B8x5, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC8x6Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B8x6, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC8x6UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B8x6, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC8x8Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B8x8, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC8x8UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B8x8, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC10x5Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x5, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC10x5UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x5, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC10x6Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x6, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC10x6UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x6, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC10x8Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x8, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC10x8UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x8, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC10x10Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x10, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC10x10UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B10x10, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC12x10Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B12x10, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC12x10UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B12x10, channel: AstcChannel::UnormSrgb }),
+        WGPUTextureFormat_ASTC12x12Unorm => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B12x12, channel: AstcChannel::Unorm }),
+        WGPUTextureFormat_ASTC12x12UnormSrgb => Some(wgpu::TextureFormat::Astc { block: AstcBlock::B12x12, channel: AstcChannel::UnormSrgb }),
+        _ => None,
+    }
+}
 
 #[rustfmt::skip]
 pub fn to_native_texture_format(rs_type: wgpu::TextureFormat) -> Option<WGPUTextureFormat> {
