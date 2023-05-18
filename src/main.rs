@@ -107,7 +107,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuInstanceRequestAdapter" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_request_adapter),
             "wgpuSurfaceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_drop),
             "wgpuSurfaceGetPreferredFormat" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_get_preferred_format),
-            // wgpuSwapChainDrop
+            "wgpuSwapChainDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_drop),
         },
         // TODO Combine ours with wasmer_wasix::WasiEnv
         "wasi_snapshot_preview1" => {
@@ -417,6 +417,12 @@ fn wgpu_surface_get_preferred_format(
     wgpu_native::to_native_texture_format(format).unwrap()
 }
 
+fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
+    println!("wgpuSwapChainDrop({swap_chain})");
+    let system = env.data_mut();
+    system.config = None;
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ExitCode(u32);
 
@@ -434,7 +440,8 @@ fn proc_exit(code: u32) -> std::result::Result<(), ExitCode> {
 }
 
 pub type WindowEventType = u32;
-// const tac_WindowEventType_Close: WindowEventType = 1;
+#[allow(non_upper_case_globals)]
+const tac_WindowEventType_Close: WindowEventType = 1;
 #[allow(non_upper_case_globals)]
 const tac_WindowEventType_Redraw: WindowEventType = 2;
 #[allow(non_upper_case_globals)]
@@ -481,7 +488,15 @@ fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<System
                                 ..
                             },
                         ..
-                    } => *control_flow = ControlFlow::Exit,
+                    } => {
+                        send_event(
+                            &mut store,
+                            &window_listen,
+                            tac_WindowEventType_Close,
+                            window_listen_userdata,
+                        );
+                        *control_flow = ControlFlow::Exit;
+                    },
                     WindowEvent::Resized(_physical_size) => {
                         send_event(
                             &mut store,

@@ -12,7 +12,7 @@ pub fn main() void {
     const instance = g.wgpuCreateInstance(&g.WGPUInstanceDescriptor{
         .nextInChain = null,
     }) orelse unreachable;
-    defer g.wgpuInstanceDrop(instance);
+    errdefer g.wgpuInstanceDrop(instance);
 
     // Surface
     const surface = g.wgpuInstanceCreateSurface(
@@ -31,7 +31,7 @@ pub fn main() void {
             .label = null,
         },
     ) orelse unreachable;
-    defer g.wgpuSurfaceDrop(surface);
+    errdefer g.wgpuSurfaceDrop(surface);
 
     // Adapter
     // This only works because the callback is effectively synchronous.
@@ -52,7 +52,7 @@ pub fn main() void {
         &requestAdapterCallbackData,
     );
     const adapter = requestAdapterCallbackData.adapter orelse unreachable;
-    defer g.wgpuAdapterDrop(adapter);
+    errdefer g.wgpuAdapterDrop(adapter);
 
     // Device & Queue
     var requestDeviceCallbackData = RequestDeviceCallbackData{
@@ -66,7 +66,7 @@ pub fn main() void {
         &requestDeviceCallbackData,
     );
     const device = requestDeviceCallbackData.device orelse unreachable;
-    defer g.wgpuDeviceDrop(device);
+    errdefer g.wgpuDeviceDrop(device);
     const queue = g.wgpuDeviceGetQueue(device);
 
     // Swap Chain
@@ -78,9 +78,11 @@ pub fn main() void {
         .size = size,
         .surface = surface,
     });
-    state = .{
+    global_state = .{
+        .adapter = adapter,
         .device = device,
         .format = format,
+        .instance = instance,
         .queue = queue,
         .size = size,
         .swap_chain = swap_chain,
@@ -88,24 +90,100 @@ pub fn main() void {
     };
 
     // Listen
+    // TODO Instead send data only and rely on exported named functions?
     t.tac_windowListen(windowListen, null);
 }
 
 fn windowListen(event_type: t.tac_WindowEventType, unused: ?*anyopaque) callconv(.C) void {
-    _ = event_type;
     _ = unused;
+    switch (event_type) {
+        t.tac_WindowEventType_Close => windowClose(&global_state),
+        t.tac_WindowEventType_Redraw => windowRedraw(&global_state),
+        t.tac_WindowEventType_Resize => windowResize(&global_state),
+        else => unreachable,
+    }
+}
+
+fn windowClose(state: *State) void {
+    g.wgpuDeviceDrop(state.device);
+    g.wgpuAdapterDrop(state.adapter);
+    g.wgpuSurfaceDrop(state.surface);
+    g.wgpuInstanceDrop(state.instance);
+}
+
+fn windowRedraw(state: *State) void {
+    _ = state;
+//             let view = wgpu_native::device::wgpuSwapChainGetCurrentTextureView(self.swap_chain);
+//             let encoder = wgpu_native::device::wgpuDeviceCreateCommandEncoder(
+//                 self.device,
+//                 Some(&native::WGPUCommandEncoderDescriptor {
+//                     nextInChain: std::ptr::null(),
+//                     label: CStr::from_bytes_with_nul_unchecked(b"Render Encoder\0").as_ptr(),
+//                 }),
+//             );
+//             let render_pass = wgpu_native::command::wgpuCommandEncoderBeginRenderPass(
+//                 encoder,
+//                 Some(&native::WGPURenderPassDescriptor {
+//                     nextInChain: std::ptr::null(),
+//                     label: CStr::from_bytes_with_nul_unchecked(b"Render Pass\0").as_ptr(),
+//                     colorAttachmentCount: 1,
+//                     colorAttachments: &native::WGPURenderPassColorAttachment {
+//                         view,
+//                         resolveTarget: std::ptr::null_mut(),
+//                         loadOp: native::WGPULoadOp_Clear,
+//                         storeOp: native::WGPUStoreOp_Store,
+//                         clearValue: native::WGPUColor {
+//                             r: 0.1,
+//                             g: 0.2,
+//                             b: 0.3,
+//                             a: 1.0,
+//                         },
+//                     },
+//                     depthStencilAttachment: std::ptr::null(),
+//                     occlusionQuerySet: std::ptr::null_mut(),
+//                     timestampWriteCount: 0,
+//                     timestampWrites: std::ptr::null(),
+//                 }),
+//             );
+//             wgpu_native::command::wgpuRenderPassEncoderEnd(render_pass);
+//             wgpu_native::device::wgpuTextureViewDrop(view);
+//             let command_buffer = wgpu_native::command::wgpuCommandEncoderFinish(
+//                 encoder,
+//                 Some(&native::WGPUCommandBufferDescriptor {
+//                     nextInChain: std::ptr::null(),
+//                     label: CStr::from_bytes_with_nul_unchecked(b"Command Buffer\0").as_ptr(),
+//                 }),
+//             );
+//             wgpu_native::device::wgpuQueueSubmit(self.queue, 1, &command_buffer);
+//             wgpu_native::device::wgpuSwapChainPresent(self.swap_chain);
+}
+
+fn windowResize(state: *State) void {
+    const size = t.tac_windowInnerSize();
+    if (size.x > 0 and size.y > 0) {
+        state.size = size;
+        g.wgpuSwapChainDrop(state.swap_chain);
+    }
+    state.swap_chain = createSwapChain(.{
+        .device = state.device,
+        .format = state.format,
+        .size = state.size,
+        .surface = state.surface,
+    });
 }
 
 const State = struct {
+    adapter: g.WGPUAdapter,
     device: g.WGPUDevice,
     format: g.WGPUTextureFormat,
+    instance: g.WGPUInstance,
     queue: g.WGPUQueue,
     size: t.tac_Vec2,
     swap_chain: g.WGPUSwapChain,
     surface: g.WGPUSurface,
 };
 
-var state: State = undefined;
+var global_state: State = undefined;
 
 const CreateSwapChainData = struct {
     device: g.WGPUDevice,
