@@ -58,6 +58,7 @@ async fn run() -> Result<()> {
 
 type WGPUAdapter = Pointer<native::WGPUAdapterImpl>;
 type WGPUInstance = Pointer<native::WGPUInstanceImpl>;
+type WGPURenderPassEncoder = Pointer<native::WGPURenderPassEncoderImpl>;
 type WGPUSwapChain = Pointer<native::WGPUSwapChainImpl>;
 struct Pointer<T>(*mut T);
 unsafe impl<T> Send for Pointer<T> {}
@@ -110,22 +111,16 @@ impl Default for WGPUTextureView {
 #[derive(Default)]
 struct System {
     adapter: WGPUAdapter,
-    // config: Option<wgpu::SurfaceConfiguration>,
     device: WGPUDevice,
     encoder: WGPUCommandEncoder,
     functions: Option<Table>,
-    // TODO Track process ownership for multi-process mode.
-    // TODO Different actual OS processes??? How to share graphics across that???
-    // TODO Or just force a singleton instance?
     instance: WGPUInstance,
     memory: Option<Memory>,
     queue: WGPUQueue,
-    // render_pass: Option<wgpu::RenderPass<'a>>,
+    render_pass: WGPURenderPassEncoder,
     surface: WGPUSurface,
     swap_chain: WGPUSwapChain,
-    // texture: Option<wgpu::SurfaceTexture>,
     texture_view: WGPUTextureView,
-    // TODO Multiple windows? Would need messaging to create window on main thread and send back maybe.
     window: Option<Window>,
     window_listen: Option<wasmer::Function>,
     window_listen_userdata: u32,
@@ -246,7 +241,6 @@ fn wgpu_adapter_request_device(
 ) {
     println!("wgpuAdapterRequestDevice({adapter}, {descriptor}, {callback}, {userdata})");
     let (system, mut store) = env.data_and_store_mut();
-    let functions = system.functions.as_ref().unwrap();
     if system.device.0.is_null() {
         let adapter = system.adapter.0;
         unsafe {
@@ -267,11 +261,12 @@ fn wgpu_adapter_request_device(
                 panic!("WGPURequestAdapterStatus {status}: {message:?}");
             }
             unsafe {
-                let mut system = *(system as *mut System);
+                let mut system = &mut *(system as *mut System);
                 system.device = WGPUDevice(device);
             }
         }
         // TODO Report error if none rather than panicking.
+        let functions = system.functions.as_ref().unwrap();
         let value = functions.get(&mut store, callback).unwrap();
         let function = value.unwrap_funcref().as_ref().unwrap();
         function
@@ -302,7 +297,7 @@ fn wgpu_command_encoder_begin_render_pass(
     let address = descriptor as u64;
     memory.read(address + 8, &mut buffer).unwrap();
     let color_attachment_count = u32::from_le_bytes(buffer);
-    let color = if color_attachment_count > 0 {
+    let clear_value = if color_attachment_count > 0 {
         memory.read(address + 12, &mut buffer).unwrap();
         let attachment = u32::from_le_bytes(buffer) as u64;
         let mut color_buffer = [0u8; 8];
@@ -322,40 +317,33 @@ fn wgpu_command_encoder_begin_render_pass(
             .read(attachment + 16 + 3 * 8, &mut color_buffer)
             .unwrap();
         let a = f64::from_le_bytes(color_buffer);
-        wgpu::Color { r, g, b, a }
+        native::WGPUColor { r, g, b, a }
     } else {
-        wgpu::Color::default()
+        native::WGPUColor { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }
     };
-    let encoder = system.encoder.as_mut().unwrap();
-    let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: None,
-        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            view: system.texture_view.as_ref().unwrap(),
-            resolve_target: None,
-            ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(color),
-                store: true,
-            },
-        })],
-        depth_stencil_attachment: None,
-    });
-    // typedef struct WGPURenderPassDescriptor {
-    //     WGPUChainedStruct const * nextInChain;
-    //     char const * label; // nullable
-    //     uint32_t colorAttachmentCount;
-    //     WGPURenderPassColorAttachment const * colorAttachments;
-    //     WGPURenderPassDepthStencilAttachment const * depthStencilAttachment; // nullable
-    //     WGPUQuerySet occlusionQuerySet; // nullable
-    //     uint32_t timestampWriteCount;
-    //     WGPURenderPassTimestampWrite const * timestampWrites;
-    // } WGPURenderPassDescriptor;
-    // typedef struct WGPURenderPassColorAttachment {
-    //     WGPUTextureView view; // nullable
-    //     WGPUTextureView resolveTarget; // nullable
-    //     WGPULoadOp loadOp;
-    //     WGPUStoreOp storeOp;
-    //     WGPUColor clearValue;
-    // } WGPURenderPassColorAttachment;
+    if system.render_pass.0.is_null() {
+        system.render_pass.0 = unsafe {
+            wgpu_native::command::wgpuCommandEncoderBeginRenderPass(
+                system.encoder.0,
+                Some(&native::WGPURenderPassDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: null(),
+                    colorAttachmentCount: 1,
+                    colorAttachments: &native::WGPURenderPassColorAttachment {
+                        view: system.texture_view.0,
+                        resolveTarget: std::ptr::null_mut(),
+                        loadOp: native::WGPULoadOp_Clear,
+                        storeOp: native::WGPUStoreOp_Store,
+                        clearValue: clear_value,
+                    },
+                    depthStencilAttachment: std::ptr::null(),
+                    occlusionQuerySet: std::ptr::null_mut(),
+                    timestampWriteCount: 0,
+                    timestampWrites: std::ptr::null(),
+                }),
+            )
+        };
+    }
     1
 }
 
@@ -551,8 +539,6 @@ fn wgpu_instance_request_adapter(
 ) {
     println!("wgpuInstanceRequestAdapter({instance}, {options}, {callback}, {userdata})");
     let (system, mut store) = env.data_and_store_mut();
-    let functions = system.functions.as_ref().unwrap();
-    let function_count = functions.size(&store);
     if system.adapter.0.is_null() {
         unsafe {
             wgpu_native::device::wgpuInstanceRequestAdapter(
@@ -577,11 +563,12 @@ fn wgpu_instance_request_adapter(
                 panic!("WGPURequestAdapterStatus {status}: {message:?}");
             }
             unsafe {
-                let mut system = *(system as *mut System);
+                let mut system = &mut *(system as *mut System);
                 system.adapter.0 = adapter;
             }
         }
         // TODO Report error if none rather than panicking.
+        let functions = system.functions.as_ref().unwrap();
         let value = functions.get(&mut store, callback).unwrap();
         let function = value.unwrap_funcref().as_ref().unwrap();
         function
