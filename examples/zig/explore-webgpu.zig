@@ -90,7 +90,8 @@ pub fn main() void {
     };
 
     // Listen
-    // TODO Instead send data only and rely on exported named functions?
+    // Probably smaller binaries with this instead of exported functions for
+    // each even type?
     t.tac_windowListen(windowListen, null);
 }
 
@@ -112,50 +113,49 @@ fn windowClose(state: *State) void {
 }
 
 fn windowRedraw(state: *State) void {
-    _ = state;
-//             let view = wgpu_native::device::wgpuSwapChainGetCurrentTextureView(self.swap_chain);
-//             let encoder = wgpu_native::device::wgpuDeviceCreateCommandEncoder(
-//                 self.device,
-//                 Some(&native::WGPUCommandEncoderDescriptor {
-//                     nextInChain: std::ptr::null(),
-//                     label: CStr::from_bytes_with_nul_unchecked(b"Render Encoder\0").as_ptr(),
-//                 }),
-//             );
-//             let render_pass = wgpu_native::command::wgpuCommandEncoderBeginRenderPass(
-//                 encoder,
-//                 Some(&native::WGPURenderPassDescriptor {
-//                     nextInChain: std::ptr::null(),
-//                     label: CStr::from_bytes_with_nul_unchecked(b"Render Pass\0").as_ptr(),
-//                     colorAttachmentCount: 1,
-//                     colorAttachments: &native::WGPURenderPassColorAttachment {
-//                         view,
-//                         resolveTarget: std::ptr::null_mut(),
-//                         loadOp: native::WGPULoadOp_Clear,
-//                         storeOp: native::WGPUStoreOp_Store,
-//                         clearValue: native::WGPUColor {
-//                             r: 0.1,
-//                             g: 0.2,
-//                             b: 0.3,
-//                             a: 1.0,
-//                         },
-//                     },
-//                     depthStencilAttachment: std::ptr::null(),
-//                     occlusionQuerySet: std::ptr::null_mut(),
-//                     timestampWriteCount: 0,
-//                     timestampWrites: std::ptr::null(),
-//                 }),
-//             );
-//             wgpu_native::command::wgpuRenderPassEncoderEnd(render_pass);
-//             wgpu_native::device::wgpuTextureViewDrop(view);
-//             let command_buffer = wgpu_native::command::wgpuCommandEncoderFinish(
-//                 encoder,
-//                 Some(&native::WGPUCommandBufferDescriptor {
-//                     nextInChain: std::ptr::null(),
-//                     label: CStr::from_bytes_with_nul_unchecked(b"Command Buffer\0").as_ptr(),
-//                 }),
-//             );
-//             wgpu_native::device::wgpuQueueSubmit(self.queue, 1, &command_buffer);
-//             wgpu_native::device::wgpuSwapChainPresent(self.swap_chain);
+    const view = g.wgpuSwapChainGetCurrentTextureView(state.swap_chain);
+    const encoder = g.wgpuDeviceCreateCommandEncoder(
+        state.device,
+        &g.WGPUCommandEncoderDescriptor {
+            .nextInChain = null,
+            .label = null,
+        },
+    );
+    const render_pass = g.wgpuCommandEncoderBeginRenderPass(
+        encoder,
+        &g.WGPURenderPassDescriptor {
+            .nextInChain = null,
+            .label = null,
+            .colorAttachmentCount = 1,
+            .colorAttachments = &g.WGPURenderPassColorAttachment {
+                .view = view,
+                .resolveTarget = null,
+                .loadOp = g.WGPULoadOp_Clear,
+                .storeOp = g.WGPUStoreOp_Store,
+                .clearValue = .{
+                    .r = 0.1,
+                    .g = 0.2,
+                    .b = 0.3,
+                    .a = 1.0,
+                },
+            },
+            .depthStencilAttachment = null,
+            .occlusionQuerySet = null,
+            .timestampWriteCount = 0,
+            .timestampWrites = null,
+        },
+    );
+    g.wgpuRenderPassEncoderEnd(render_pass);
+    g.wgpuTextureViewDrop(view);
+    const command_buffer = g.wgpuCommandEncoderFinish(
+        encoder,
+        &g.WGPUCommandBufferDescriptor {
+            .nextInChain = null,
+            .label = null,
+        },
+    );
+    g.wgpuQueueSubmit(state.queue, 1, &command_buffer);
+    g.wgpuSwapChainPresent(state.swap_chain);
 }
 
 fn windowResize(state: *State) void {

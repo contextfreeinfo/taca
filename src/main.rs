@@ -61,6 +61,7 @@ struct System {
     adapter: Option<wgpu::Adapter>,
     config: Option<wgpu::SurfaceConfiguration>,
     device: Option<wgpu::Device>,
+    encoder: Option<wgpu::CommandEncoder>,
     functions: Option<Table>,
     // TODO Track process ownership for multi-process mode.
     // TODO Different actual OS processes??? How to share graphics across that???
@@ -68,7 +69,10 @@ struct System {
     instance: Option<wgpu::Instance>,
     memory: Option<Memory>,
     queue: Option<wgpu::Queue>,
+    // render_pass: Option<wgpu::RenderPass<'a>>,
     surface: Option<wgpu::Surface>,
+    texture: Option<wgpu::SurfaceTexture>,
+    texture_view: Option<wgpu::TextureView>,
     // TODO Multiple windows? Would need messaging to create window on main thread and send back maybe.
     window: Option<Window>,
     window_listen: Option<wasmer::Function>,
@@ -98,7 +102,9 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "tac_windowListen" => Function::new_typed_with_env(&mut store, &env, tac_window_listen),
             "wgpuAdapterDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_drop),
             "wgpuAdapterRequestDevice" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_request_device),
+            "wgpuCommandEncoderBeginRenderPass" => Function::new_typed_with_env(&mut store, &env, wgpu_command_encoder_begin_render_pass),
             "wgpuCreateInstance" => Function::new_typed_with_env(&mut store, &env, wgpu_create_instance),
+            "wgpuDeviceCreateCommandEncoder" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_command_encoder),
             "wgpuDeviceCreateSwapChain" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_swap_chain),
             "wgpuDeviceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_device_drop),
             "wgpuDeviceGetQueue" => Function::new_typed_with_env(&mut store, &env, wgpu_device_get_queue),
@@ -108,6 +114,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuSurfaceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_drop),
             "wgpuSurfaceGetPreferredFormat" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_get_preferred_format),
             "wgpuSwapChainDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_drop),
+            "wgpuSwapChainGetCurrentTextureView" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_get_current_texture_view),
         },
         // TODO Combine ours with wasmer_wasix::WasiEnv
         "wasi_snapshot_preview1" => {
@@ -220,6 +227,76 @@ fn wgpu_adapter_request_device(
     }
 }
 
+// wgpuCommandEncoderBeginRenderPass
+fn wgpu_command_encoder_begin_render_pass(
+    mut env: FunctionEnvMut<System>,
+    encoder: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuCommandEncoderBeginRenderPass({encoder}, {descriptor})");
+    let (mut system, store) = env.data_and_store_mut();
+    let memory = system.memory.as_ref().unwrap().view(&store);
+    let mut buffer = [0u8; 4];
+    let address = descriptor as u64;
+    memory.read(address + 8, &mut buffer).unwrap();
+    let color_attachment_count = u32::from_le_bytes(buffer);
+    let color = if color_attachment_count > 0 {
+        memory.read(address + 12, &mut buffer).unwrap();
+        let attachment = u32::from_le_bytes(buffer) as u64;
+        let mut color_buffer = [0u8; 8];
+        memory
+            .read(attachment + 16 + 0 * 8, &mut color_buffer)
+            .unwrap();
+        let r = f64::from_le_bytes(color_buffer);
+        memory
+            .read(attachment + 16 + 1 * 8, &mut color_buffer)
+            .unwrap();
+        let g = f64::from_le_bytes(color_buffer);
+        memory
+            .read(attachment + 16 + 2 * 8, &mut color_buffer)
+            .unwrap();
+        let b = f64::from_le_bytes(color_buffer);
+        memory
+            .read(attachment + 16 + 3 * 8, &mut color_buffer)
+            .unwrap();
+        let a = f64::from_le_bytes(color_buffer);
+        wgpu::Color { r, g, b, a }
+    } else {
+        wgpu::Color::default()
+    };
+    let encoder = system.encoder.as_mut().unwrap();
+    let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view: system.texture_view.as_ref().unwrap(),
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(color),
+                store: true,
+            },
+        })],
+        depth_stencil_attachment: None,
+    });
+    // typedef struct WGPURenderPassDescriptor {
+    //     WGPUChainedStruct const * nextInChain;
+    //     char const * label; // nullable
+    //     uint32_t colorAttachmentCount;
+    //     WGPURenderPassColorAttachment const * colorAttachments;
+    //     WGPURenderPassDepthStencilAttachment const * depthStencilAttachment; // nullable
+    //     WGPUQuerySet occlusionQuerySet; // nullable
+    //     uint32_t timestampWriteCount;
+    //     WGPURenderPassTimestampWrite const * timestampWrites;
+    // } WGPURenderPassDescriptor;
+    // typedef struct WGPURenderPassColorAttachment {
+    //     WGPUTextureView view; // nullable
+    //     WGPUTextureView resolveTarget; // nullable
+    //     WGPULoadOp loadOp;
+    //     WGPUStoreOp storeOp;
+    //     WGPUColor clearValue;
+    // } WGPURenderPassColorAttachment;
+    1
+}
+
 fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let memory = system.memory.as_ref().unwrap();
@@ -232,6 +309,22 @@ fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) -> u32
         });
         system.instance = Some(instance);
     }
+    1
+}
+
+fn wgpu_device_create_command_encoder(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateCommandEncoder({device}, {descriptor})");
+    let system = env.data_mut();
+    let encoder = system
+        .device
+        .as_ref()
+        .unwrap()
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    system.encoder = Some(encoder);
     1
 }
 
@@ -423,6 +516,26 @@ fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
     system.config = None;
 }
 
+fn wgpu_swap_chain_get_current_texture_view(
+    mut env: FunctionEnvMut<System>,
+    swap_chain: u32,
+) -> u32 {
+    println!("wgpuSwapChainGetCurrentTextureView({swap_chain})");
+    let system = env.data_mut();
+    let texture = system
+        .surface
+        .as_ref()
+        .unwrap()
+        .get_current_texture()
+        .unwrap();
+    let texture_view = texture
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default());
+    system.texture = Some(texture);
+    system.texture_view = Some(texture_view);
+    1
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ExitCode(u32);
 
@@ -496,7 +609,7 @@ fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<System
                             window_listen_userdata,
                         );
                         *control_flow = ControlFlow::Exit;
-                    },
+                    }
                     WindowEvent::Resized(_physical_size) => {
                         send_event(
                             &mut store,
