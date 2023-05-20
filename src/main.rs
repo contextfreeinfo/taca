@@ -1,19 +1,19 @@
-use std::fmt;
+use std::{
+    fmt,
+    ptr::{null, null_mut},
+};
 
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
-// use tacana::State;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, Module, Store, Table, Value,
 };
+use wgpu_native::native;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-
-#[allow(non_upper_case_globals)]
-mod wgpu_native;
 
 fn main() -> Result<()> {
     pollster::block_on(run())?;
@@ -56,23 +56,75 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
+type WGPUAdapter = Pointer<native::WGPUAdapterImpl>;
+type WGPUInstance = Pointer<native::WGPUInstanceImpl>;
+type WGPUSwapChain = Pointer<native::WGPUSwapChainImpl>;
+struct Pointer<T>(*mut T);
+unsafe impl<T> Send for Pointer<T> {}
+impl<T> Default for Pointer<T> {
+    fn default() -> Self {
+        Pointer(null_mut())
+    }
+}
+
+struct WGPUCommandEncoder(native::WGPUCommandEncoder);
+unsafe impl Send for WGPUCommandEncoder {}
+impl Default for WGPUCommandEncoder {
+    fn default() -> Self {
+        WGPUCommandEncoder(null_mut())
+    }
+}
+
+struct WGPUDevice(native::WGPUDevice);
+unsafe impl Send for WGPUDevice {}
+impl Default for WGPUDevice {
+    fn default() -> Self {
+        WGPUDevice(null_mut())
+    }
+}
+
+struct WGPUQueue(native::WGPUQueue);
+unsafe impl Send for WGPUQueue {}
+impl Default for WGPUQueue {
+    fn default() -> Self {
+        WGPUQueue(null_mut())
+    }
+}
+
+struct WGPUSurface(native::WGPUSurface);
+unsafe impl Send for WGPUSurface {}
+impl Default for WGPUSurface {
+    fn default() -> Self {
+        WGPUSurface(null_mut())
+    }
+}
+
+struct WGPUTextureView(native::WGPUTextureView);
+unsafe impl Send for WGPUTextureView {}
+impl Default for WGPUTextureView {
+    fn default() -> Self {
+        WGPUTextureView(null_mut())
+    }
+}
+
 #[derive(Default)]
 struct System {
-    adapter: Option<wgpu::Adapter>,
-    config: Option<wgpu::SurfaceConfiguration>,
-    device: Option<wgpu::Device>,
-    encoder: Option<wgpu::CommandEncoder>,
+    adapter: WGPUAdapter,
+    // config: Option<wgpu::SurfaceConfiguration>,
+    device: WGPUDevice,
+    encoder: WGPUCommandEncoder,
     functions: Option<Table>,
     // TODO Track process ownership for multi-process mode.
     // TODO Different actual OS processes??? How to share graphics across that???
     // TODO Or just force a singleton instance?
-    instance: Option<wgpu::Instance>,
+    instance: WGPUInstance,
     memory: Option<Memory>,
-    queue: Option<wgpu::Queue>,
+    queue: WGPUQueue,
     // render_pass: Option<wgpu::RenderPass<'a>>,
-    surface: Option<wgpu::Surface>,
-    texture: Option<wgpu::SurfaceTexture>,
-    texture_view: Option<wgpu::TextureView>,
+    surface: WGPUSurface,
+    swap_chain: WGPUSwapChain,
+    // texture: Option<wgpu::SurfaceTexture>,
+    texture_view: WGPUTextureView,
     // TODO Multiple windows? Would need messaging to create window on main thread and send back maybe.
     window: Option<Window>,
     window_listen: Option<wasmer::Function>,
@@ -195,20 +247,30 @@ fn wgpu_adapter_request_device(
     println!("wgpuAdapterRequestDevice({adapter}, {descriptor}, {callback}, {userdata})");
     let (system, mut store) = env.data_and_store_mut();
     let functions = system.functions.as_ref().unwrap();
-    if system.device.is_none() {
-        let adapter = system.adapter.as_ref().unwrap();
-        let (device, queue) = pollster::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::downlevel_webgl2_defaults(),
-            },
-            // Some(&std::path::Path::new("trace")), // Trace path
-            None,
-        ))
-        .unwrap();
-        system.device = Some(device);
-        system.queue = Some(queue);
+    if system.device.0.is_null() {
+        let adapter = system.adapter.0;
+        unsafe {
+            wgpu_native::device::wgpuAdapterRequestDevice(
+                adapter,
+                None,
+                Some(request_device_callback),
+                system as *mut System as *mut std::ffi::c_void,
+            );
+        }
+        extern "C" fn request_device_callback(
+            status: native::WGPURequestDeviceStatus,
+            device: native::WGPUDevice,
+            message: *const std::os::raw::c_char,
+            system: *mut std::os::raw::c_void,
+        ) {
+            if status != native::WGPURequestDeviceStatus_Success {
+                panic!("WGPURequestAdapterStatus {status}: {message:?}");
+            }
+            unsafe {
+                let mut system = *(system as *mut System);
+                system.device = WGPUDevice(device);
+            }
+        }
         // TODO Report error if none rather than panicking.
         let value = functions.get(&mut store, callback).unwrap();
         let function = value.unwrap_funcref().as_ref().unwrap();
@@ -298,16 +360,14 @@ fn wgpu_command_encoder_begin_render_pass(
 }
 
 fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) -> u32 {
-    let (system, store) = env.data_and_store_mut();
-    let memory = system.memory.as_ref().unwrap();
-    let size = memory.view(&store).size();
-    println!("wgpuCreateInstance({descriptor}) for memory size {size:?}");
-    if system.instance.is_none() {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            dx12_shader_compiler: Default::default(),
-        });
-        system.instance = Some(instance);
+    println!("wgpuCreateInstance({descriptor})");
+    let system = env.data_mut();
+    if system.instance.0.is_null() {
+        system.instance.0 = unsafe {
+            wgpu_native::wgpuCreateInstance(Some(&native::WGPUInstanceDescriptor {
+                nextInChain: null(),
+            }))
+        };
     }
     1
 }
@@ -319,12 +379,17 @@ fn wgpu_device_create_command_encoder(
 ) -> u32 {
     println!("wgpuDeviceCreateCommandEncoder({device}, {descriptor})");
     let system = env.data_mut();
-    let encoder = system
-        .device
-        .as_ref()
-        .unwrap()
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    system.encoder = Some(encoder);
+    if system.encoder.0.is_null() {
+        system.encoder.0 = unsafe {
+            wgpu_native::device::wgpuDeviceCreateCommandEncoder(
+                system.device.0,
+                Some(&native::WGPUCommandEncoderDescriptor {
+                    nextInChain: null(),
+                    label: null(),
+                }),
+            )
+        };
+    }
     1
 }
 
@@ -348,52 +413,44 @@ fn wgpu_device_create_swap_chain(
 ) -> u32 {
     println!("wgpuDeviceCreateSwapChain({device}, {surface}, {descriptor})");
     let (system, mut store) = env.data_and_store_mut();
-    let memory = system.memory.as_ref().unwrap().view(&mut store);
-    let address = descriptor as u64;
-    // Read
-    let mut buffer = [0u8; 4];
-    // typedef struct WGPUSwapChainDescriptorExtras {
-    //     WGPUChainedStruct chain;
-    //     WGPUCompositeAlphaMode alphaMode;
-    //     size_t viewFormatCount;
-    //     WGPUTextureFormat const * viewFormats;
-    // } WGPUSwapChainDescriptorExtras;
-    memory.read(address + 8, &mut buffer).unwrap();
-    let usage = match u32::from_le_bytes(buffer) {
-        wgpu_native::WGPUTextureUsage_CopySrc => wgpu::TextureUsages::COPY_SRC,
-        wgpu_native::WGPUTextureUsage_CopyDst => wgpu::TextureUsages::COPY_DST,
-        wgpu_native::WGPUTextureUsage_TextureBinding => wgpu::TextureUsages::TEXTURE_BINDING,
-        wgpu_native::WGPUTextureUsage_StorageBinding => wgpu::TextureUsages::STORAGE_BINDING,
-        wgpu_native::WGPUTextureUsage_RenderAttachment => wgpu::TextureUsages::RENDER_ATTACHMENT,
-        _ => panic!("bad usage"),
-    };
-    memory.read(address + 12, &mut buffer).unwrap();
-    let format = wgpu_native::map_texture_format(u32::from_le_bytes(buffer)).unwrap();
-    memory.read(address + 16, &mut buffer).unwrap();
-    let width = u32::from_le_bytes(buffer);
-    memory.read(address + 20, &mut buffer).unwrap();
-    let height = u32::from_le_bytes(buffer);
-    memory.read(address + 24, &mut buffer).unwrap();
-    let present_mode = match u32::from_le_bytes(buffer) {
-        wgpu_native::WGPUPresentMode_Immediate => wgpu::PresentMode::Immediate,
-        wgpu_native::WGPUPresentMode_Mailbox => wgpu::PresentMode::Mailbox,
-        wgpu_native::WGPUPresentMode_Fifo => wgpu::PresentMode::Fifo,
-        _ => panic!("bad present mode"),
-    };
-    // Configure
-    let config = wgpu::SurfaceConfiguration {
-        usage,
-        format,
-        width,
-        height,
-        present_mode,
-        alpha_mode: wgpu::CompositeAlphaMode::Opaque,
-        view_formats: vec![],
-    };
-    let device = system.device.as_ref().unwrap();
-    let surface = system.surface.as_ref().unwrap();
-    surface.configure(device, &config);
-    system.config = Some(config);
+    if system.swap_chain.0.is_null() {
+        let memory = system.memory.as_ref().unwrap().view(&mut store);
+        let address = descriptor as u64;
+        // Read
+        let mut buffer = [0u8; 4];
+        // typedef struct WGPUSwapChainDescriptorExtras {
+        //     WGPUChainedStruct chain;
+        //     WGPUCompositeAlphaMode alphaMode;
+        //     size_t viewFormatCount;
+        //     WGPUTextureFormat const * viewFormats;
+        // } WGPUSwapChainDescriptorExtras;
+        memory.read(address + 8, &mut buffer).unwrap();
+        let usage = u32::from_le_bytes(buffer);
+        memory.read(address + 12, &mut buffer).unwrap();
+        let format = u32::from_le_bytes(buffer);
+        memory.read(address + 16, &mut buffer).unwrap();
+        let width = u32::from_le_bytes(buffer);
+        memory.read(address + 20, &mut buffer).unwrap();
+        let height = u32::from_le_bytes(buffer);
+        memory.read(address + 24, &mut buffer).unwrap();
+        let present_mode = u32::from_le_bytes(buffer);
+        // Configure
+        system.swap_chain.0 = unsafe {
+            wgpu_native::device::wgpuDeviceCreateSwapChain(
+                system.device.0,
+                system.surface.0,
+                Some(&native::WGPUSwapChainDescriptor {
+                    nextInChain: null(),
+                    label: null(),
+                    usage,
+                    format,
+                    width,
+                    height,
+                    presentMode: present_mode,
+                }),
+            )
+        };
+    }
     1
 }
 
@@ -402,9 +459,12 @@ fn wgpu_device_drop(_env: FunctionEnvMut<System>, device: u32) {
     println!("wgpuDeviceDrop({device})");
 }
 
-fn wgpu_device_get_queue(_env: FunctionEnvMut<System>, adapter: u32) -> u32 {
+fn wgpu_device_get_queue(mut env: FunctionEnvMut<System>, adapter: u32) -> u32 {
     println!("wgpuDeviceGetQueue({adapter})");
-    // TODO Assert that we already have a queue defined.
+    let system = env.data_mut();
+    if system.queue.0.is_null() {
+        system.queue.0 = unsafe { wgpu_native::device::wgpuDeviceGetQueue(system.device.0) };
+    }
     1
 }
 
@@ -415,19 +475,53 @@ fn wgpu_instance_create_surface(
 ) -> u32 {
     println!("wgpuInstanceCreateSurface({instance}, {descriptor})");
     let system = env.data_mut();
-    // TODO Read the descriptor and use the label or selector as a title???
-    if system.surface.is_none() {
-        let surface = unsafe {
-            system
-                .instance
-                .as_ref()
-                .unwrap()
-                .create_surface(system.window.as_ref().unwrap())
-        }
-        .unwrap();
-        system.surface = Some(surface);
+    if system.surface.0.is_null() {
+        system.surface.0 = unsafe {
+            wgpu_instance_create_surface_any(system.instance.0, system.window.as_ref().unwrap())
+        };
     }
     1
+}
+
+unsafe fn wgpu_instance_create_surface_any(
+    instance: native::WGPUInstance,
+    window: &Window,
+) -> native::WGPUSurface {
+    // First extract raw handles.
+    let raw_display = raw_window_handle::HasRawDisplayHandle::raw_display_handle(window);
+    let raw_window = raw_window_handle::HasRawWindowHandle::raw_window_handle(window);
+    // Then put struct data on stack so it lives.
+    let xlib = if let raw_window_handle::RawWindowHandle::Xlib(xlib_window) = raw_window {
+        let raw_window_handle::RawDisplayHandle::Xlib(xlib_display) = raw_display else {
+            unreachable!()
+        };
+        Some(native::WGPUSurfaceDescriptorFromXlibWindow {
+            chain: native::WGPUChainedStruct {
+                next: null(),
+                sType: native::WGPUSType_SurfaceDescriptorFromXlibWindow,
+            },
+            display: xlib_display.display,
+            window: u32::try_from(xlib_window.window).unwrap(),
+        })
+    } else {
+        None
+    };
+    // TODO Other backends above and below.
+    // Metal: https://github.com/gfx-rs/wgpu/blob/f173575427b028dde71bdb76dce10d27060b03ba/wgpu-hal/src/metal/mod.rs#L83
+    // Then cast as a chain pointer.
+    let descriptor_chain = if let Some(xlib) = xlib.as_ref() {
+        xlib as *const native::WGPUSurfaceDescriptorFromXlibWindow
+            as *const native::WGPUChainedStruct
+    } else {
+        panic!("unsupported backend")
+    };
+    wgpu_native::wgpuInstanceCreateSurface(
+        instance,
+        Some(&native::WGPUSurfaceDescriptor {
+            nextInChain: descriptor_chain,
+            label: null(),
+        }),
+    )
 }
 
 fn wgpu_instance_drop(_env: FunctionEnvMut<System>, instance: u32) {
@@ -455,20 +549,39 @@ fn wgpu_instance_request_adapter(
     callback: u32,
     userdata: u32,
 ) {
+    println!("wgpuInstanceRequestAdapter({instance}, {options}, {callback}, {userdata})");
     let (system, mut store) = env.data_and_store_mut();
     let functions = system.functions.as_ref().unwrap();
     let function_count = functions.size(&store);
-    println!("wgpuInstanceRequestAdapter({instance}, {options}, {callback}, {userdata}) for functions {function_count}");
-    if system.adapter.is_none() {
-        let instance = system.instance.as_ref().unwrap();
-        let surface = system.surface.as_ref().unwrap();
-        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
-            compatible_surface: Some(surface),
-            force_fallback_adapter: false,
-        });
+    if system.adapter.0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuInstanceRequestAdapter(
+                system.instance.0,
+                Some(&native::WGPURequestAdapterOptions {
+                    nextInChain: null(),
+                    compatibleSurface: system.surface.0,
+                    powerPreference: native::WGPUPowerPreference_Undefined,
+                    forceFallbackAdapter: false,
+                }),
+                Some(request_adapter_callback),
+                system as *mut System as *mut std::ffi::c_void,
+            )
+        };
+        extern "C" fn request_adapter_callback(
+            status: native::WGPURequestAdapterStatus,
+            adapter: native::WGPUAdapter,
+            message: *const std::os::raw::c_char,
+            system: *mut std::os::raw::c_void,
+        ) {
+            if status != native::WGPURequestDeviceStatus_Success {
+                panic!("WGPURequestAdapterStatus {status}: {message:?}");
+            }
+            unsafe {
+                let mut system = *(system as *mut System);
+                system.adapter.0 = adapter;
+            }
+        }
         // TODO Report error if none rather than panicking.
-        system.adapter = Some(pollster::block_on(adapter).unwrap());
         let value = functions.get(&mut store, callback).unwrap();
         let function = value.unwrap_funcref().as_ref().unwrap();
         function
@@ -500,20 +613,16 @@ fn wgpu_surface_get_preferred_format(
 ) -> u32 {
     println!("wgpuSurfaceGetPreferredFormat({surface}, {adapter})");
     let system = env.data();
-    let capabilities = system
-        .surface
-        .as_ref()
+    unsafe { wgpu_native::wgpuSurfaceGetPreferredFormat(system.surface.0, system.adapter.0) }
+        .try_into()
         .unwrap()
-        .get_capabilities(system.adapter.as_ref().unwrap());
-    let format = *capabilities.formats.first().unwrap();
-    // TODO Store alpha mode for swap chain??? Requery there?
-    wgpu_native::to_native_texture_format(format).unwrap()
 }
 
 fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
     println!("wgpuSwapChainDrop({swap_chain})");
     let system = env.data_mut();
-    system.config = None;
+    system.swap_chain.0 = null_mut();
+    system.texture_view.0 = null_mut();
 }
 
 fn wgpu_swap_chain_get_current_texture_view(
@@ -522,17 +631,10 @@ fn wgpu_swap_chain_get_current_texture_view(
 ) -> u32 {
     println!("wgpuSwapChainGetCurrentTextureView({swap_chain})");
     let system = env.data_mut();
-    let texture = system
-        .surface
-        .as_ref()
-        .unwrap()
-        .get_current_texture()
-        .unwrap();
-    let texture_view = texture
-        .texture
-        .create_view(&wgpu::TextureViewDescriptor::default());
-    system.texture = Some(texture);
-    system.texture_view = Some(texture_view);
+    if system.texture_view.0.is_null() {
+        system.texture_view.0 =
+            unsafe { wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0) };
+    }
     1
 }
 
