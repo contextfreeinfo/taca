@@ -626,16 +626,17 @@ fn wgpu_instance_request_adapter(
     }
 }
 
-fn wgpu_queue_submit(mut env: FunctionEnvMut<System>, _queue: u32, command_count: u32, _commands: u32) {
+fn wgpu_queue_submit(
+    mut env: FunctionEnvMut<System>,
+    _queue: u32,
+    _command_count: u32,
+    _commands: u32,
+) {
     let system = env.data_mut();
     if !system.queue.0.is_null() && !system.command_buffer.0.is_null() {
         unsafe {
             // TODO Any way to know if the count is right???
-            wgpu_native::device::wgpuQueueSubmit(
-                system.queue.0,
-                command_count,
-                &system.command_buffer.0,
-            );
+            wgpu_native::device::wgpuQueueSubmit(system.queue.0, 1, &system.command_buffer.0);
         }
         system.command_buffer.0 = null_mut();
     }
