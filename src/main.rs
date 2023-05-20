@@ -68,6 +68,14 @@ impl<T> Default for Pointer<T> {
     }
 }
 
+struct WGPUCommandBuffer(native::WGPUCommandBuffer);
+unsafe impl Send for WGPUCommandBuffer {}
+impl Default for WGPUCommandBuffer {
+    fn default() -> Self {
+        WGPUCommandBuffer(null_mut())
+    }
+}
+
 struct WGPUCommandEncoder(native::WGPUCommandEncoder);
 unsafe impl Send for WGPUCommandEncoder {}
 impl Default for WGPUCommandEncoder {
@@ -111,6 +119,7 @@ impl Default for WGPUTextureView {
 #[derive(Default)]
 struct System {
     adapter: WGPUAdapter,
+    command_buffer: WGPUCommandBuffer,
     device: WGPUDevice,
     encoder: WGPUCommandEncoder,
     functions: Option<Table>,
@@ -150,6 +159,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuAdapterDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_drop),
             "wgpuAdapterRequestDevice" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_request_device),
             "wgpuCommandEncoderBeginRenderPass" => Function::new_typed_with_env(&mut store, &env, wgpu_command_encoder_begin_render_pass),
+            "wgpuCommandEncoderFinish" => Function::new_typed_with_env(&mut store, &env, wgpu_command_encoder_finish),
             "wgpuCreateInstance" => Function::new_typed_with_env(&mut store, &env, wgpu_create_instance),
             "wgpuDeviceCreateCommandEncoder" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_command_encoder),
             "wgpuDeviceCreateSwapChain" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_swap_chain),
@@ -158,10 +168,14 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuInstanceCreateSurface" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_create_surface),
             "wgpuInstanceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_drop),
             "wgpuInstanceRequestAdapter" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_request_adapter),
+            "wgpuQueueSubmit" => Function::new_typed_with_env(&mut store, &env, wgpu_queue_submit),
+            "wgpuRenderPassEncoderEnd" => Function::new_typed_with_env(&mut store, &env, wgpu_render_pass_encoder_end),
             "wgpuSurfaceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_drop),
             "wgpuSurfaceGetPreferredFormat" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_get_preferred_format),
             "wgpuSwapChainDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_drop),
             "wgpuSwapChainGetCurrentTextureView" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_get_current_texture_view),
+            "wgpuSwapChainPresent" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_present),
+            "wgpuTextureViewDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_texture_view_drop),
         },
         // TODO Combine ours with wasmer_wasix::WasiEnv
         "wasi_snapshot_preview1" => {
@@ -319,7 +333,12 @@ fn wgpu_command_encoder_begin_render_pass(
         let a = f64::from_le_bytes(color_buffer);
         native::WGPUColor { r, g, b, a }
     } else {
-        native::WGPUColor { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }
+        native::WGPUColor {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        }
     };
     if system.render_pass.0.is_null() {
         system.render_pass.0 = unsafe {
@@ -343,6 +362,27 @@ fn wgpu_command_encoder_begin_render_pass(
                 }),
             )
         };
+    }
+    1
+}
+
+fn wgpu_command_encoder_finish(
+    mut env: FunctionEnvMut<System>,
+    _encoder: u32,
+    _descriptor: u32,
+) -> u32 {
+    let system = env.data_mut();
+    if !system.encoder.0.is_null() {
+        system.command_buffer.0 = unsafe {
+            wgpu_native::command::wgpuCommandEncoderFinish(
+                system.encoder.0,
+                Some(&native::WGPUCommandBufferDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: null(),
+                }),
+            )
+        };
+        system.encoder.0 = null_mut();
     }
     1
 }
@@ -586,12 +626,36 @@ fn wgpu_instance_request_adapter(
     }
 }
 
-fn wgpu_surface_drop(_env: FunctionEnvMut<System>, surface: u32) {
-    // Let it die with the system.
-    println!("wgpuSurfaceDrop({surface})");
+fn wgpu_queue_submit(mut env: FunctionEnvMut<System>, _queue: u32, command_count: u32, _commands: u32) {
+    let system = env.data_mut();
+    if !system.queue.0.is_null() && !system.command_buffer.0.is_null() {
+        unsafe {
+            // TODO Any way to know if the count is right???
+            wgpu_native::device::wgpuQueueSubmit(
+                system.queue.0,
+                command_count,
+                &system.command_buffer.0,
+            );
+        }
+        system.command_buffer.0 = null_mut();
+    }
 }
 
-// WGPU_EXPORT WGPUTextureFormat wgpuSurfaceGetPreferredFormat(WGPUSurface surface, WGPUAdapter adapter);
+fn wgpu_render_pass_encoder_end(mut env: FunctionEnvMut<System>, _render_pass: u32) {
+    // println!("wgpuSurfaceDrop({surface})");
+    let system = env.data_mut();
+    if !system.render_pass.0.is_null() {
+        unsafe {
+            wgpu_native::command::wgpuRenderPassEncoderEnd(system.render_pass.0);
+        }
+        system.render_pass.0 = null_mut();
+    }
+}
+
+fn wgpu_surface_drop(_env: FunctionEnvMut<System>, surface: u32) {
+    println!("wgpuSurfaceDrop({surface})");
+    // TODO
+}
 
 fn wgpu_surface_get_preferred_format(
     env: FunctionEnvMut<System>,
@@ -608,8 +672,14 @@ fn wgpu_surface_get_preferred_format(
 fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
     println!("wgpuSwapChainDrop({swap_chain})");
     let system = env.data_mut();
-    system.swap_chain.0 = null_mut();
+    // For good measure, ensure null view also.
     system.texture_view.0 = null_mut();
+    if !system.swap_chain.0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuSwapChainDrop(system.swap_chain.0);
+        }
+        system.swap_chain.0 = null_mut();
+    }
 }
 
 fn wgpu_swap_chain_get_current_texture_view(
@@ -623,6 +693,27 @@ fn wgpu_swap_chain_get_current_texture_view(
             unsafe { wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0) };
     }
     1
+}
+
+fn wgpu_swap_chain_present(mut env: FunctionEnvMut<System>, _swap_chain: u32) {
+    // println!("wgpuSwapChainPresent({_swap_chain})");
+    let system = env.data_mut();
+    if !system.swap_chain.0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuSwapChainPresent(system.swap_chain.0);
+        }
+    }
+}
+
+fn wgpu_texture_view_drop(mut env: FunctionEnvMut<System>, _texture_view: u32) {
+    // println!("wgpuTextureViewDrop({_texture_view})");
+    let system = env.data_mut();
+    if !system.texture_view.0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuTextureViewDrop(system.texture_view.0);
+        }
+        system.texture_view.0 = null_mut();
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
