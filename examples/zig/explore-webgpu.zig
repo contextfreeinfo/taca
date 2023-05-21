@@ -116,14 +116,14 @@ fn windowClose(state: *State) void {
 }
 
 fn windowRedraw(state: *State) void {
-    const view = g.wgpuSwapChainGetCurrentTextureView(state.swap_chain);
+    const view = g.wgpuSwapChainGetCurrentTextureView(state.swap_chain) orelse unreachable;
     const encoder = g.wgpuDeviceCreateCommandEncoder(
         state.device,
         &g.WGPUCommandEncoderDescriptor{
             .nextInChain = null,
             .label = null,
         },
-    );
+    ) orelse unreachable;
     const render_pass = g.wgpuCommandEncoderBeginRenderPass(
         encoder,
         &g.WGPURenderPassDescriptor{
@@ -136,9 +136,9 @@ fn windowRedraw(state: *State) void {
                 .loadOp = g.WGPULoadOp_Clear,
                 .storeOp = g.WGPUStoreOp_Store,
                 .clearValue = .{
-                    .r = 0.1,
-                    .g = 0.2,
-                    .b = 0.3,
+                    .r = 0.9,
+                    .g = 0.1,
+                    .b = 0.2,
                     .a = 1.0,
                 },
             },
@@ -147,7 +147,9 @@ fn windowRedraw(state: *State) void {
             .timestampWriteCount = 0,
             .timestampWrites = null,
         },
-    );
+    ) orelse unreachable;
+    g.wgpuRenderPassEncoderSetPipeline(render_pass, state.pipeline);
+    g.wgpuRenderPassEncoderDraw(render_pass, 3, 1, 0, 0);
     g.wgpuRenderPassEncoderEnd(render_pass);
     g.wgpuTextureViewDrop(view);
     const command_buffer = g.wgpuCommandEncoderFinish(
@@ -156,7 +158,7 @@ fn windowRedraw(state: *State) void {
             .nextInChain = null,
             .label = null,
         },
-    );
+    ) orelse unreachable;
     g.wgpuQueueSubmit(state.queue, 1, &command_buffer);
     g.wgpuSwapChainPresent(state.swap_chain);
 }

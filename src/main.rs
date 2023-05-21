@@ -1,4 +1,5 @@
 use std::{
+    ffi::{CString, FromVecWithNulError},
     fmt,
     ptr::{null, null_mut},
 };
@@ -6,7 +7,8 @@ use std::{
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use wasmer::{
-    imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, Module, Store, Table, Value,
+    imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
+    Table, Value, ValueType, WasmPtr,
 };
 use wgpu_native::native;
 use winit::{
@@ -100,6 +102,30 @@ impl Default for WGPUQueue {
     }
 }
 
+struct WGPUPipelineLayout(native::WGPUPipelineLayout);
+unsafe impl Send for WGPUPipelineLayout {}
+impl Default for WGPUPipelineLayout {
+    fn default() -> Self {
+        WGPUPipelineLayout(null_mut())
+    }
+}
+
+struct WGPURenderPipeline(native::WGPURenderPipeline);
+unsafe impl Send for WGPURenderPipeline {}
+impl Default for WGPURenderPipeline {
+    fn default() -> Self {
+        WGPURenderPipeline(null_mut())
+    }
+}
+
+struct WGPUShaderModule(native::WGPUShaderModule);
+unsafe impl Send for WGPUShaderModule {}
+impl Default for WGPUShaderModule {
+    fn default() -> Self {
+        WGPUShaderModule(null_mut())
+    }
+}
+
 struct WGPUSurface(native::WGPUSurface);
 unsafe impl Send for WGPUSurface {}
 impl Default for WGPUSurface {
@@ -126,7 +152,10 @@ struct System {
     instance: WGPUInstance,
     memory: Option<Memory>,
     queue: WGPUQueue,
+    pipelines: Vec<WGPURenderPipeline>,
+    pipeline_layouts: Vec<WGPUPipelineLayout>,
     render_pass: WGPURenderPassEncoder,
+    shaders: Vec<WGPUShaderModule>,
     surface: WGPUSurface,
     swap_chain: WGPUSwapChain,
     texture_view: WGPUTextureView,
@@ -162,6 +191,9 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuCommandEncoderFinish" => Function::new_typed_with_env(&mut store, &env, wgpu_command_encoder_finish),
             "wgpuCreateInstance" => Function::new_typed_with_env(&mut store, &env, wgpu_create_instance),
             "wgpuDeviceCreateCommandEncoder" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_command_encoder),
+            "wgpuDeviceCreatePipelineLayout" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_pipeline_layout),
+            "wgpuDeviceCreateRenderPipeline" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_render_pipeline),
+            "wgpuDeviceCreateShaderModule" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_shader_module),
             "wgpuDeviceCreateSwapChain" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_swap_chain),
             "wgpuDeviceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_device_drop),
             "wgpuDeviceGetQueue" => Function::new_typed_with_env(&mut store, &env, wgpu_device_get_queue),
@@ -169,7 +201,9 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuInstanceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_drop),
             "wgpuInstanceRequestAdapter" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_request_adapter),
             "wgpuQueueSubmit" => Function::new_typed_with_env(&mut store, &env, wgpu_queue_submit),
+            "wgpuRenderPassEncoderDraw" => Function::new_typed_with_env(&mut store, &env, wgpu_render_pass_encoder_draw),
             "wgpuRenderPassEncoderEnd" => Function::new_typed_with_env(&mut store, &env, wgpu_render_pass_encoder_end),
+            "wgpuRenderPassEncoderSetPipeline" => Function::new_typed_with_env(&mut store, &env, wgpu_render_pass_encoder_set_pipeline),
             "wgpuSurfaceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_drop),
             "wgpuSurfaceGetPreferredFormat" => Function::new_typed_with_env(&mut store, &env, wgpu_surface_get_preferred_format),
             "wgpuSwapChainDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_drop),
@@ -421,6 +455,247 @@ fn wgpu_device_create_command_encoder(
     1
 }
 
+fn wgpu_device_create_pipeline_layout(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreatePipelineLayout({device}, {descriptor})");
+    let system = env.data_mut();
+    let pipeline_layout = unsafe {
+        wgpu_native::device::wgpuDeviceCreatePipelineLayout(
+            system.device.0,
+            Some(&native::WGPUPipelineLayoutDescriptor {
+                nextInChain: null(),
+                label: null(),
+                bindGroupLayoutCount: 0,
+                bindGroupLayouts: null(),
+            }),
+        )
+    };
+    system
+        .pipeline_layouts
+        .push(WGPUPipelineLayout(pipeline_layout));
+    system.pipeline_layouts.len().try_into().unwrap()
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPURenderPipelineDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    layout: u32, // WGPUPipelineLayout
+    vertex: WasmWGPUVertexState,
+    primitive: WasmWGPUPrimitiveState,
+    depth_stencil: u32, // WGPUDepthStencilState const *
+    multisample: WasmWGPUMultisampleState,
+    fragment: WasmPtr<WasmWGPUFragmentState>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUVertexState {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    module: u32, // WGPUShaderModule
+    entry_point: WasmPtr<u8>,
+    constant_count: u32,
+    constants: u32, // WGPUConstantEntry const *
+    buffer_count: u32,
+    buffers: u32, // WGPUVertexBufferLayout const *
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUPrimitiveState {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    topology: native::WGPUPrimitiveTopology,
+    strip_index_format: native::WGPUIndexFormat,
+    front_face: native::WGPUFrontFace,
+    cull_mode: native::WGPUCullMode,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUMultisampleState {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    count: u32,
+    mask: u32,
+    alpha_to_coverage_enabled: bool,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUFragmentState {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    module: u32, // WGPUShaderModule
+    entry_point: WasmPtr<u8>,
+    constant_count: u32,
+    constants: u32, // WGPUConstantEntry const *
+    target_count: u32,
+    targets: WasmPtr<WasmWGPUColorTargetState>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUColorTargetState {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    format: native::WGPUTextureFormat,
+    blend: u32, // WGPUBlendState const *
+    write_mask: native::WGPUColorWriteMaskFlags,
+}
+
+fn wgpu_device_create_render_pipeline(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateRenderPipeline({device}, {descriptor})");
+    let (system, store) = env.data_and_store_mut();
+    let memory = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmPtr::<WasmWGPURenderPipelineDescriptor>::new(descriptor);
+    let descriptor = descriptor.read(&memory).unwrap();
+    let vertex_entry_point = read_cstring(descriptor.vertex.entry_point, &memory).unwrap();
+    let fragment = descriptor.fragment.read(&memory).unwrap();
+    let fragment_entry_point = read_cstring(fragment.entry_point, &memory).unwrap();
+    let fragment_targets: Vec<native::WGPUColorTargetState> = fragment
+        .targets
+        .slice(&memory, fragment.target_count)
+        .unwrap()
+        .iter()
+        .map(|target| {
+            let target = target.read().unwrap();
+            native::WGPUColorTargetState {
+                nextInChain: null(),
+                format: target.format,
+                blend: null(),
+                writeMask: target.write_mask,
+            }
+        })
+        .collect();
+    let pipeline = unsafe {
+        wgpu_native::device::wgpuDeviceCreateRenderPipeline(
+            system.device.0,
+            Some(&native::WGPURenderPipelineDescriptor {
+                nextInChain: null(),
+                label: null(),
+                layout: system.pipeline_layouts[descriptor.layout as usize - 1].0,
+                vertex: native::WGPUVertexState {
+                    nextInChain: null(),
+                    module: system.shaders[descriptor.vertex.module as usize - 1].0,
+                    entryPoint: vertex_entry_point.as_ptr(),
+                    constantCount: 0,
+                    constants: null(),
+                    bufferCount: 0,
+                    buffers: null(),
+                },
+                primitive: native::WGPUPrimitiveState {
+                    nextInChain: null(),
+                    topology: descriptor.primitive.topology,
+                    stripIndexFormat: descriptor.primitive.strip_index_format,
+                    frontFace: descriptor.primitive.front_face,
+                    cullMode: descriptor.primitive.cull_mode,
+                },
+                depthStencil: null(),
+                multisample: native::WGPUMultisampleState {
+                    nextInChain: null(),
+                    count: descriptor.multisample.count,
+                    mask: descriptor.multisample.mask,
+                    alphaToCoverageEnabled: descriptor.multisample.alpha_to_coverage_enabled,
+                },
+                fragment: &native::WGPUFragmentState {
+                    nextInChain: null(),
+                    module: system.shaders[fragment.module as usize - 1].0,
+                    entryPoint: fragment_entry_point.as_ptr(),
+                    constantCount: 0,
+                    constants: null(),
+                    targetCount: fragment.target_count,
+                    targets: fragment_targets.as_ptr(),
+                } as *const native::WGPUFragmentState,
+            }),
+        )
+    };
+    system.pipelines.push(WGPURenderPipeline(pipeline));
+    system.pipelines.len().try_into().unwrap()
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUChainedStruct {
+    next: WasmPtr<WasmWGPUChainedStruct>,
+    s_type: native::WGPUSType,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WGPUShaderModuleWGSLDescriptor {
+    chain: WasmWGPUChainedStruct,
+    code: WasmPtr<u8>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUShaderModuleDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: u32,
+    hint_count: u32,
+    hints: u32,
+}
+
+fn wgpu_device_create_shader_module(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateShaderModule({device}, {descriptor})");
+    let (system, store) = env.data_and_store_mut();
+    let memory = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmPtr::<WasmWGPUShaderModuleDescriptor>::new(descriptor);
+    let descriptor = descriptor.read(&memory).unwrap();
+    let next = descriptor.next_in_chain.read(&memory).unwrap();
+    let s_type = next.s_type;
+    let mut wgsl = native::WGPUShaderModuleWGSLDescriptor {
+        chain: native::WGPUChainedStruct {
+            next: null(),
+            sType: native::WGPUSType_ShaderModuleWGSLDescriptor,
+        },
+        code: null(),
+    };
+    let code: Option<CString>;
+    let native_next = match s_type {
+        native::WGPUSType_ShaderModuleWGSLDescriptor => {
+            let wgsl_next =
+                WasmPtr::<WGPUShaderModuleWGSLDescriptor>::new(descriptor.next_in_chain.offset());
+            let wgsl_next = wgsl_next.read(&memory).unwrap();
+            let cstring = read_cstring(wgsl_next.code, &memory).unwrap();
+            code = Some(cstring);
+            wgsl.code = code.as_ref().unwrap().as_ptr();
+            &wgsl as *const native::WGPUShaderModuleWGSLDescriptor
+                as *const native::WGPUChainedStruct
+        }
+        _ => panic!(),
+    };
+    // println!("{:?}", code.as_ref().unwrap());
+    let shader = unsafe {
+        wgpu_native::device::wgpuDeviceCreateShaderModule(
+            system.device.0,
+            Some(&native::WGPUShaderModuleDescriptor {
+                nextInChain: native_next,
+                label: null(),
+                hintCount: 0,
+                hints: null(),
+            }),
+        )
+    };
+    system.shaders.push(WGPUShaderModule(shader));
+    system.shaders.len().try_into().unwrap()
+}
+
+fn read_cstring(pointer: WasmPtr<u8>, memory: &MemoryView) -> Result<CString, FromVecWithNulError> {
+    let mut bytes = pointer.read_until(&memory, |c| *c == 0).unwrap();
+    bytes.push(0);
+    CString::from_vec_with_nul(bytes)
+}
+
 // #[derive(Default)]
 // #[repr(C)]
 // struct WGPUSwapChainDescriptor {
@@ -642,6 +917,26 @@ fn wgpu_queue_submit(
     }
 }
 
+fn wgpu_render_pass_encoder_draw(
+    env: FunctionEnvMut<System>,
+    _render_pass: u32,
+    vertex_count: u32,
+    instance_count: u32,
+    first_vertex: u32,
+    first_instance: u32,
+) {
+    let system = env.data();
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderDraw(
+            system.render_pass.0,
+            vertex_count,
+            instance_count,
+            first_vertex,
+            first_instance,
+        );
+    }
+}
+
 fn wgpu_render_pass_encoder_end(mut env: FunctionEnvMut<System>, _render_pass: u32) {
     // println!("wgpuSurfaceDrop({surface})");
     let system = env.data_mut();
@@ -650,6 +945,20 @@ fn wgpu_render_pass_encoder_end(mut env: FunctionEnvMut<System>, _render_pass: u
             wgpu_native::command::wgpuRenderPassEncoderEnd(system.render_pass.0);
         }
         system.render_pass.0 = null_mut();
+    }
+}
+
+fn wgpu_render_pass_encoder_set_pipeline(
+    env: FunctionEnvMut<System>,
+    _render_pass: u32,
+    pipeline: u32,
+) {
+    let system = env.data();
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderSetPipeline(
+            system.render_pass.0,
+            system.pipelines[pipeline as usize - 1].0,
+        );
     }
 }
 

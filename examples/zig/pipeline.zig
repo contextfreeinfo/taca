@@ -23,7 +23,7 @@ pub fn buildPipeline(device: g.WGPUDevice, format: g.WGPUTextureFormat) g.WGPURe
             .hintCount = 0,
             .hints = null,
         },
-    );
+    ) orelse unreachable;
     const pipeline_layout = g.wgpuDeviceCreatePipelineLayout(
         device,
         &g.WGPUPipelineLayoutDescriptor{
