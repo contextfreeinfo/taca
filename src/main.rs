@@ -1140,6 +1140,7 @@ fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<System
                 // }
             }
             Event::RedrawEventsCleared => {
+                std::thread::sleep(std::time::Duration::from_millis(16));
                 // RedrawRequested will only trigger once, unless we manually
                 // request it.
                 // state.window().request_redraw();
