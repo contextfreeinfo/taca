@@ -1,4 +1,5 @@
 const assert = @import("std").debug.assert;
+const p = @import("./pipeline.zig");
 const g = @cImport({
     @cInclude("wgpu.h");
     @cInclude("webgpu-headers/webgpu.h");
@@ -72,6 +73,7 @@ pub fn main() void {
     // Swap Chain
     const size = t.tac_windowInnerSize();
     const format = g.wgpuSurfaceGetPreferredFormat(surface, adapter);
+    const pipeline = p.buildPipeline(device, format);
     const swap_chain = createSwapChain(.{
         .device = device,
         .format = format,
@@ -83,6 +85,7 @@ pub fn main() void {
         .device = device,
         .format = format,
         .instance = instance,
+        .pipeline = pipeline,
         .queue = queue,
         .size = size,
         .swap_chain = swap_chain,
@@ -116,18 +119,18 @@ fn windowRedraw(state: *State) void {
     const view = g.wgpuSwapChainGetCurrentTextureView(state.swap_chain);
     const encoder = g.wgpuDeviceCreateCommandEncoder(
         state.device,
-        &g.WGPUCommandEncoderDescriptor {
+        &g.WGPUCommandEncoderDescriptor{
             .nextInChain = null,
             .label = null,
         },
     );
     const render_pass = g.wgpuCommandEncoderBeginRenderPass(
         encoder,
-        &g.WGPURenderPassDescriptor {
+        &g.WGPURenderPassDescriptor{
             .nextInChain = null,
             .label = null,
             .colorAttachmentCount = 1,
-            .colorAttachments = &g.WGPURenderPassColorAttachment {
+            .colorAttachments = &g.WGPURenderPassColorAttachment{
                 .view = view,
                 .resolveTarget = null,
                 .loadOp = g.WGPULoadOp_Clear,
@@ -149,7 +152,7 @@ fn windowRedraw(state: *State) void {
     g.wgpuTextureViewDrop(view);
     const command_buffer = g.wgpuCommandEncoderFinish(
         encoder,
-        &g.WGPUCommandBufferDescriptor {
+        &g.WGPUCommandBufferDescriptor{
             .nextInChain = null,
             .label = null,
         },
@@ -177,6 +180,7 @@ const State = struct {
     device: g.WGPUDevice,
     format: g.WGPUTextureFormat,
     instance: g.WGPUInstance,
+    pipeline: g.WGPURenderPipeline,
     queue: g.WGPUQueue,
     size: t.tac_Vec2,
     swap_chain: g.WGPUSwapChain,
