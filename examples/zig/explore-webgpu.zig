@@ -136,9 +136,9 @@ fn windowRedraw(state: *State) void {
                 .loadOp = g.WGPULoadOp_Clear,
                 .storeOp = g.WGPUStoreOp_Store,
                 .clearValue = .{
-                    .r = 0.0,
-                    .g = 0.1,
-                    .b = 0.05,
+                    .r = 0.1,
+                    .g = 0.2,
+                    .b = 0.3,
                     .a = 1.0,
                 },
             },

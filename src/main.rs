@@ -8,7 +8,7 @@ use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
-    Table, Value, ValueType, WasmPtr,
+    Table, Value, ValueType, WasmPtr, WasmRef,
 };
 use wgpu_native::native;
 use winit::{
@@ -332,7 +332,38 @@ fn wgpu_adapter_request_device(
     }
 }
 
-// wgpuCommandEncoderBeginRenderPass
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPURenderPassDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    color_attachment_count: u32,
+    color_attachments: WasmPtr<WasmWGPURenderPassColorAttachment>,
+    depth_stencil_attachment: u32, // WGPURenderPassDepthStencilAttachment const *
+    occlusion_query_set: u32,      // WGPUQuerySet
+    timestamp_write_count: u32,
+    timestamp_writes: u32, // WGPURenderPassTimestampWrite const *
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPURenderPassColorAttachment {
+    view: u32,           // WGPUTextureView,
+    resolve_target: u32, // WGPUTextureView
+    load_op: native::WGPULoadOp,
+    store_op: native::WGPUStoreOp,
+    clear_value: WasmWGPUColor,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUColor {
+    r: f64,
+    g: f64,
+    b: f64,
+    a: f64,
+}
+
 fn wgpu_command_encoder_begin_render_pass(
     mut env: FunctionEnvMut<System>,
     encoder: u32,
@@ -341,31 +372,17 @@ fn wgpu_command_encoder_begin_render_pass(
     println!("wgpuCommandEncoderBeginRenderPass({encoder}, {descriptor})");
     let (mut system, store) = env.data_and_store_mut();
     let memory = system.memory.as_ref().unwrap().view(&store);
-    let mut buffer = [0u8; 4];
-    let address = descriptor as u64;
-    memory.read(address + 8, &mut buffer).unwrap();
-    let color_attachment_count = u32::from_le_bytes(buffer);
-    let clear_value = if color_attachment_count > 0 {
-        memory.read(address + 12, &mut buffer).unwrap();
-        let attachment = u32::from_le_bytes(buffer) as u64;
-        let mut color_buffer = [0u8; 8];
-        memory
-            .read(attachment + 16 + 0 * 8, &mut color_buffer)
-            .unwrap();
-        let r = f64::from_le_bytes(color_buffer);
-        memory
-            .read(attachment + 16 + 1 * 8, &mut color_buffer)
-            .unwrap();
-        let g = f64::from_le_bytes(color_buffer);
-        memory
-            .read(attachment + 16 + 2 * 8, &mut color_buffer)
-            .unwrap();
-        let b = f64::from_le_bytes(color_buffer);
-        memory
-            .read(attachment + 16 + 3 * 8, &mut color_buffer)
-            .unwrap();
-        let a = f64::from_le_bytes(color_buffer);
-        native::WGPUColor { r, g, b, a }
+    let descriptor = WasmRef::<WasmWGPURenderPassDescriptor>::new(&memory, descriptor as u64)
+        .read()
+        .unwrap();
+    let clear_value = if descriptor.color_attachment_count > 0 {
+        let attachment = descriptor.color_attachments.deref(&memory).read().unwrap();
+        native::WGPUColor {
+            r: attachment.clear_value.r,
+            g: attachment.clear_value.g,
+            b: attachment.clear_value.b,
+            a: attachment.clear_value.a,
+        }
     } else {
         native::WGPUColor {
             r: 0.0,
@@ -696,17 +713,17 @@ fn read_cstring(pointer: WasmPtr<u8>, memory: &MemoryView) -> Result<CString, Fr
     CString::from_vec_with_nul(bytes)
 }
 
-// #[derive(Default)]
-// #[repr(C)]
-// struct WGPUSwapChainDescriptor {
-//     nextInChain: u32, // WGPUChainedStruct const*
-//     label: u32,       // char const* // nullable
-//     usage: u32,       // WGPUTextureUsageFlags
-//     format: wgpu_native::WGPUTextureFormat,
-//     width: u32,
-//     height: u32,
-//     presentMode: u32, // WGPUPresentMode
-// }
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUSwapChainDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    usage: native::WGPUTextureUsageFlags,
+    format: native::WGPUTextureFormat,
+    width: u32,
+    height: u32,
+    present_mode: native::WGPUPresentMode,
+}
 
 fn wgpu_device_create_swap_chain(
     mut env: FunctionEnvMut<System>,
@@ -718,26 +735,9 @@ fn wgpu_device_create_swap_chain(
     let (system, mut store) = env.data_and_store_mut();
     if system.swap_chain.0.is_null() {
         let memory = system.memory.as_ref().unwrap().view(&mut store);
-        let address = descriptor as u64;
-        // Read
-        let mut buffer = [0u8; 4];
-        // typedef struct WGPUSwapChainDescriptorExtras {
-        //     WGPUChainedStruct chain;
-        //     WGPUCompositeAlphaMode alphaMode;
-        //     size_t viewFormatCount;
-        //     WGPUTextureFormat const * viewFormats;
-        // } WGPUSwapChainDescriptorExtras;
-        memory.read(address + 8, &mut buffer).unwrap();
-        let usage = u32::from_le_bytes(buffer);
-        memory.read(address + 12, &mut buffer).unwrap();
-        let format = u32::from_le_bytes(buffer);
-        memory.read(address + 16, &mut buffer).unwrap();
-        let width = u32::from_le_bytes(buffer);
-        memory.read(address + 20, &mut buffer).unwrap();
-        let height = u32::from_le_bytes(buffer);
-        memory.read(address + 24, &mut buffer).unwrap();
-        let present_mode = u32::from_le_bytes(buffer);
-        // Configure
+        let descriptor = WasmRef::<WasmWGPUSwapChainDescriptor>::new(&memory, descriptor as u64)
+            .read()
+            .unwrap();
         system.swap_chain.0 = unsafe {
             wgpu_native::device::wgpuDeviceCreateSwapChain(
                 system.device.0,
@@ -745,11 +745,11 @@ fn wgpu_device_create_swap_chain(
                 Some(&native::WGPUSwapChainDescriptor {
                     nextInChain: null(),
                     label: null(),
-                    usage,
-                    format,
-                    width,
-                    height,
-                    presentMode: present_mode,
+                    usage: descriptor.usage,
+                    format: descriptor.format,
+                    width: descriptor.width,
+                    height: descriptor.height,
+                    presentMode: descriptor.present_mode,
                 }),
             )
         };
