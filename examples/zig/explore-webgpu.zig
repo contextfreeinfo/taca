@@ -55,13 +55,25 @@ pub fn main() void {
     );
     const adapter = request_adapter_callback_data.adapter orelse unreachable;
     var supported_limits = std.mem.zeroInit(g.WGPUSupportedLimits, .{});
-    _ = g.wgpuAdapterGetLimits(adapter, &supported_limits);
+    _ = g.wgpuAdapterGetLimits(adapter, &supported_limits) or unreachable;
     errdefer g.wgpuAdapterDrop(adapter);
 
     // Device & Queue
     var request_device_callback_data = RequestDeviceCallbackData{
         .adapter = adapter,
         .surface = surface,
+    };
+    const required_limits = g.WGPURequiredLimits{
+        .nextInChain = null,
+        .limits = std.mem.zeroInit(g.WGPULimits, .{
+            .maxVertexAttributes = 2,
+            .maxVertexBuffers = 1,
+            .maxBufferSize = 6 * 5 * @sizeOf(f32),
+            .maxVertexBufferArrayStride = 5 * @sizeOf(f32),
+            .minStorageBufferOffsetAlignment = supported_limits.limits.minStorageBufferOffsetAlignment,
+            .minUniformBufferOffsetAlignment = supported_limits.limits.minUniformBufferOffsetAlignment,
+            .maxInterStageShaderComponents = 3,
+        }),
     };
     g.wgpuAdapterRequestDevice(
         adapter,
@@ -70,17 +82,7 @@ pub fn main() void {
             .label = null,
             .requiredFeaturesCount = 0,
             .requiredFeatures = null,
-            .requiredLimits = &g.WGPURequiredLimits{
-                .nextInChain = null,
-                .limits = std.mem.zeroInit(g.WGPULimits, .{
-                    .maxVertexAttributes = 2,
-                    .maxVertexBuffers = 1,
-                    .maxBufferSize = 6 * 5 * @sizeOf(f32),
-                    .maxVertexBufferArrayStride = 5 * @sizeOf(f32),
-                    .minStorageBufferOffsetAlignment = supported_limits.limits.minStorageBufferOffsetAlignment,
-                    .maxInterStageShaderComponents = 3,
-                }),
-            },
+            .requiredLimits = &required_limits,
             .defaultQueue = std.mem.zeroInit(g.WGPUQueueDescriptor, .{}),
         },
         requestDeviceCallback,

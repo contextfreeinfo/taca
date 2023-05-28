@@ -46,7 +46,6 @@ struct WasmWGPUSupportedLimits {
     limits: WasmWGPULimits,
 }
 
-// WGPU_EXPORT bool wgpuAdapterGetLimits(WGPUAdapter adapter, WGPUSupportedLimits * limits);
 pub fn wgpu_adapter_get_limits(mut env: FunctionEnvMut<System>, adapter: u32, limits: u32) -> u32 {
     println!("wgpuAdapterGetLimits({adapter}, {limits})");
     let (system, store) = env.data_and_store_mut();
@@ -73,6 +72,26 @@ pub fn wgpu_adapter_get_limits(mut env: FunctionEnvMut<System>, adapter: u32, li
     }
 }
 
+type WasmWGPURequiredLimits = WasmWGPUSupportedLimits;
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUDeviceDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    required_features_count: u32,
+    required_features: u32, // WGPUFeatureName const *
+    required_limits: WasmPtr<WasmWGPURequiredLimits>,
+    default_queue: WasmWGPUQueueDescriptor,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUQueueDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+}
+
 pub fn wgpu_adapter_request_device(
     mut env: FunctionEnvMut<System>,
     adapter: u32,
@@ -84,10 +103,34 @@ pub fn wgpu_adapter_request_device(
     let (system, mut store) = env.data_and_store_mut();
     if system.device.0.is_null() {
         let adapter = system.adapter.0;
+        let memory = system.memory.as_ref().unwrap().view(&store);
+        let descriptor = WasmRef::<WasmWGPUDeviceDescriptor>::new(&memory, descriptor as u64);
+        let limits = descriptor
+            .read()
+            .unwrap()
+            .required_limits
+            .deref(&memory)
+            .read()
+            .unwrap()
+            .limits;
         unsafe {
+            let required_limits = native::WGPURequiredLimits {
+                nextInChain: null(),
+                limits: std::mem::transmute::<WasmWGPULimits, native::WGPULimits>(limits),
+            };
             wgpu_native::device::wgpuAdapterRequestDevice(
                 adapter,
-                None,
+                Some(&native::WGPUDeviceDescriptor {
+                    nextInChain: null(),
+                    label: null(),
+                    requiredFeaturesCount: 0,
+                    requiredFeatures: null(),
+                    requiredLimits: &required_limits as *const native::WGPURequiredLimits,
+                    defaultQueue: native::WGPUQueueDescriptor {
+                        nextInChain: null(),
+                        label: null(),
+                    },
+                }),
                 Some(request_device_callback),
                 system as *mut System as *mut std::ffi::c_void,
             );
@@ -99,6 +142,9 @@ pub fn wgpu_adapter_request_device(
             system: *mut std::os::raw::c_void,
         ) {
             if status != native::WGPURequestDeviceStatus_Success {
+                // This trusts the webgpu implementation to give a safe message.
+                // TODO What happens if message isn't utf8?
+                let message = unsafe { CStr::from_ptr(message) };
                 panic!("WGPURequestAdapterStatus {status}: {message:?}");
             }
             unsafe {
@@ -823,7 +869,7 @@ pub fn wgpu_texture_view_drop(mut env: FunctionEnvMut<System>, _texture_view: u3
 
 use crate::system::*;
 use std::{
-    ffi::{CString, FromVecWithNulError},
+    ffi::{CStr, CString, FromVecWithNulError},
     mem::MaybeUninit,
     ptr::{null, null_mut},
 };

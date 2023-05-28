@@ -4,5 +4,5 @@ time (
         time sh build.sh
     ) &&
     time cargo build --release &&
-    /usr/bin/time -v target/release/tacana run examples/zig/explore-webgpu.opt.wasm
+    RUST_BACKTRACE=1 /usr/bin/time -v target/release/tacana run examples/zig/explore-webgpu.opt.wasm
 )

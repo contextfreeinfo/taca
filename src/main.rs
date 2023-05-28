@@ -78,8 +78,9 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuSwapChainPresent" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_present),
             "wgpuTextureViewDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_texture_view_drop),
         },
-        // TODO Combine ours with wasmer_wasix::WasiEnv
+        // TODO Combine ours with wasmer_wasix::WasiEnv???
         "wasi_snapshot_preview1" => {
+            "fd_write" => Function::new_typed_with_env(&mut store, &env, fd_write),
             "proc_exit" => Function::new_typed(&mut store, proc_exit),
         },
     };
@@ -121,6 +122,37 @@ fn run_app(args: &RunArgs) -> Result<()> {
     Ok(())
 }
 
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmIOVec {
+    buf: WasmPtr<u8>,
+    size: u32,
+}
+
+fn fd_write(mut env: FunctionEnvMut<System>, fd: u32, iovec: u32, len: u32, nwritten: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let mut count = 0u32;
+    for io in WasmPtr::<WasmIOVec>::new(iovec)
+        .slice(&view, len)
+        .unwrap()
+        .iter()
+    {
+        let io = io.read().unwrap();
+        // TODO Support arbitrary bytes to output streams? Depends on config???
+        let text = io.buf.read_utf8_string(&view, io.size).unwrap();
+        match fd {
+            0 => print!("{}", text),
+            _ => eprint!("{}", text),
+        }
+        count += io.size;
+    }
+    WasmRef::<u32>::new(&view, nwritten as u64)
+        .write(count)
+        .unwrap();
+    0
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ExitCode(u32);
 
@@ -144,7 +176,10 @@ mod window;
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use std::fmt;
-use wasmer::{imports, Function, FunctionEnv, Instance, Module, Store};
+use wasmer::{
+    imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, ValueType, WasmPtr,
+    WasmRef,
+};
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 
 use crate::system::*;
