@@ -1,3 +1,6 @@
+// Based largely on:
+// https://github.com/eliemichel/LearnWebGPU-Code/blob/step033/main.cpp
+
 const std = @import("std");
 const assert = std.debug.assert;
 const p = @import("./pipeline.zig");
@@ -90,6 +93,7 @@ pub fn main() void {
     );
     const device = request_device_callback_data.device orelse unreachable;
     errdefer g.wgpuDeviceDrop(device);
+    g.wgpuDeviceSetUncapturedErrorCallback(device, deviceUncapturedErrorCallback, null);
     const queue = g.wgpuDeviceGetQueue(device);
 
     // Swap Chain
@@ -281,4 +285,15 @@ fn requestDeviceCallback(
         @alignCast(@alignOf(*RequestDeviceCallbackData), userdata),
     );
     data.device = device;
+}
+
+fn deviceUncapturedErrorCallback(
+    status: g.WGPURequestDeviceStatus,
+    message: [*c]const u8,
+    userdata: ?*anyopaque,
+) callconv(.C) void {
+    // TODO Once we can actually call this.
+    _ = status;
+    _ = message;
+    _ = userdata;
 }

@@ -1,3 +1,5 @@
+// const print = @import("std").debug.print;
+const d = @import("./data.zig");
 const g = @cImport({
     @cInclude("wgpu.h");
     @cInclude("webgpu-headers/webgpu.h");
@@ -24,6 +26,24 @@ pub fn buildPipeline(device: g.WGPUDevice, format: g.WGPUTextureFormat) g.WGPURe
             .hints = null,
         },
     ) orelse unreachable;
+    const vertex_attributes = [_]g.WGPUVertexAttribute{
+        .{
+            .format = g.WGPUVertexFormat_Float32x2,
+            .offset = 0,
+            .shaderLocation = 0,
+        },
+        .{
+            .format = g.WGPUVertexFormat_Float32x3,
+            .offset = d.vertex_color_offset * @sizeOf(f32),
+            .shaderLocation = 1,
+        },
+    };
+    const vertex_buffer_layout = g.WGPUVertexBufferLayout{
+        .arrayStride = d.vertex_stride,
+        .stepMode = g.WGPUVertexStepMode_Vertex,
+        .attributeCount = vertex_attributes.len,
+        .attributes = &vertex_attributes,
+    };
     const pipeline_layout = g.wgpuDeviceCreatePipelineLayout(
         device,
         &g.WGPUPipelineLayoutDescriptor{
@@ -33,7 +53,7 @@ pub fn buildPipeline(device: g.WGPUDevice, format: g.WGPUTextureFormat) g.WGPURe
             .bindGroupLayouts = null,
         },
     ) orelse unreachable;
-    return g.wgpuDeviceCreateRenderPipeline(device, &g.WGPURenderPipelineDescriptor{
+    const pipeline = g.wgpuDeviceCreateRenderPipeline(device, &g.WGPURenderPipelineDescriptor{
         .nextInChain = null,
         .label = null,
         .layout = pipeline_layout,
@@ -43,8 +63,8 @@ pub fn buildPipeline(device: g.WGPUDevice, format: g.WGPUTextureFormat) g.WGPURe
             .entryPoint = "vs_main",
             .constantCount = 0,
             .constants = null,
-            .bufferCount = 0,
-            .buffers = null,
+            .bufferCount = 1,
+            .buffers = &vertex_buffer_layout,
         },
         .fragment = &g.WGPUFragmentState{
             .nextInChain = null,
@@ -77,4 +97,5 @@ pub fn buildPipeline(device: g.WGPUDevice, format: g.WGPUTextureFormat) g.WGPURe
             .alphaToCoverageEnabled = false,
         },
     }) orelse unreachable;
+    return pipeline;
 }

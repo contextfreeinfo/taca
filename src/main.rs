@@ -64,6 +64,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuDeviceCreateSwapChain" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_swap_chain),
             "wgpuDeviceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_device_drop),
             "wgpuDeviceGetQueue" => Function::new_typed_with_env(&mut store, &env, wgpu_device_get_queue),
+            "wgpuDeviceSetUncapturedErrorCallback" => Function::new_typed_with_env(&mut store, &env, wgpu_device_set_uncaptured_error_callback),
             "wgpuInstanceCreateSurface" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_create_surface),
             "wgpuInstanceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_drop),
             "wgpuInstanceRequestAdapter" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_request_adapter),
@@ -142,7 +143,7 @@ fn fd_write(mut env: FunctionEnvMut<System>, fd: u32, iovec: u32, len: u32, nwri
         // TODO Support arbitrary bytes to output streams? Depends on config???
         let text = io.buf.read_utf8_string(&view, io.size).unwrap();
         match fd {
-            0 => print!("{}", text),
+            1 => print!("{}", text),
             _ => eprint!("{}", text),
         }
         count += io.size;

@@ -87,6 +87,8 @@ pub struct System {
     pub adapter: WGPUAdapter,
     pub command_buffer: WGPUCommandBuffer,
     pub device: WGPUDevice,
+    pub device_uncaptured_error_callback: Option<wasmer::Function>,
+    pub device_uncaptured_error_callback_userdata: u32,
     pub encoder: WGPUCommandEncoder,
     pub functions: Option<Table>,
     pub instance: WGPUInstance,

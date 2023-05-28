@@ -356,7 +356,24 @@ struct WasmWGPUVertexState {
     constant_count: u32,
     constants: u32, // WGPUConstantEntry const *
     buffer_count: u32,
-    buffers: u32, // WGPUVertexBufferLayout const *
+    buffers: WasmPtr<WasmWGPUVertexBufferLayout>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUVertexBufferLayout {
+    array_stride: u64,
+    step_mode: native::WGPUVertexStepMode,
+    attribute_count: u32,
+    attributes: WasmPtr<WasmWGPUVertexAttribute>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUVertexAttribute {
+    format: native::WGPUVertexFormat,
+    offset: u64,
+    shader_location: u32,
 }
 
 #[derive(Copy, Clone, Debug, ValueType)]
@@ -427,6 +444,38 @@ pub fn wgpu_device_create_render_pipeline(
             }
         })
         .collect();
+    let mut vertex_attributes: Vec<Vec<native::WGPUVertexAttribute>> = vec![];
+    let vertex_layouts: Vec<native::WGPUVertexBufferLayout> = descriptor
+        .vertex
+        .buffers
+        .slice(&memory, descriptor.vertex.buffer_count)
+        .unwrap()
+        .iter()
+        .map(|buffer| {
+            let buffer = buffer.read().unwrap();
+            let attributes = buffer
+                .attributes
+                .slice(&memory, buffer.attribute_count)
+                .unwrap()
+                .iter()
+                .map(|attribute| {
+                    let attribute = attribute.read().unwrap();
+                    native::WGPUVertexAttribute {
+                        format: attribute.format,
+                        offset: attribute.offset,
+                        shaderLocation: attribute.shader_location,
+                    }
+                })
+                .collect();
+            vertex_attributes.push(attributes);
+            native::WGPUVertexBufferLayout {
+                arrayStride: buffer.array_stride,
+                stepMode: buffer.step_mode,
+                attributeCount: buffer.attribute_count,
+                attributes: vertex_attributes.last().unwrap().as_ptr(),
+            }
+        })
+        .collect();
     let pipeline = unsafe {
         wgpu_native::device::wgpuDeviceCreateRenderPipeline(
             system.device.0,
@@ -440,8 +489,8 @@ pub fn wgpu_device_create_render_pipeline(
                     entryPoint: vertex_entry_point.as_ptr(),
                     constantCount: 0,
                     constants: null(),
-                    bufferCount: 0,
-                    buffers: null(),
+                    bufferCount: descriptor.vertex.buffer_count,
+                    buffers: vertex_layouts.as_ptr(),
                 },
                 primitive: native::WGPUPrimitiveState {
                     nextInChain: null(),
@@ -469,6 +518,7 @@ pub fn wgpu_device_create_render_pipeline(
             }),
         )
     };
+    assert_ne!(null(), pipeline);
     system.pipelines.push(WGPURenderPipeline(pipeline));
     system.pipelines.len().try_into().unwrap()
 }
@@ -541,6 +591,7 @@ pub fn wgpu_device_create_shader_module(
             }),
         )
     };
+    assert_ne!(null(), shader);
     system.shaders.push(WGPUShaderModule(shader));
     system.shaders.len().try_into().unwrap()
 }
@@ -610,6 +661,41 @@ pub fn wgpu_device_get_queue(mut env: FunctionEnvMut<System>, adapter: u32) -> u
         system.queue.0 = unsafe { wgpu_native::device::wgpuDeviceGetQueue(system.device.0) };
     }
     1
+}
+
+pub fn wgpu_device_set_uncaptured_error_callback(
+    mut env: FunctionEnvMut<System>,
+    _device: u32,
+    callback: u32,
+    userdata: u32,
+) {
+    println!("wgpuDeviceSetUncapturedErrorCallback({callback}, {userdata})");
+    let (mut system, mut store) = env.data_and_store_mut();
+    if !system.device.0.is_null() {
+        let functions = system.functions.as_ref().unwrap();
+        let value = functions.get(&mut store, callback).unwrap();
+        system.device_uncaptured_error_callback =
+            Some(value.unwrap_funcref().as_ref().unwrap().clone());
+        system.device_uncaptured_error_callback_userdata = userdata;
+        unsafe {
+            extern "C" fn error_callback(
+                status: native::WGPUErrorType,
+                message: *const std::os::raw::c_char,
+                _system: *mut std::os::raw::c_void,
+            ) {
+                let message = unsafe { CStr::from_ptr(message) };
+                panic!("WGPUDeviceUncapturedErrorCallback {status}: {message:?}");
+                // unsafe {
+                //     // TODO How to call the function???????
+                // }
+            }
+            wgpu_native::wgpuDeviceSetUncapturedErrorCallback(
+                system.device.0,
+                Some(error_callback),
+                null_mut(),
+            );
+        }
+    }
 }
 
 pub fn wgpu_instance_create_surface(
