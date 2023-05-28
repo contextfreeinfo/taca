@@ -3,6 +3,76 @@ pub fn wgpu_adapter_drop(_env: FunctionEnvMut<System>, adapter: u32) {
     println!("wgpuAdapterDrop({adapter})");
 }
 
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPULimits {
+    max_texture_dimension_1d: u32,
+    max_texture_dimension_2d: u32,
+    max_texture_dimension_3d: u32,
+    max_texture_array_layers: u32,
+    max_bind_groups: u32,
+    max_bindings_per_bind_group: u32,
+    max_dynamic_uniform_buffers_per_pipeline_layout: u32,
+    max_dynamic_storage_buffers_per_pipeline_layout: u32,
+    max_sampled_textures_per_shader_stage: u32,
+    max_samplers_per_shader_stage: u32,
+    max_storage_buffers_per_shader_stage: u32,
+    max_storage_textures_per_shader_stage: u32,
+    max_uniform_buffers_per_shader_stage: u32,
+    max_uniform_buffer_binding_size: u64,
+    max_storage_buffer_binding_size: u64,
+    min_uniform_buffer_offset_alignment: u32,
+    min_storage_buffer_offset_alignment: u32,
+    max_vertex_buffers: u32,
+    max_buffer_size: u64,
+    max_vertex_attributes: u32,
+    max_vertex_buffer_array_stride: u32,
+    max_inter_stage_shader_components: u32,
+    max_inter_stage_shader_variables: u32,
+    max_color_attachments: u32,
+    max_color_attachment_bytes_per_sample: u32,
+    max_compute_workgroup_storage_size: u32,
+    max_compute_invocations_per_workgroup: u32,
+    max_compute_workgroup_size_x: u32,
+    max_compute_workgroup_size_y: u32,
+    max_compute_workgroup_size_z: u32,
+    max_compute_workgroups_per_dimension: u32,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUSupportedLimits {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    limits: WasmWGPULimits,
+}
+
+// WGPU_EXPORT bool wgpuAdapterGetLimits(WGPUAdapter adapter, WGPUSupportedLimits * limits);
+pub fn wgpu_adapter_get_limits(mut env: FunctionEnvMut<System>, adapter: u32, limits: u32) -> u32 {
+    println!("wgpuAdapterGetLimits({adapter}, {limits})");
+    let (system, store) = env.data_and_store_mut();
+    if system.adapter.0.is_null() {
+        0
+    } else {
+        unsafe {
+            let preset = MaybeUninit::<native::WGPULimits>::zeroed();
+            let mut values = native::WGPUSupportedLimits {
+                nextInChain: null_mut(),
+                limits: preset.assume_init(),
+            };
+            let result =
+                wgpu_native::device::wgpuAdapterGetLimits(system.adapter.0, Some(&mut values));
+            let values_wasm = WasmWGPUSupportedLimits {
+                next_in_chain: WasmPtr::null(),
+                limits: std::mem::transmute::<native::WGPULimits, WasmWGPULimits>(values.limits),
+            };
+            let memory = system.memory.as_ref().unwrap().view(&store);
+            let limits_ref = WasmRef::<WasmWGPUSupportedLimits>::new(&memory, limits as u64);
+            limits_ref.write(values_wasm).unwrap();
+            result as u32
+        }
+    }
+}
+
 pub fn wgpu_adapter_request_device(
     mut env: FunctionEnvMut<System>,
     adapter: u32,
@@ -457,9 +527,9 @@ pub fn wgpu_device_create_swap_chain(
     descriptor: u32,
 ) -> u32 {
     println!("wgpuDeviceCreateSwapChain({device}, {surface}, {descriptor})");
-    let (system, mut store) = env.data_and_store_mut();
+    let (system, store) = env.data_and_store_mut();
     if system.swap_chain.0.is_null() {
-        let memory = system.memory.as_ref().unwrap().view(&mut store);
+        let memory = system.memory.as_ref().unwrap().view(&store);
         let descriptor = WasmRef::<WasmWGPUSwapChainDescriptor>::new(&memory, descriptor as u64)
             .read()
             .unwrap();
@@ -754,6 +824,7 @@ pub fn wgpu_texture_view_drop(mut env: FunctionEnvMut<System>, _texture_view: u3
 use crate::system::*;
 use std::{
     ffi::{CString, FromVecWithNulError},
+    mem::MaybeUninit,
     ptr::{null, null_mut},
 };
 use wasmer::{FunctionEnvMut, MemoryView, Value, ValueType, WasmPtr, WasmRef};

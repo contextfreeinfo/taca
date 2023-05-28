@@ -1,4 +1,5 @@
-const assert = @import("std").debug.assert;
+const std = @import("std");
+const assert = std.debug.assert;
 const p = @import("./pipeline.zig");
 const g = @cImport({
     @cInclude("wgpu.h");
@@ -37,7 +38,7 @@ pub fn main() void {
     // Adapter
     // This only works because the callback is effectively synchronous.
     // Otherwise, we'd need to allocate on the heap or global.
-    var requestAdapterCallbackData = RequestAdapterCallbackData{
+    var request_adapter_callback_data = RequestAdapterCallbackData{
         .instance = instance,
         .surface = surface,
     };
@@ -50,23 +51,42 @@ pub fn main() void {
             .forceFallbackAdapter = false,
         },
         requestAdapterCallback,
-        &requestAdapterCallbackData,
+        &request_adapter_callback_data,
     );
-    const adapter = requestAdapterCallbackData.adapter orelse unreachable;
+    const adapter = request_adapter_callback_data.adapter orelse unreachable;
+    var supported_limits = std.mem.zeroInit(g.WGPUSupportedLimits, .{});
+    _ = g.wgpuAdapterGetLimits(adapter, &supported_limits);
     errdefer g.wgpuAdapterDrop(adapter);
 
     // Device & Queue
-    var requestDeviceCallbackData = RequestDeviceCallbackData{
+    var request_device_callback_data = RequestDeviceCallbackData{
         .adapter = adapter,
         .surface = surface,
     };
     g.wgpuAdapterRequestDevice(
         adapter,
-        null,
+        &g.WGPUDeviceDescriptor{
+            .nextInChain = null,
+            .label = null,
+            .requiredFeaturesCount = 0,
+            .requiredFeatures = null,
+            .requiredLimits = &g.WGPURequiredLimits{
+                .nextInChain = null,
+                .limits = std.mem.zeroInit(g.WGPULimits, .{
+                    .maxVertexAttributes = 2,
+                    .maxVertexBuffers = 1,
+                    .maxBufferSize = 6 * 5 * @sizeOf(f32),
+                    .maxVertexBufferArrayStride = 5 * @sizeOf(f32),
+                    .minStorageBufferOffsetAlignment = supported_limits.limits.minStorageBufferOffsetAlignment,
+                    .maxInterStageShaderComponents = 3,
+                }),
+            },
+            .defaultQueue = std.mem.zeroInit(g.WGPUQueueDescriptor, .{}),
+        },
         requestDeviceCallback,
-        &requestDeviceCallbackData,
+        &request_device_callback_data,
     );
-    const device = requestDeviceCallbackData.device orelse unreachable;
+    const device = request_device_callback_data.device orelse unreachable;
     errdefer g.wgpuDeviceDrop(device);
     const queue = g.wgpuDeviceGetQueue(device);
 
