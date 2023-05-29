@@ -41,7 +41,10 @@ async fn run() -> Result<()> {
 
 fn run_app(args: &RunArgs) -> Result<()> {
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_maximized(true)
+        .build(&event_loop)
+        .unwrap();
     window.set_title("Tacaná");
 
     let mut store = Store::default();

@@ -9,6 +9,7 @@ const tac_WindowEventType_Resize: WindowEventType = 3;
 pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<System>) {
     // let (system, mut store) = env.data_and_store_mut();
     // let window = system.window.as_ref().unwrap();
+    let mut modifiers: ModifiersState = ModifiersState::empty();
     event_loop.run(move |event, _, control_flow| {
         let system = env.as_ref(&store);
         let window = system.window.as_ref().unwrap();
@@ -55,6 +56,27 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                             window_listen_userdata,
                         );
                         *control_flow = ControlFlow::Exit;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(key),
+                                ..
+                            },
+                        ..
+                    } => {
+                        if *key == VirtualKeyCode::F11
+                            || *key == VirtualKeyCode::Return && modifiers.alt()
+                        {
+                            window.set_fullscreen(match window.fullscreen() {
+                                Some(_) => None,
+                                None => Some(winit::window::Fullscreen::Borderless(None)),
+                            })
+                        }
+                    }
+                    WindowEvent::ModifiersChanged(state) => {
+                        modifiers = *state;
                     }
                     WindowEvent::Resized(_physical_size) => {
                         send_event(
