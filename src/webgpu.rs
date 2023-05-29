@@ -289,6 +289,43 @@ pub fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) ->
     1
 }
 
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUBufferDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    usage: native::WGPUBufferUsageFlags,
+    size: u64,
+    mapped_at_creation: bool,
+}
+
+pub fn wgpu_device_create_buffer(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateBuffer({device}, {descriptor})");
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmRef::<WasmWGPUBufferDescriptor>::new(&view, descriptor as u64)
+        .read()
+        .unwrap();
+    let buffer = unsafe {
+        wgpu_native::device::wgpuDeviceCreateBuffer(
+            system.device.0,
+            Some(&native::WGPUBufferDescriptor {
+                nextInChain: null(),
+                label: null(),
+                usage: descriptor.usage,
+                size: descriptor.size,
+                mappedAtCreation: descriptor.mapped_at_creation,
+            }),
+        )
+    };
+    system.buffers.push(WGPUBuffer(buffer));
+    system.buffers.len().try_into().unwrap()
+}
+
 pub fn wgpu_device_create_command_encoder(
     mut env: FunctionEnvMut<System>,
     device: u32,
@@ -844,6 +881,35 @@ pub fn wgpu_queue_submit(
     }
 }
 
+pub fn wgpu_queue_write_buffer(
+    mut env: FunctionEnvMut<System>,
+    _queue: u32,
+    buffer: u32,
+    buffer_offset: u64,
+    data: u32,
+    size: u32,
+) {
+    let (system, store) = env.data_and_store_mut();
+    if !system.queue.0.is_null() {
+        let view = system.memory.as_ref().unwrap().view(&store);
+        // TODO How to avoid this extra copy?
+        let data = WasmPtr::<u8>::new(data)
+            .slice(&view, size)
+            .unwrap()
+            .read_to_vec()
+            .unwrap();
+        unsafe {
+            wgpu_native::device::wgpuQueueWriteBuffer(
+                system.queue.0,
+                system.buffers[buffer as usize - 1].0,
+                buffer_offset,
+                data.as_ptr(),
+                size as usize,
+            );
+        }
+    }
+}
+
 pub fn wgpu_render_pass_encoder_draw(
     env: FunctionEnvMut<System>,
     _render_pass: u32,
@@ -885,6 +951,26 @@ pub fn wgpu_render_pass_encoder_set_pipeline(
         wgpu_native::command::wgpuRenderPassEncoderSetPipeline(
             system.render_pass.0,
             system.pipelines[pipeline as usize - 1].0,
+        );
+    }
+}
+
+pub fn wgpu_render_pass_encoder_set_vertex_buffer(
+    env: FunctionEnvMut<System>,
+    _render_pass: u32,
+    slot: u32,
+    buffer: u32,
+    offset: u64,
+    size: u64,
+) {
+    let system = env.data();
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
+            system.render_pass.0,
+            slot,
+            system.buffers[buffer as usize - 1].0,
+            offset,
+            size,
         );
     }
 }

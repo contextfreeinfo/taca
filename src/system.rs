@@ -10,6 +10,14 @@ impl<T> Default for Pointer<T> {
     }
 }
 
+pub struct WGPUBuffer(pub native::WGPUBuffer);
+unsafe impl Send for WGPUBuffer {}
+impl Default for WGPUBuffer {
+    fn default() -> Self {
+        WGPUBuffer(null_mut())
+    }
+}
+
 pub struct WGPUCommandBuffer(pub native::WGPUCommandBuffer);
 unsafe impl Send for WGPUCommandBuffer {}
 impl Default for WGPUCommandBuffer {
@@ -85,6 +93,7 @@ impl Default for WGPUTextureView {
 #[derive(Default)]
 pub struct System {
     pub adapter: WGPUAdapter,
+    pub buffers: Vec<WGPUBuffer>,
     pub command_buffer: WGPUCommandBuffer,
     pub device: WGPUDevice,
     pub device_uncaptured_error_callback: Option<wasmer::Function>,

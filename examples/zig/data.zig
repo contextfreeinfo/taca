@@ -2,6 +2,8 @@ pub const vertex_color_offset = 2;
 
 pub const vertex_count = vertex_data.len / vertex_len;
 
+pub const vertex_data_size = @sizeOf(@TypeOf(vertex_data));
+
 pub const vertex_len = 5;
 
 pub const vertex_stride = vertex_len * @sizeOf(f32);

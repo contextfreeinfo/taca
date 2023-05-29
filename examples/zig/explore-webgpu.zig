@@ -3,6 +3,7 @@
 
 const std = @import("std");
 const assert = std.debug.assert;
+const d = @import("./data.zig");
 const p = @import("./pipeline.zig");
 const g = @cImport({
     @cInclude("wgpu.h");
@@ -96,6 +97,19 @@ pub fn main() void {
     g.wgpuDeviceSetUncapturedErrorCallback(device, deviceUncapturedErrorCallback, null);
     const queue = g.wgpuDeviceGetQueue(device);
 
+    // Vertex buffer
+    const vertex_buffer = g.wgpuDeviceCreateBuffer(
+        device,
+        &g.WGPUBufferDescriptor{
+            .nextInChain = null,
+            .label = null,
+            .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Vertex,
+            .size = d.vertex_data_size,
+            .mappedAtCreation = false,
+        },
+    );
+    g.wgpuQueueWriteBuffer(queue, vertex_buffer, 0, &d.vertex_data, d.vertex_data_size);
+
     // Swap Chain
     const size = t.tac_windowInnerSize();
     const format = g.wgpuSurfaceGetPreferredFormat(surface, adapter);
@@ -116,6 +130,7 @@ pub fn main() void {
         .size = size,
         .swap_chain = swap_chain,
         .surface = surface,
+        .vertex_buffer = vertex_buffer,
     };
 
     // Listen
@@ -162,9 +177,9 @@ fn windowRedraw(state: *State) void {
                 .loadOp = g.WGPULoadOp_Clear,
                 .storeOp = g.WGPUStoreOp_Store,
                 .clearValue = .{
-                    .r = 0.1,
-                    .g = 0.2,
-                    .b = 0.3,
+                    .r = 0.05,
+                    .g = 0.05,
+                    .b = 0.05,
                     .a = 1.0,
                 },
             },
@@ -175,7 +190,8 @@ fn windowRedraw(state: *State) void {
         },
     ) orelse unreachable;
     g.wgpuRenderPassEncoderSetPipeline(render_pass, state.pipeline);
-    g.wgpuRenderPassEncoderDraw(render_pass, 3, 1, 0, 0);
+    g.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.vertex_buffer, 0, d.vertex_data_size);
+    g.wgpuRenderPassEncoderDraw(render_pass, d.vertex_count, 1, 0, 0);
     g.wgpuRenderPassEncoderEnd(render_pass);
     g.wgpuTextureViewDrop(view);
     const command_buffer = g.wgpuCommandEncoderFinish(
@@ -213,6 +229,7 @@ const State = struct {
     size: t.tac_Vec2,
     swap_chain: g.WGPUSwapChain,
     surface: g.WGPUSurface,
+    vertex_buffer: g.WGPUBuffer,
 };
 
 var global_state: State = undefined;
