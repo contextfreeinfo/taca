@@ -97,7 +97,7 @@ pub fn main() void {
     g.wgpuDeviceSetUncapturedErrorCallback(device, deviceUncapturedErrorCallback, null);
     const queue = g.wgpuDeviceGetQueue(device);
 
-    // Vertex buffer
+    // Buffers
     const vertex_buffer = g.wgpuDeviceCreateBuffer(
         device,
         &g.WGPUBufferDescriptor{
@@ -109,6 +109,30 @@ pub fn main() void {
         },
     );
     g.wgpuQueueWriteBuffer(queue, vertex_buffer, 0, &d.vertex_data, d.vertex_data_size);
+
+    const index_buffer = g.wgpuDeviceCreateBuffer(
+        device,
+        &g.WGPUBufferDescriptor{
+            .nextInChain = null,
+            .label = null,
+            .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Index,
+            .size = @sizeOf(@TypeOf(d.index_data)),
+            .mappedAtCreation = false,
+        },
+    );
+    g.wgpuQueueWriteBuffer(queue, index_buffer, 0, &d.index_data, @sizeOf(@TypeOf(d.index_data)));
+
+    const point_buffer = g.wgpuDeviceCreateBuffer(
+        device,
+        &g.WGPUBufferDescriptor{
+            .nextInChain = null,
+            .label = null,
+            .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Vertex,
+            .size = @sizeOf(@TypeOf(d.point_data)),
+            .mappedAtCreation = false,
+        },
+    );
+    g.wgpuQueueWriteBuffer(queue, point_buffer, 0, &d.point_data, @sizeOf(@TypeOf(d.point_data)));
 
     // Swap Chain
     const size = t.tac_windowInnerSize();
@@ -124,8 +148,10 @@ pub fn main() void {
         .adapter = adapter,
         .device = device,
         .format = format,
+        .index_buffer = index_buffer,
         .instance = instance,
         .pipeline = pipeline,
+        .point_buffer = point_buffer,
         .queue = queue,
         .size = size,
         .swap_chain = swap_chain,
@@ -190,8 +216,11 @@ fn windowRedraw(state: *State) void {
         },
     ) orelse unreachable;
     g.wgpuRenderPassEncoderSetPipeline(render_pass, state.pipeline);
-    g.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.vertex_buffer, 0, d.vertex_data_size);
-    g.wgpuRenderPassEncoderDraw(render_pass, d.vertex_count, 1, 0, 0);
+    // g.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.vertex_buffer, 0, d.vertex_data_size);
+    // g.wgpuRenderPassEncoderDraw(render_pass, d.vertex_count, 1, 0, 0);
+    g.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.point_buffer, 0, @sizeOf(@TypeOf(d.point_data)));
+    g.wgpuRenderPassEncoderSetIndexBuffer(render_pass, state.index_buffer, g.WGPUIndexFormat_Uint16, 0, @sizeOf(@TypeOf(d.index_data)));
+    g.wgpuRenderPassEncoderDrawIndexed(render_pass, d.index_data.len, 1, 0, 0, 0);
     g.wgpuRenderPassEncoderEnd(render_pass);
     g.wgpuTextureViewDrop(view);
     const command_buffer = g.wgpuCommandEncoderFinish(
@@ -223,8 +252,10 @@ const State = struct {
     adapter: g.WGPUAdapter,
     device: g.WGPUDevice,
     format: g.WGPUTextureFormat,
+    index_buffer: g.WGPUBuffer,
     instance: g.WGPUInstance,
     pipeline: g.WGPURenderPipeline,
+    point_buffer: g.WGPUBuffer,
     queue: g.WGPUQueue,
     size: t.tac_Vec2,
     swap_chain: g.WGPUSwapChain,

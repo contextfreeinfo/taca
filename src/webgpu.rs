@@ -930,6 +930,28 @@ pub fn wgpu_render_pass_encoder_draw(
     }
 }
 
+pub fn wgpu_render_pass_encoder_draw_indexed(
+    env: FunctionEnvMut<System>,
+    _render_pass: u32,
+    index_count: u32,
+    instance_count: u32,
+    first_index: u32,
+    base_vertex: u32,
+    first_instance: u32,
+) {
+    let system = env.data();
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderDrawIndexed(
+            system.render_pass.0,
+            index_count,
+            instance_count,
+            first_index,
+            base_vertex, // TODO Why the u32 vs i32 mismatch?
+            first_instance,
+        );
+    }
+}
+
 pub fn wgpu_render_pass_encoder_end(mut env: FunctionEnvMut<System>, _render_pass: u32) {
     // println!("wgpuSurfaceDrop({surface})");
     let system = env.data_mut();
@@ -951,6 +973,26 @@ pub fn wgpu_render_pass_encoder_set_pipeline(
         wgpu_native::command::wgpuRenderPassEncoderSetPipeline(
             system.render_pass.0,
             system.pipelines[pipeline as usize - 1].0,
+        );
+    }
+}
+
+pub fn wgpu_render_pass_encoder_set_index_buffer(
+    env: FunctionEnvMut<System>,
+    _render_pass: u32,
+    buffer: u32,
+    format: u32,
+    offset: u64,
+    size: u64,
+) {
+    let system = env.data();
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderSetIndexBuffer(
+            system.render_pass.0,
+            system.buffers[buffer as usize - 1].0,
+            format,
+            offset,
+            size,
         );
     }
 }
