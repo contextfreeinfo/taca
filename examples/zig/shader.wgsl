@@ -1,3 +1,8 @@
+// Variable in the *uniform* address space
+// The memory location of the uniform is given by a pair of a *bind group* and
+// a *binding*.
+@group(0) @binding(0) var<uniform> uTime: f32;
+
 /**
  * A structure with fields labeled with vertex attribute locations can be used
  * as input to the entry point of a shader.
@@ -24,7 +29,10 @@ struct VertexOutput {
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
 	var out: VertexOutput;
-	out.position = vec4f(in.position, 0.0, 1.0);
+	let ratio = 640.0 / 480.0;
+	// We move the scene depending on the time
+	let offset = 0.3 * vec2f(cos(uTime), sin(uTime));
+	out.position = vec4f(in.position.x + offset.x, (in.position.y + offset.y) * ratio, 0.0, 1.0);
 	out.color = in.color; // forward to the fragment shader
 	return out;
 }

@@ -10,6 +10,22 @@ impl<T> Default for Pointer<T> {
     }
 }
 
+pub struct WGPUBindGroup(pub native::WGPUBindGroup);
+unsafe impl Send for WGPUBindGroup {}
+impl Default for WGPUBindGroup {
+    fn default() -> Self {
+        WGPUBindGroup(null_mut())
+    }
+}
+
+pub struct WGPUBindGroupLayout(pub native::WGPUBindGroupLayout);
+unsafe impl Send for WGPUBindGroupLayout {}
+impl Default for WGPUBindGroupLayout {
+    fn default() -> Self {
+        WGPUBindGroupLayout(null_mut())
+    }
+}
+
 pub struct WGPUBuffer(pub native::WGPUBuffer);
 unsafe impl Send for WGPUBuffer {}
 impl Default for WGPUBuffer {
@@ -93,6 +109,8 @@ impl Default for WGPUTextureView {
 #[derive(Default)]
 pub struct System {
     pub adapter: WGPUAdapter,
+    pub bind_groups: Vec<WGPUBindGroup>,
+    pub bind_group_layouts: Vec<WGPUBindGroupLayout>,
     pub buffers: Vec<WGPUBuffer>,
     pub command_buffer: WGPUCommandBuffer,
     pub device: WGPUDevice,

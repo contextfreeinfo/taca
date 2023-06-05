@@ -1,11 +1,16 @@
-// const print = @import("std").debug.print;
+const std = @import("std");
+// const print = std.debug.print;
 const d = @import("./data.zig");
 const g = @cImport({
     @cInclude("wgpu.h");
     @cInclude("webgpu-headers/webgpu.h");
 });
 
-pub fn buildPipeline(device: g.WGPUDevice, format: g.WGPUTextureFormat) g.WGPURenderPipeline {
+pub fn buildPipeline(
+    device: g.WGPUDevice,
+    format: g.WGPUTextureFormat,
+    bind_group_layout: g.WGPUBindGroupLayout,
+) g.WGPURenderPipeline {
     // From:
     // https://github.com/eliemichel/LearnWebGPU-Code/blob/b089aa69e27965af04045098287f02a23b2a8845/main.cpp
     const shader_module = g.wgpuDeviceCreateShaderModule(
@@ -49,8 +54,8 @@ pub fn buildPipeline(device: g.WGPUDevice, format: g.WGPUTextureFormat) g.WGPURe
         &g.WGPUPipelineLayoutDescriptor{
             .nextInChain = null,
             .label = null,
-            .bindGroupLayoutCount = 0,
-            .bindGroupLayouts = null,
+            .bindGroupLayoutCount = 1,
+            .bindGroupLayouts = &[_]g.WGPUBindGroupLayout{bind_group_layout},
         },
     ) orelse unreachable;
     const pipeline = g.wgpuDeviceCreateRenderPipeline(device, &g.WGPURenderPipelineDescriptor{

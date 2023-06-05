@@ -215,7 +215,7 @@ pub fn wgpu_command_encoder_begin_render_pass(
         let descriptor = WasmRef::<WasmWGPURenderPassDescriptor>::new(&memory, descriptor as u64)
             .read()
             .unwrap();
-        let color_attachments: Vec<native::WGPURenderPassColorAttachment> = descriptor
+        let color_attachments: Vec<_> = descriptor
             .color_attachments
             .slice(&memory, descriptor.color_attachment_count)
             .unwrap()
@@ -291,6 +291,190 @@ pub fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) ->
 
 #[derive(Copy, Clone, Debug, ValueType)]
 #[repr(C)]
+struct WasmWGPUBindGroupDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    layout: u32, // WGPUBindGroupLayout
+    entry_count: u32,
+    entries: WasmPtr<WasmWGPUBindGroupEntry>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUBindGroupEntry {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    binding: u32,
+    buffer: u32, // WGPUBuffer
+    offset: u64,
+    size: u64,
+    sampler: u32,      // WGPUSampler
+    texture_view: u32, // WGPUTextureView
+}
+
+pub fn wgpu_device_create_bind_group(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateBindGroup({device}, {descriptor})");
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmRef::<WasmWGPUBindGroupDescriptor>::new(&view, descriptor as u64)
+        .read()
+        .unwrap();
+    let entries: Vec<_> = descriptor
+        .entries
+        .slice(&view, descriptor.entry_count)
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            let entry = entry.read().unwrap();
+            native::WGPUBindGroupEntry{
+                nextInChain: null(),
+                binding: entry.binding,
+                buffer: system.buffers[entry.buffer as usize - 1].0,
+                offset: entry.offset,
+                size: entry.size,
+                sampler: null_mut(),
+                textureView: null_mut(),
+            }
+        })
+        .collect();
+    let group = unsafe {
+        wgpu_native::device::wgpuDeviceCreateBindGroup(
+            system.device.0,
+            Some(&native::WGPUBindGroupDescriptor {
+                nextInChain: null(),
+                label: null(),
+                layout: system.bind_group_layouts[descriptor.layout as usize - 1].0,
+                entryCount: descriptor.entry_count,
+                entries: entries.as_ptr(),
+            }),
+        )
+    };
+    system.bind_groups.push(WGPUBindGroup(group));
+    system.bind_groups.len().try_into().unwrap()
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUBindGroupLayoutDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    entry_count: u32,
+    entries: WasmPtr<WasmWGPUBindGroupLayoutEntry>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUBindGroupLayoutEntry {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    binding: u32,
+    visibility: native::WGPUShaderStageFlags,
+    buffer: WasmWGPUBufferBindingLayout,
+    sampler: WasmWGPUSamplerBindingLayout,
+    texture: WasmWGPUTextureBindingLayout,
+    storage_texture: WasmWGPUStorageTextureBindingLayout,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUBufferBindingLayout {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    binding_type: native::WGPUBufferBindingType,
+    has_dynamic_offset: bool,
+    min_binding_size: u64,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUSamplerBindingLayout {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    binding_type: native::WGPUSamplerBindingType,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUTextureBindingLayout {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    sample_type: native::WGPUTextureSampleType,
+    view_dimension: native::WGPUTextureViewDimension,
+    multisampled: bool,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUStorageTextureBindingLayout {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    access: native::WGPUStorageTextureAccess,
+    format: native::WGPUTextureFormat,
+    view_dimension: native::WGPUTextureViewDimension,
+}
+
+pub fn wgpu_device_create_bind_group_layout(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateBindGroupLayout({device}, {descriptor})");
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmRef::<WasmWGPUBindGroupLayoutDescriptor>::new(&view, descriptor as u64)
+        .read()
+        .unwrap();
+    let entries: Vec<_> = descriptor
+        .entries
+        .slice(&view, descriptor.entry_count)
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            let entry = entry.read().unwrap();
+            native::WGPUBindGroupLayoutEntry {
+                nextInChain: null(),
+                binding: entry.binding,
+                visibility: entry.visibility,
+                buffer: native::WGPUBufferBindingLayout {
+                    nextInChain: null(),
+                    type_: entry.buffer.binding_type,
+                    hasDynamicOffset: entry.buffer.has_dynamic_offset,
+                    minBindingSize: entry.buffer.min_binding_size,
+                },
+                sampler: native::WGPUSamplerBindingLayout {
+                    nextInChain: null(),
+                    type_: entry.sampler.binding_type,
+                },
+                texture: native::WGPUTextureBindingLayout {
+                    nextInChain: null(),
+                    sampleType: entry.texture.sample_type,
+                    viewDimension: entry.texture.view_dimension,
+                    multisampled: entry.texture.multisampled,
+                },
+                storageTexture: native::WGPUStorageTextureBindingLayout {
+                    nextInChain: null(),
+                    access: entry.storage_texture.access,
+                    format: entry.storage_texture.format,
+                    viewDimension: entry.storage_texture.view_dimension,
+                },
+            }
+        })
+        .collect();
+    let layout = unsafe {
+        wgpu_native::device::wgpuDeviceCreateBindGroupLayout(
+            system.device.0,
+            Some(&native::WGPUBindGroupLayoutDescriptor {
+                nextInChain: null(),
+                label: null(),
+                entryCount: descriptor.entry_count,
+                entries: entries.as_ptr(),
+            }),
+        )
+    };
+    system.bind_group_layouts.push(WGPUBindGroupLayout(layout));
+    system.bind_group_layouts.len().try_into().unwrap()
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
 struct WasmWGPUBufferDescriptor {
     next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
     label: WasmPtr<u8>,
@@ -347,21 +531,41 @@ pub fn wgpu_device_create_command_encoder(
     1
 }
 
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUPipelineLayoutDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    bind_group_layout_count: u32,
+    bind_group_layouts: WasmPtr<u32>, // WGPUBindGroupLayout const *
+}
+
 pub fn wgpu_device_create_pipeline_layout(
     mut env: FunctionEnvMut<System>,
     device: u32,
     descriptor: u32,
 ) -> u32 {
     println!("wgpuDeviceCreatePipelineLayout({device}, {descriptor})");
-    let system = env.data_mut();
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmRef::<WasmWGPUPipelineLayoutDescriptor>::new(&view, descriptor as u64)
+        .read()
+        .unwrap();
+    let bind_group_layouts: Vec<_> = descriptor
+        .bind_group_layouts
+        .slice(&view, descriptor.bind_group_layout_count)
+        .unwrap()
+        .iter()
+        .map(|layout| system.bind_group_layouts[layout.read().unwrap() as usize - 1].0)
+        .collect();
     let pipeline_layout = unsafe {
         wgpu_native::device::wgpuDeviceCreatePipelineLayout(
             system.device.0,
             Some(&native::WGPUPipelineLayoutDescriptor {
                 nextInChain: null(),
                 label: null(),
-                bindGroupLayoutCount: 0,
-                bindGroupLayouts: null(),
+                bindGroupLayoutCount: descriptor.bind_group_layout_count,
+                bindGroupLayouts: bind_group_layouts.as_ptr(),
             }),
         )
     };
@@ -466,7 +670,7 @@ pub fn wgpu_device_create_render_pipeline(
     let vertex_entry_point = read_cstring(descriptor.vertex.entry_point, &memory).unwrap();
     let fragment = descriptor.fragment.read(&memory).unwrap();
     let fragment_entry_point = read_cstring(fragment.entry_point, &memory).unwrap();
-    let fragment_targets: Vec<native::WGPUColorTargetState> = fragment
+    let fragment_targets: Vec<_> = fragment
         .targets
         .slice(&memory, fragment.target_count)
         .unwrap()
@@ -481,8 +685,8 @@ pub fn wgpu_device_create_render_pipeline(
             }
         })
         .collect();
-    let mut vertex_attributes: Vec<Vec<native::WGPUVertexAttribute>> = vec![];
-    let vertex_layouts: Vec<native::WGPUVertexBufferLayout> = descriptor
+    let mut vertex_attributes: Vec<Vec<_>> = vec![];
+    let vertex_layouts: Vec<_> = descriptor
         .vertex
         .buffers
         .slice(&memory, descriptor.vertex.buffer_count)
@@ -722,6 +926,7 @@ pub fn wgpu_device_set_uncaptured_error_callback(
             ) {
                 let message = unsafe { CStr::from_ptr(message) };
                 panic!("WGPUDeviceUncapturedErrorCallback {status}: {message:?}");
+                // TODO Push onto global error queue by id then pull elsewhere?
                 // unsafe {
                 //     // TODO How to call the function???????
                 // }
@@ -960,6 +1165,26 @@ pub fn wgpu_render_pass_encoder_end(mut env: FunctionEnvMut<System>, _render_pas
             wgpu_native::command::wgpuRenderPassEncoderEnd(system.render_pass.0);
         }
         system.render_pass.0 = null_mut();
+    }
+}
+
+pub fn wgpu_render_pass_encoder_set_bind_group(
+    env: FunctionEnvMut<System>,
+    _render_pass: u32,
+    group_index: u32,
+    group: u32,
+    _dynamic_offset_count: u32,
+    _dynamic_offsets: u32, // uint32_t const *
+) {
+    let system = env.data();
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderSetBindGroup(
+            system.render_pass.0,
+            group_index,
+            system.bind_groups[group as usize - 1].0,
+            0,
+            null(),
+        );
     }
 }
 
