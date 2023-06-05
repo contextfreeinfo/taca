@@ -208,7 +208,7 @@ pub fn wgpu_command_encoder_begin_render_pass(
     encoder: u32,
     descriptor: u32,
 ) -> u32 {
-    println!("wgpuCommandEncoderBeginRenderPass({encoder}, {descriptor})");
+    // println!("wgpuCommandEncoderBeginRenderPass({encoder}, {descriptor})");
     let (mut system, store) = env.data_and_store_mut();
     if system.render_pass.0.is_null() {
         let memory = system.memory.as_ref().unwrap().view(&store);
@@ -515,7 +515,7 @@ pub fn wgpu_device_create_command_encoder(
     device: u32,
     descriptor: u32,
 ) -> u32 {
-    println!("wgpuDeviceCreateCommandEncoder({device}, {descriptor})");
+    // println!("wgpuDeviceCreateCommandEncoder({device}, {descriptor})");
     let system = env.data_mut();
     if system.encoder.0.is_null() {
         system.encoder.0 = unsafe {
@@ -1276,7 +1276,7 @@ pub fn wgpu_swap_chain_get_current_texture_view(
     mut env: FunctionEnvMut<System>,
     swap_chain: u32,
 ) -> u32 {
-    println!("wgpuSwapChainGetCurrentTextureView({swap_chain})");
+    // println!("wgpuSwapChainGetCurrentTextureView({swap_chain})");
     let system = env.data_mut();
     if system.texture_view.0.is_null() {
         system.texture_view.0 =
