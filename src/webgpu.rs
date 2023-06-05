@@ -205,7 +205,7 @@ struct WasmWGPUColor {
 
 pub fn wgpu_command_encoder_begin_render_pass(
     mut env: FunctionEnvMut<System>,
-    encoder: u32,
+    _encoder: u32,
     descriptor: u32,
 ) -> u32 {
     // println!("wgpuCommandEncoderBeginRenderPass({encoder}, {descriptor})");
@@ -512,8 +512,8 @@ pub fn wgpu_device_create_buffer(
 
 pub fn wgpu_device_create_command_encoder(
     mut env: FunctionEnvMut<System>,
-    device: u32,
-    descriptor: u32,
+    _device: u32,
+    _descriptor: u32,
 ) -> u32 {
     // println!("wgpuDeviceCreateCommandEncoder({device}, {descriptor})");
     let system = env.data_mut();
@@ -1274,7 +1274,7 @@ pub fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
 
 pub fn wgpu_swap_chain_get_current_texture_view(
     mut env: FunctionEnvMut<System>,
-    swap_chain: u32,
+    _swap_chain: u32,
 ) -> u32 {
     // println!("wgpuSwapChainGetCurrentTextureView({swap_chain})");
     let system = env.data_mut();
