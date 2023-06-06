@@ -1,7 +1,12 @@
+struct Uniforms {
+	aspect: f32,
+	time: f32,
+}
+
 // Variable in the *uniform* address space
 // The memory location of the uniform is given by a pair of a *bind group* and
 // a *binding*.
-@group(0) @binding(0) var<uniform> uTime: f32;
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
 
 /**
  * A structure with fields labeled with vertex attribute locations can be used
@@ -29,10 +34,10 @@ struct VertexOutput {
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
 	var out: VertexOutput;
-	let ratio = 640.0 / 480.0;
 	// We move the scene depending on the time
-	let offset = 0.3 * vec2f(cos(uTime), sin(uTime));
-	out.position = vec4f(in.position.x + offset.x, (in.position.y + offset.y) * ratio, 0.0, 1.0);
+	let offset = 0.3 * vec2f(cos(uniforms.time), sin(uniforms.time));
+	let pos = 0.5 * in.position + offset;
+	out.position = vec4f(pos.x, pos.y * uniforms.aspect, 0.0, 1.0);
 	out.color = in.color; // forward to the fragment shader
 	return out;
 }

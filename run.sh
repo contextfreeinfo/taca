@@ -10,6 +10,6 @@ time (
 
 # mkdir -p notes &&
 # cp examples/zig/explore-webgpu.opt.wasm target/release/tacana notes &&
-# gzip notes/explore-webgpu.opt.wasm notes/tacana &&
+# gzip -f notes/explore-webgpu.opt.wasm notes/tacana &&
 # ls -l notes/explore-webgpu.opt.wasm.gz &&
 # ls -lh notes/tacana.gz

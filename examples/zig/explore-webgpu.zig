@@ -140,12 +140,10 @@ pub fn main() void {
             .nextInChain = null,
             .label = null,
             .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Uniform,
-            .size = @sizeOf(f32),
+            .size = @sizeOf(Uniforms),
             .mappedAtCreation = false,
         },
     );
-    const start_time: f32 = 0;
-    g.wgpuQueueWriteBuffer(queue, uniform_buffer, 0, &start_time, @sizeOf(f32));
 
     // Uniform binding
     const bind_group_layout_entry = std.mem.zeroInit(g.WGPUBindGroupLayoutEntry, .{
@@ -153,7 +151,7 @@ pub fn main() void {
         .visibility = g.WGPUShaderStage_Vertex,
         .buffer = std.mem.zeroInit(g.WGPUBufferBindingLayout, .{
             .type = g.WGPUBufferBindingType_Uniform,
-            .minBindingSize = @sizeOf(f32),
+            .minBindingSize = @sizeOf(Uniforms),
         }),
     });
     const bind_group_layout = g.wgpuDeviceCreateBindGroupLayout(device, &g.WGPUBindGroupLayoutDescriptor{
@@ -173,7 +171,7 @@ pub fn main() void {
                 .binding = 0,
                 .buffer = uniform_buffer,
                 .offset = 0,
-                .size = @sizeOf(f32),
+                .size = @sizeOf(Uniforms),
                 .sampler = null,
                 .textureView = null,
             },
@@ -204,7 +202,7 @@ pub fn main() void {
         .swap_chain = swap_chain,
         .surface = surface,
         .uniform_buffer = uniform_buffer,
-        .time = start_time,
+        .time = 0,
         .vertex_buffer = vertex_buffer,
     };
 
@@ -229,11 +227,16 @@ fn windowClose(state: *State) void {
     g.wgpuAdapterDrop(state.adapter);
     g.wgpuSurfaceDrop(state.surface);
     g.wgpuInstanceDrop(state.instance);
+    // std.debug.print("Virtual time: {}\n", .{state.time});
 }
 
 fn windowRedraw(state: *State) void {
     state.time += 1.0 / 60.0;
-    g.wgpuQueueWriteBuffer(state.queue, state.uniform_buffer, 0, &state.time, @sizeOf(f32));
+    const uniforms = Uniforms{
+        .aspect = @intToFloat(f32, state.size.x) / @intToFloat(f32, state.size.y),
+        .time = state.time,
+    };
+    g.wgpuQueueWriteBuffer(state.queue, state.uniform_buffer, 0, &uniforms, @sizeOf(Uniforms));
     const view = g.wgpuSwapChainGetCurrentTextureView(state.swap_chain) orelse unreachable;
     const encoder = g.wgpuDeviceCreateCommandEncoder(
         state.device,
@@ -319,6 +322,11 @@ const State = struct {
 };
 
 var global_state: State = undefined;
+
+const Uniforms = struct {
+	aspect: f32,
+	time: f32,
+};
 
 const CreateSwapChainData = struct {
     device: g.WGPUDevice,
