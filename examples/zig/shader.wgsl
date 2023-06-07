@@ -13,7 +13,7 @@ struct Uniforms {
  * as input to the entry point of a shader.
  */
 struct VertexInput {
-	@location(0) position: vec2f,
+	@location(0) position: vec3f,
 	@location(1) color: vec3f,
 };
 
@@ -34,9 +34,15 @@ struct VertexOutput {
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
 	var out: VertexOutput;
-	// We move the scene depending on the time
-	let offset = 0.3 * vec2f(cos(uniforms.time), sin(uniforms.time));
-	let pos = 0.5 * in.position + offset;
+	let angle = uniforms.time;
+	let alpha = cos(angle);
+	let beta = sin(angle);
+	var pos = 0.5 * in.position;
+	pos = vec3<f32>(
+		pos.x,
+		alpha * pos.y + beta * pos.z,
+		alpha * pos.z - beta * pos.y,
+	);
 	out.position = vec4f(pos.x, pos.y * uniforms.aspect, 0.0, 1.0);
 	out.color = in.color; // forward to the fragment shader
 	return out;
@@ -47,5 +53,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
 	// Convert approximate srgb color space.
 	// TODO Only if srgb format! TODO Need uniform to indicate that?
 	let linear_color = pow(in.color, vec3f(2.2));
-	return vec4f(linear_color, 1.0);
+	return 0.7 * vec4f(linear_color, 1.0) + 0.1;
 }

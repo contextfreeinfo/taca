@@ -33,7 +33,7 @@ pub fn buildPipeline(
     ) orelse unreachable;
     const vertex_attributes = [_]g.WGPUVertexAttribute{
         .{
-            .format = g.WGPUVertexFormat_Float32x2,
+            .format = g.WGPUVertexFormat_Float32x3,
             .offset = 0,
             .shaderLocation = 0,
         },
