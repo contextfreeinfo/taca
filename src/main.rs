@@ -45,7 +45,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
         .with_maximized(true)
         .build(&event_loop)
         .unwrap();
-    window.set_title("Tacaná");
+    window.set_title("Tactic");
 
     let mut store = Store::default();
     let module = Module::from_file(&store, args.app.as_str())?;

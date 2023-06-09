@@ -10,7 +10,7 @@ const g = @cImport({
     @cInclude("webgpu-headers/webgpu.h");
 });
 const t = @cImport({
-    @cInclude("tacana.h");
+    @cInclude("tactic.h");
 });
 
 pub fn main() void {
@@ -278,7 +278,7 @@ fn windowRedraw(state: *State) void {
                 .view = state.depth_texture_out.depth_texture_view,
                 .depthLoadOp = g.WGPULoadOp_Clear,
                 .depthStoreOp = g.WGPUStoreOp_Store,
-                .depthClearValue = 1.0,
+                .depthClearValue = 1,
                 .depthReadOnly = false,
                 .stencilLoadOp = g.WGPULoadOp_Clear,
                 .stencilStoreOp = g.WGPUStoreOp_Store,

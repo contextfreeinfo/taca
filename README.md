@@ -1,3 +1,9 @@
+## New instructions
+
+Run `./run.sh` or just `cargo build` or such like.
+
+## Old instructions
+
 To build:
 - Download wasmtime binary and extract to vendor/wasmtime
 - Download sdl and build and install to vendor/sdl

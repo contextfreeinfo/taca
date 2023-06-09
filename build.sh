@@ -7,5 +7,5 @@
 zig build-exe \
     -Ivendor/sdl/include/SDL2 -Lvendor/sdl/lib \
     -Ivendor/wasmtime/include -Lvendor/wasmtime/lib \
-    src/tacana.zig -lSDL2 -lSDL2main -lwasmtime -lc && \
-./tacana examples/zig/hello.wasm
+    src/tactic.zig -lSDL2 -lSDL2main -lwasmtime -lc && \
+./tactic examples/zig/hello.wasm

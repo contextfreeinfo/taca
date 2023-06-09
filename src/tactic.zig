@@ -45,7 +45,7 @@ fn loadFile(alloc: *std.mem.Allocator, name: []const u8) ![]u8 {
     return try file.readToEndAlloc(alloc, (try file.stat()).size);
 }
 
-fn runSdl() void {
+fn runSdl() void { // TODO Raylib for static linking?
     var init_result = c.SDL_Init(c.SDL_INIT_VIDEO);
     assert(init_result >= 0);
     defer c.SDL_Quit();
