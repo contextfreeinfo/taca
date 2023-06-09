@@ -10,7 +10,7 @@ const g = @cImport({
     @cInclude("webgpu-headers/webgpu.h");
 });
 const t = @cImport({
-    @cInclude("tactic.h");
+    @cInclude("taca.h");
 });
 
 pub fn main() void {

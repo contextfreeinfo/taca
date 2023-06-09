@@ -1,5 +1,5 @@
 zig build-exe -target wasm32-wasi -O ReleaseSmall --export-table \
-    -I ../../include/wgpu-native/ffi -I ../../include/tactic \
+    -I ../../include/wgpu-native/ffi -I ../../include/taca \
     explore-webgpu.zig && \
 wasm2wat --generate-names --fold-exprs --inline-exports --inline-imports \
     explore-webgpu.wasm -o explore-webgpu.wat && \
