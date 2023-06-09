@@ -118,6 +118,7 @@ pub fn wgpu_adapter_request_device(
                 nextInChain: null(),
                 limits: std::mem::transmute::<WasmWGPULimits, native::WGPULimits>(limits),
             };
+            // println!("limits: {:?}", required_limits.limits);
             wgpu_native::device::wgpuAdapterRequestDevice(
                 adapter,
                 Some(&native::WGPUDeviceDescriptor {
@@ -223,7 +224,7 @@ pub fn wgpu_command_encoder_begin_render_pass(
             .map(|attachment| {
                 let attachment = attachment.read().unwrap();
                 native::WGPURenderPassColorAttachment {
-                    view: system.texture_view.0,
+                    view: system.texture_views[0].0,
                     resolveTarget: std::ptr::null_mut(),
                     loadOp: attachment.load_op,
                     storeOp: attachment.store_op,
@@ -329,7 +330,7 @@ pub fn wgpu_device_create_bind_group(
         .iter()
         .map(|entry| {
             let entry = entry.read().unwrap();
-            native::WGPUBindGroupEntry{
+            native::WGPUBindGroupEntry {
                 nextInChain: null(),
                 binding: entry.binding,
                 buffer: system.buffers[entry.buffer as usize - 1].0,
@@ -583,7 +584,7 @@ struct WasmWGPURenderPipelineDescriptor {
     layout: u32, // WGPUPipelineLayout
     vertex: WasmWGPUVertexState,
     primitive: WasmWGPUPrimitiveState,
-    depth_stencil: u32, // WGPUDepthStencilState const *
+    depth_stencil: WasmPtr<WasmWGPUDepthStencilState>,
     multisample: WasmWGPUMultisampleState,
     fragment: WasmPtr<WasmWGPUFragmentState>,
 }
@@ -625,6 +626,31 @@ struct WasmWGPUPrimitiveState {
     strip_index_format: native::WGPUIndexFormat,
     front_face: native::WGPUFrontFace,
     cull_mode: native::WGPUCullMode,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUDepthStencilState {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    format: native::WGPUTextureFormat,
+    depth_write_enabled: bool,
+    depth_compare: native::WGPUCompareFunction,
+    stencil_front: WasmWGPUStencilFaceState,
+    stencil_back: WasmWGPUStencilFaceState,
+    stencil_read_mask: u32,
+    stencil_write_mask: u32,
+    depth_bias: i32,
+    depth_bias_slope_scale: f32,
+    depth_bias_clamp: f32,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUStencilFaceState {
+    compare: native::WGPUCompareFunction,
+    fail_op: native::WGPUStencilOperation,
+    depth_fail_op: native::WGPUStencilOperation,
+    pass_op: native::WGPUStencilOperation,
 }
 
 #[derive(Copy, Clone, Debug, ValueType)]
@@ -717,6 +743,8 @@ pub fn wgpu_device_create_render_pipeline(
             }
         })
         .collect();
+    let depth_stencil = descriptor.depth_stencil.read(&memory).unwrap();
+    println!("---> depth stencil: {depth_stencil:?}");
     let pipeline = unsafe {
         wgpu_native::device::wgpuDeviceCreateRenderPipeline(
             system.device.0,
@@ -740,7 +768,29 @@ pub fn wgpu_device_create_render_pipeline(
                     frontFace: descriptor.primitive.front_face,
                     cullMode: descriptor.primitive.cull_mode,
                 },
-                depthStencil: null(),
+                depthStencil: &native::WGPUDepthStencilState {
+                    nextInChain: null(),
+                    format: depth_stencil.format,
+                    depthWriteEnabled: depth_stencil.depth_write_enabled,
+                    depthCompare: depth_stencil.depth_compare,
+                    stencilFront: native::WGPUStencilFaceState {
+                        compare: depth_stencil.stencil_front.compare,
+                        failOp: depth_stencil.stencil_front.fail_op,
+                        depthFailOp: depth_stencil.stencil_front.depth_fail_op,
+                        passOp: depth_stencil.stencil_front.pass_op,
+                    },
+                    stencilBack: native::WGPUStencilFaceState {
+                        compare: depth_stencil.stencil_back.compare,
+                        failOp: depth_stencil.stencil_back.fail_op,
+                        depthFailOp: depth_stencil.stencil_back.depth_fail_op,
+                        passOp: depth_stencil.stencil_back.pass_op,
+                    },
+                    stencilReadMask: depth_stencil.stencil_read_mask,
+                    stencilWriteMask: depth_stencil.stencil_write_mask,
+                    depthBias: depth_stencil.depth_bias,
+                    depthBiasSlopeScale: depth_stencil.depth_bias_slope_scale,
+                    depthBiasClamp: depth_stencil.depth_bias_clamp,
+                },
                 multisample: native::WGPUMultisampleState {
                     nextInChain: null(),
                     count: descriptor.multisample.count,
@@ -888,6 +938,72 @@ pub fn wgpu_device_create_swap_chain(
         };
     }
     1
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUTextureDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    usage: native::WGPUTextureUsageFlags,
+    dimension: native::WGPUTextureDimension,
+    size: WasmWGPUExtent3D,
+    format: native::WGPUTextureFormat,
+    mip_level_count: u32,
+    sample_count: u32,
+    view_format_count: u32,
+    view_formats: WasmPtr<native::WGPUTextureFormat>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUExtent3D {
+    width: u32,
+    height: u32,
+    depth_or_array_layers: u32,
+}
+
+pub fn wgpu_device_create_texture(
+    mut env: FunctionEnvMut<System>,
+    device: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuDeviceCreateTexture({device}, {descriptor})");
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmRef::<WasmWGPUTextureDescriptor>::new(&view, descriptor as u64)
+        .read()
+        .unwrap();
+    let view_formats: Vec<_> = descriptor
+        .view_formats
+        .slice(&view, descriptor.view_format_count)
+        .unwrap()
+        .read_to_vec()
+        .unwrap();
+    let texture = unsafe {
+        wgpu_native::device::wgpuDeviceCreateTexture(
+            system.device.0,
+            Some(&native::WGPUTextureDescriptor {
+                nextInChain: null(),
+                label: null(),
+                usage: descriptor.usage,
+                dimension: descriptor.dimension,
+                size: native::WGPUExtent3D {
+                    width: descriptor.size.width,
+                    height: descriptor.size.height,
+                    depthOrArrayLayers: descriptor.size.depth_or_array_layers,
+                },
+                format: descriptor.format,
+                mipLevelCount: descriptor.mip_level_count,
+                sampleCount: descriptor.sample_count,
+                viewFormatCount: descriptor.view_format_count,
+                viewFormats: view_formats.as_ptr(),
+            }),
+        )
+    };
+    // TODO Reuse null slots???
+    system.textures.push(WGPUTexture(texture));
+    system.textures.len().try_into().unwrap()
 }
 
 pub fn wgpu_device_drop(_env: FunctionEnvMut<System>, device: u32) {
@@ -1263,7 +1379,7 @@ pub fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
     println!("wgpuSwapChainDrop({swap_chain})");
     let system = env.data_mut();
     // For good measure, ensure null view also.
-    system.texture_view.0 = null_mut();
+    system.texture_views[0].0 = null_mut();
     if !system.swap_chain.0.is_null() {
         unsafe {
             wgpu_native::device::wgpuSwapChainDrop(system.swap_chain.0);
@@ -1278,8 +1394,8 @@ pub fn wgpu_swap_chain_get_current_texture_view(
 ) -> u32 {
     // println!("wgpuSwapChainGetCurrentTextureView({swap_chain})");
     let system = env.data_mut();
-    if system.texture_view.0.is_null() {
-        system.texture_view.0 =
+    if system.texture_views[0].0.is_null() {
+        system.texture_views[0].0 =
             unsafe { wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0) };
     }
     1
@@ -1295,14 +1411,73 @@ pub fn wgpu_swap_chain_present(mut env: FunctionEnvMut<System>, _swap_chain: u32
     }
 }
 
-pub fn wgpu_texture_view_drop(mut env: FunctionEnvMut<System>, _texture_view: u32) {
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUTextureViewDescriptor {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    label: WasmPtr<u8>,
+    format: native::WGPUTextureFormat,
+    dimension: native::WGPUTextureViewDimension,
+    base_mip_level: u32,
+    mip_level_count: u32,
+    base_array_layer: u32,
+    array_layer_count: u32,
+    aspect: native::WGPUTextureAspect,
+}
+
+pub fn wgpu_texture_create_view(
+    mut env: FunctionEnvMut<System>,
+    texture: u32,
+    descriptor: u32,
+) -> u32 {
+    println!("wgpuTextureCreateView({texture}, {descriptor})");
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let descriptor = WasmRef::<WasmWGPUTextureViewDescriptor>::new(&view, descriptor as u64)
+        .read()
+        .unwrap();
+    let texture_view = unsafe {
+        wgpu_native::device::wgpuTextureCreateView(
+            system.textures[texture as usize - 1].0,
+            Some(&native::WGPUTextureViewDescriptor {
+                nextInChain: null(),
+                label: null(),
+                format: descriptor.format,
+                dimension: descriptor.dimension,
+                baseMipLevel: descriptor.base_mip_level,
+                mipLevelCount: descriptor.mip_level_count,
+                baseArrayLayer: descriptor.base_array_layer,
+                arrayLayerCount: descriptor.array_layer_count,
+                aspect: descriptor.aspect,
+            }),
+        )
+    };
+    // TODO Reuse null slots???
+    system.texture_views.push(WGPUTextureView(texture_view));
+    system.texture_views.len().try_into().unwrap()
+}
+
+pub fn wgpu_texture_destroy(mut env: FunctionEnvMut<System>, texture: u32) {
+    println!("wgpuTextureDestroy({texture})");
+    let system = env.data_mut();
+    let texture_index = texture as usize - 1;
+    if !system.textures[texture_index].0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuTextureDestroy(system.textures[texture_index].0);
+        }
+        system.textures[texture_index].0 = null_mut();
+    }
+}
+
+pub fn wgpu_texture_view_drop(mut env: FunctionEnvMut<System>, texture_view: u32) {
     // println!("wgpuTextureViewDrop({_texture_view})");
     let system = env.data_mut();
-    if !system.texture_view.0.is_null() {
+    let texture_view_index = texture_view as usize - 1;
+    if !system.texture_views[texture_view_index].0.is_null() {
         unsafe {
-            wgpu_native::device::wgpuTextureViewDrop(system.texture_view.0);
+            wgpu_native::device::wgpuTextureViewDrop(system.texture_views[texture_view_index].0);
         }
-        system.texture_view.0 = null_mut();
+        system.texture_views[texture_view_index].0 = null_mut();
     }
 }
 

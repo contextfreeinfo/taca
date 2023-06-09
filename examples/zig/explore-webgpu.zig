@@ -70,6 +70,9 @@ pub fn main() void {
     const required_limits = g.WGPURequiredLimits{
         .nextInChain = null,
         .limits = std.mem.zeroInit(g.WGPULimits, .{
+            .maxTextureDimension1D = 5000,
+            .maxTextureDimension2D = 3000,
+            .maxTextureArrayLayers = 1,
             .maxBindGroups = 1,
             .maxBufferSize = @sizeOf(@TypeOf(d.point_data)),
             .maxUniformBufferBindingSize = 16 * @sizeOf(f32),
@@ -178,8 +181,12 @@ pub fn main() void {
         },
     });
 
-    // Swap Chain
+    // Depth texture & swap chain
     const size = t.tac_windowInnerSize();
+    const depth_texture_out = createDepthTexture(.{
+        .device = device,
+        .size = size,
+    });
     const format = g.wgpuSurfaceGetPreferredFormat(surface, adapter);
     const pipeline = p.buildPipeline(device, format, bind_group_layout);
     const swap_chain = createSwapChain(.{
@@ -188,9 +195,12 @@ pub fn main() void {
         .size = size,
         .surface = surface,
     });
+
+    // Full state
     global_state = .{
         .adapter = adapter,
         .bind_group = bind_group,
+        .depth_texture_out = depth_texture_out,
         .device = device,
         .format = format,
         .index_buffer = index_buffer,
@@ -209,6 +219,7 @@ pub fn main() void {
     // Listen
     // Probably smaller binaries with this instead of exported functions for
     // each even type?
+    // TODO Pass in state pointer even if global?
     t.tac_windowListen(windowListen, null);
 }
 
@@ -263,7 +274,17 @@ fn windowRedraw(state: *State) void {
                     .a = 1.0,
                 },
             },
-            .depthStencilAttachment = null,
+            .depthStencilAttachment = &g.WGPURenderPassDepthStencilAttachment{
+                .view = state.depth_texture_out.depth_texture_view,
+                .depthLoadOp = g.WGPULoadOp_Clear,
+                .depthStoreOp = g.WGPUStoreOp_Store,
+                .depthClearValue = 1.0,
+                .depthReadOnly = false,
+                .stencilLoadOp = g.WGPULoadOp_Clear,
+                .stencilStoreOp = g.WGPUStoreOp_Store,
+                .stencilClearValue = 0,
+                .stencilReadOnly = true,
+            },
             .occlusionQuerySet = null,
             .timestampWriteCount = 0,
             .timestampWrites = null,
@@ -293,19 +314,28 @@ fn windowResize(state: *State) void {
     const size = t.tac_windowInnerSize();
     if (size.x > 0 and size.y > 0) {
         state.size = size;
+        // Depth texture
+        g.wgpuTextureViewDrop(state.depth_texture_out.depth_texture_view);
+        g.wgpuTextureDestroy(state.depth_texture_out.depth_texture);
+        state.depth_texture_out = createDepthTexture(.{
+            .device = state.device,
+            .size = state.size,
+        });
+        // Swap chain
         g.wgpuSwapChainDrop(state.swap_chain);
+        state.swap_chain = createSwapChain(.{
+            .device = state.device,
+            .format = state.format,
+            .size = state.size,
+            .surface = state.surface,
+        });
     }
-    state.swap_chain = createSwapChain(.{
-        .device = state.device,
-        .format = state.format,
-        .size = state.size,
-        .surface = state.surface,
-    });
 }
 
 const State = struct {
     adapter: g.WGPUAdapter,
     bind_group: g.WGPUBindGroup,
+    depth_texture_out: CreateDepthTextureOut,
     device: g.WGPUDevice,
     format: g.WGPUTextureFormat,
     index_buffer: g.WGPUBuffer,
@@ -324,9 +354,54 @@ const State = struct {
 var global_state: State = undefined;
 
 const Uniforms = struct {
-	aspect: f32,
-	time: f32,
+    aspect: f32,
+    time: f32,
 };
+
+const CreateDepthTextureIn = struct {
+    device: g.WGPUDevice,
+    size: t.tac_Vec2,
+};
+
+const CreateDepthTextureOut = struct {
+    depth_texture: g.WGPUTexture,
+    depth_texture_view: g.WGPUTextureView,
+};
+
+fn createDepthTexture(in: CreateDepthTextureIn) CreateDepthTextureOut {
+    const depth_texture_format: g.WGPUTextureFormat = g.WGPUTextureFormat_Depth24Plus;
+    const depth_texture = g.wgpuDeviceCreateTexture(
+        in.device,
+        &std.mem.zeroInit(g.WGPUTextureDescriptor, .{
+            .usage = g.WGPUTextureUsage_RenderAttachment,
+            .dimension = g.WGPUTextureDimension_2D,
+            .size = .{
+                .width = @intCast(u32, in.size.x),
+                .height = @intCast(u32, in.size.y),
+                .depthOrArrayLayers = 1,
+            },
+            .format = depth_texture_format,
+            .mipLevelCount = 1,
+            .sampleCount = 1,
+            .viewFormatCount = 1,
+            .viewFormats = &depth_texture_format,
+        }),
+    );
+    const depth_texture_view = g.wgpuTextureCreateView(
+        depth_texture,
+        &std.mem.zeroInit(g.WGPUTextureViewDescriptor, .{
+            .format = depth_texture_format,
+            .dimension = g.WGPUTextureViewDimension_2D,
+            .mipLevelCount = 1,
+            .arrayLayerCount = 1,
+            .aspect = g.WGPUTextureAspect_DepthOnly,
+        }),
+    );
+    return .{
+        .depth_texture = depth_texture,
+        .depth_texture_view = depth_texture_view,
+    };
+}
 
 const CreateSwapChainData = struct {
     device: g.WGPUDevice,

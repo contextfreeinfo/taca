@@ -98,6 +98,14 @@ impl Default for WGPUSurface {
     }
 }
 
+pub struct WGPUTexture(pub native::WGPUTexture);
+unsafe impl Send for WGPUTexture {}
+impl Default for WGPUTexture {
+    fn default() -> Self {
+        WGPUTexture(null_mut())
+    }
+}
+
 pub struct WGPUTextureView(pub native::WGPUTextureView);
 unsafe impl Send for WGPUTextureView {}
 impl Default for WGPUTextureView {
@@ -127,7 +135,8 @@ pub struct System {
     pub shaders: Vec<WGPUShaderModule>,
     pub surface: WGPUSurface,
     pub swap_chain: WGPUSwapChain,
-    pub texture_view: WGPUTextureView,
+    pub textures: Vec<WGPUTexture>,
+    pub texture_views: Vec<WGPUTextureView>,
     pub window: Option<Window>,
     pub window_listen: Option<wasmer::Function>,
     pub window_listen_userdata: u32,
@@ -137,6 +146,8 @@ impl System {
     pub fn new(window: Window) -> System {
         System {
             window: Some(window),
+            // First dedicated to swap chain texture view.
+            texture_views: vec![WGPUTextureView(null_mut())],
             ..Default::default()
         }
     }

@@ -94,7 +94,20 @@ pub fn buildPipeline(
             .frontFace = g.WGPUFrontFace_CCW,
             .cullMode = g.WGPUCullMode_None,
         },
-        .depthStencil = null,
+        .depthStencil = &std.mem.zeroInit(g.WGPUDepthStencilState, .{
+            .format = g.WGPUTextureFormat_Depth24Plus,
+            .depthWriteEnabled = true,
+            .depthCompare = g.WGPUCompareFunction_Less,
+            .stencilFront = std.mem.zeroInit(g.WGPUStencilFaceState, .{
+                .compare = g.WGPUCompareFunction_Always,
+            }),
+            .stencilBack = std.mem.zeroInit(g.WGPUStencilFaceState, .{
+                .compare = g.WGPUCompareFunction_Always,
+            }),
+            // TODO Tutorial encouraged these defaults but then wants zeros?
+            // .stencilReadMask = 0xFFFFFFFF,
+            // .stencilWriteMask = 0xFFFFFFFF,
+        }),
         .multisample = .{
             .nextInChain = null,
             .count = 1,

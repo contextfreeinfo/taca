@@ -68,6 +68,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuDeviceCreateRenderPipeline" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_render_pipeline),
             "wgpuDeviceCreateShaderModule" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_shader_module),
             "wgpuDeviceCreateSwapChain" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_swap_chain),
+            "wgpuDeviceCreateTexture" => Function::new_typed_with_env(&mut store, &env, wgpu_device_create_texture),
             "wgpuDeviceDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_device_drop),
             "wgpuDeviceGetQueue" => Function::new_typed_with_env(&mut store, &env, wgpu_device_get_queue),
             "wgpuDeviceSetUncapturedErrorCallback" => Function::new_typed_with_env(&mut store, &env, wgpu_device_set_uncaptured_error_callback),
@@ -88,6 +89,8 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuSwapChainDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_drop),
             "wgpuSwapChainGetCurrentTextureView" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_get_current_texture_view),
             "wgpuSwapChainPresent" => Function::new_typed_with_env(&mut store, &env, wgpu_swap_chain_present),
+            "wgpuTextureCreateView" => Function::new_typed_with_env(&mut store, &env, wgpu_texture_create_view),
+            "wgpuTextureDestroy" => Function::new_typed_with_env(&mut store, &env, wgpu_texture_destroy),
             "wgpuTextureViewDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_texture_view_drop),
         },
         // TODO Combine ours with wasmer_wasix::WasiEnv???

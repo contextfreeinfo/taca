@@ -43,7 +43,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 		alpha * pos.y + beta * pos.z,
 		alpha * pos.z - beta * pos.y,
 	);
-	out.position = vec4f(pos.x, pos.y * uniforms.aspect, 0.0, 1.0);
+	out.position = vec4f(pos.x, pos.y * uniforms.aspect, pos.z * 0.5 + 0.5, 1.0);
 	out.color = in.color; // forward to the fragment shader
 	return out;
 }
