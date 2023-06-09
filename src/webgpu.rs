@@ -179,8 +179,8 @@ struct WasmWGPURenderPassDescriptor {
     label: WasmPtr<u8>,
     color_attachment_count: u32,
     color_attachments: WasmPtr<WasmWGPURenderPassColorAttachment>,
-    depth_stencil_attachment: u32, // WGPURenderPassDepthStencilAttachment const *
-    occlusion_query_set: u32,      // WGPUQuerySet
+    depth_stencil_attachment: WasmPtr<WasmWGPURenderPassDepthStencilAttachment>,
+    occlusion_query_set: u32, // WGPUQuerySet
     timestamp_write_count: u32,
     timestamp_writes: u32, // WGPURenderPassTimestampWrite const *
 }
@@ -202,6 +202,20 @@ struct WasmWGPUColor {
     g: f64,
     b: f64,
     a: f64,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPURenderPassDepthStencilAttachment {
+    view: u32, // WGPUTextureView
+    depth_load_op: native::WGPULoadOp,
+    depth_store_op: native::WGPUStoreOp,
+    depth_clear_value: f32,
+    depth_read_only: bool,
+    stencil_load_op: native::WGPULoadOp,
+    stencil_store_op: native::WGPUStoreOp,
+    stencil_clear_value: u32,
+    stencil_read_only: bool,
 }
 
 pub fn wgpu_command_encoder_begin_render_pass(
@@ -237,6 +251,18 @@ pub fn wgpu_command_encoder_begin_render_pass(
                 }
             })
             .collect();
+        let depth_stencil_attachment = descriptor.depth_stencil_attachment.read(&memory).unwrap();
+        let depth_stencil_attachment = native::WGPURenderPassDepthStencilAttachment {
+            view: system.texture_views[depth_stencil_attachment.view as usize - 1].0,
+            depthLoadOp: depth_stencil_attachment.depth_load_op,
+            depthStoreOp: depth_stencil_attachment.depth_store_op,
+            depthClearValue: depth_stencil_attachment.depth_clear_value,
+            depthReadOnly: depth_stencil_attachment.depth_read_only,
+            stencilLoadOp: depth_stencil_attachment.stencil_load_op,
+            stencilStoreOp: depth_stencil_attachment.stencil_store_op,
+            stencilClearValue: depth_stencil_attachment.stencil_clear_value,
+            stencilReadOnly: depth_stencil_attachment.stencil_read_only,
+        };
         system.render_pass.0 = unsafe {
             wgpu_native::command::wgpuCommandEncoderBeginRenderPass(
                 system.encoder.0,
@@ -245,7 +271,7 @@ pub fn wgpu_command_encoder_begin_render_pass(
                     label: null(),
                     colorAttachmentCount: descriptor.color_attachment_count,
                     colorAttachments: color_attachments.as_ptr(),
-                    depthStencilAttachment: std::ptr::null(),
+                    depthStencilAttachment: &depth_stencil_attachment,
                     occlusionQuerySet: std::ptr::null_mut(),
                     timestampWriteCount: 0,
                     timestampWrites: std::ptr::null(),
@@ -744,7 +770,7 @@ pub fn wgpu_device_create_render_pipeline(
         })
         .collect();
     let depth_stencil = descriptor.depth_stencil.read(&memory).unwrap();
-    println!("---> depth stencil: {depth_stencil:?}");
+    // println!("---> depth stencil: {depth_stencil:?}");
     let pipeline = unsafe {
         wgpu_native::device::wgpuDeviceCreateRenderPipeline(
             system.device.0,
