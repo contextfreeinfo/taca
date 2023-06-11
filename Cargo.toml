@@ -1,6 +1,6 @@
 [package]
 name = "taca"
-description = "A wasm runtime for multimedia apps and more"
+description = "Wasm runtime for multimedia apps"
 version = "0.1.0"
 edition = "2021"
 
