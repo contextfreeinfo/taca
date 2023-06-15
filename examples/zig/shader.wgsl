@@ -1,5 +1,6 @@
 struct Uniforms {
-	aspect: f32,
+	projection: mat4x4<f32>,
+	view: mat4x4<f32>,
 	time: f32,
 }
 
@@ -50,17 +51,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 		0.0, 0.0, 1.0, 0.0,
 		0.0, 0.0, 0.0, 1.0,
 	));
-	let view = 3.0 * tau / 8.0;
-	let cv = cos(view);
-	let sv = sin(view);
-	let rot_view = transpose(mat4x4<f32>(
-		1.0, 0.0, 0.0, 0.0,
-		0.0, cv, sv, 0.0,
-		0.0, -sv, cv, 0.0,
-		0.0, 0.0, 0.0, 1.0,
-	));
-	let pos = rot_view * tf_obj * vec4<f32>(0.3 * in.position, 1.0);
-	out.position = vec4f(pos.x, pos.y * uniforms.aspect, pos.z * 0.5 + 0.5, 1.0);
+	let pos =
+		uniforms.projection *
+		uniforms.view *
+		tf_obj * vec4<f32>(0.3 * in.position, 1.0);
+	out.position = vec4f(pos.x, pos.y, pos.z * 0.5 + 0.5, 1.0);
 	out.color = in.color; // forward to the fragment shader
 	return out;
 }

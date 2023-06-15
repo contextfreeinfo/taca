@@ -3,6 +3,7 @@
 
 const std = @import("std");
 const assert = std.debug.assert;
+const a = @import("./zalgebra/main.zig");
 const d = @import("./data.zig");
 const p = @import("./pipeline.zig");
 const g = @cImport({
@@ -74,8 +75,8 @@ pub fn main() void {
             .maxTextureDimension2D = 3000,
             .maxTextureArrayLayers = 1,
             .maxBindGroups = 1,
-            .maxBufferSize = @sizeOf(@TypeOf(d.point_data)),
-            .maxUniformBufferBindingSize = 16 * @sizeOf(f32),
+            .maxBufferSize = @max(@sizeOf(@TypeOf(d.point_data)), @sizeOf(Uniforms)),
+            .maxUniformBufferBindingSize = @sizeOf(Uniforms),
             .maxUniformBuffersPerShaderStage = 1,
             .maxVertexAttributes = 2,
             .maxVertexBuffers = 1,
@@ -205,6 +206,7 @@ pub fn main() void {
         .format = format,
         .index_buffer = index_buffer,
         .instance = instance,
+        .projection = buildPerspective(size),
         .pipeline = pipeline,
         .point_buffer = point_buffer,
         .queue = queue,
@@ -214,7 +216,13 @@ pub fn main() void {
         .uniform_buffer = uniform_buffer,
         .time = 0,
         .vertex_buffer = vertex_buffer,
+        .view = a.Mat4.identity()
+            .translate(a.Vec3.new(0, 0, -2))
+            .rotate(135, a.Vec3.new(1, 0, 0))
+            .transpose(),
     };
+    // std.debug.print("---->\n{}\n", .{global_state.projection});
+    // std.debug.print("---->\n{}\n", .{global_state.view});
 
     // Listen
     // Probably smaller binaries with this instead of exported functions for
@@ -243,8 +251,10 @@ fn windowClose(state: *State) void {
 
 fn windowRedraw(state: *State) void {
     state.time += 1.0 / 60.0;
+    // TODO Be more selective about what uniforms we send when?
     const uniforms = Uniforms{
-        .aspect = @intToFloat(f32, state.size.x) / @intToFloat(f32, state.size.y),
+        .projection = state.projection,
+        .view = state.view,
         .time = state.time,
     };
     g.wgpuQueueWriteBuffer(state.queue, state.uniform_buffer, 0, &uniforms, @sizeOf(Uniforms));
@@ -313,6 +323,7 @@ fn windowRedraw(state: *State) void {
 fn windowResize(state: *State) void {
     const size = t.tac_windowInnerSize();
     if (size.x > 0 and size.y > 0) {
+        state.projection = buildPerspective(size);
         state.size = size;
         // Depth texture
         g.wgpuTextureViewDrop(state.depth_texture_out.depth_texture_view);
@@ -340,6 +351,7 @@ const State = struct {
     format: g.WGPUTextureFormat,
     index_buffer: g.WGPUBuffer,
     instance: g.WGPUInstance,
+    projection: a.Mat4,
     pipeline: g.WGPURenderPipeline,
     point_buffer: g.WGPUBuffer,
     queue: g.WGPUQueue,
@@ -349,14 +361,40 @@ const State = struct {
     time: f32,
     uniform_buffer: g.WGPUBuffer,
     vertex_buffer: g.WGPUBuffer,
+    view: a.Mat4,
 };
 
 var global_state: State = undefined;
 
-const Uniforms = struct {
-    aspect: f32,
+// Can't put arrays in packed structs, so go extern. I hope this guarantees order:
+// https://github.com/ziglang/zig/issues/12547
+const Uniforms = extern struct {
+    projection: a.Mat4,
+    view: a.Mat4,
     time: f32,
+    // WGPU expects this padding in the struct from the shader side.
+    _: [3]f32 = .{0, 0, 0},
 };
+
+fn buildPerspective(size: t.tac_Vec2) a.Mat4 {
+    // The tutorial uses different calculations than zalgebra, and I'm not
+    // getting what I want from zalgebra, so go with tutorial.
+    const aspect = @intToFloat(f32, size.x) / @intToFloat(f32, size.y);
+    const focal_length: f32 = 2;
+    const near: f32 = 0.01;
+    const far: f32 = 100;
+    const divider: f32 = 1.0 / (focal_length * (far - near));
+    const perspective = (a.Mat4{
+        .data = .{
+            .{1, 0, 0, 0},
+            .{0, aspect, 0, 0},
+            .{0, 0, far * divider, -far * near * divider},
+            .{0, 0, 1 / focal_length, 0},
+        },
+    }).transpose();
+    // return a.perspective(45.0, aspect, 0.1, 100.0);
+    return perspective;
+}
 
 const CreateDepthTextureIn = struct {
     device: g.WGPUDevice,
