@@ -39,16 +39,7 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
             } if window_id == window.id() => {
                 // if !state.input(event) {
                 match event {
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => {
+                    WindowEvent::CloseRequested => {
                         send_event(
                             &mut store,
                             &window_listen,
