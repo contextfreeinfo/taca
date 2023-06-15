@@ -78,12 +78,12 @@ pub fn main() void {
             .maxBufferSize = @max(@sizeOf(@TypeOf(d.point_data)), @sizeOf(Uniforms)),
             .maxUniformBufferBindingSize = @sizeOf(Uniforms),
             .maxUniformBuffersPerShaderStage = 1,
-            .maxVertexAttributes = 2,
+            .maxVertexAttributes = 3,
             .maxVertexBuffers = 1,
             .maxVertexBufferArrayStride = d.vertex_stride,
             .minStorageBufferOffsetAlignment = supported_limits.limits.minStorageBufferOffsetAlignment,
             .minUniformBufferOffsetAlignment = supported_limits.limits.minUniformBufferOffsetAlignment,
-            .maxInterStageShaderComponents = 3,
+            .maxInterStageShaderComponents = 6,
         }),
     };
     g.wgpuAdapterRequestDevice(

@@ -39,8 +39,13 @@ pub fn buildPipeline(
         },
         .{
             .format = g.WGPUVertexFormat_Float32x3,
-            .offset = d.vertex_color_offset * @sizeOf(f32),
+            .offset = d.vertex_norm_offset * @sizeOf(f32),
             .shaderLocation = 1,
+        },
+        .{
+            .format = g.WGPUVertexFormat_Float32x3,
+            .offset = d.vertex_color_offset * @sizeOf(f32),
+            .shaderLocation = 2,
         },
     };
     const vertex_buffer_layout = g.WGPUVertexBufferLayout{
