@@ -250,18 +250,24 @@ fn keyPress(state: *State) void {
     switch (event.code) {
         t.tac_KeyCode_Undefined => {},
         t.tac_KeyCode_Left => {
-            state.velocity.data[0] = -speed;
+            updateSpeed(&state.velocity, 0, -1, speed);
         },
         t.tac_KeyCode_Up => {
-            state.velocity.data[1] = speed;
+            updateSpeed(&state.velocity, 1, 1, speed);
         },
         t.tac_KeyCode_Right => {
-            state.velocity.data[0] = speed;
+            updateSpeed(&state.velocity, 0, 1, speed);
         },
         t.tac_KeyCode_Down => {
-            state.velocity.data[1] = -speed;
+            updateSpeed(&state.velocity, 1, -1, speed);
         },
         else => unreachable,
+    }
+}
+
+fn updateSpeed(vec: *a.Vec3, index: usize, direction: f32, speed: f32) void {
+    if (std.math.sign(vec.data[index]) == direction or speed != 0) {
+        vec.data[index] = direction * speed;
     }
 }
 
