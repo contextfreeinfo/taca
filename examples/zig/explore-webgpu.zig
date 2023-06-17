@@ -206,15 +206,17 @@ pub fn main() void {
         .format = format,
         .index_buffer = index_buffer,
         .instance = instance,
-        .projection = buildPerspective(size),
         .pipeline = pipeline,
         .point_buffer = point_buffer,
+        .position = a.Vec3.zero(),
+        .projection = buildPerspective(size),
         .queue = queue,
         .size = size,
         .swap_chain = swap_chain,
         .surface = surface,
         .uniform_buffer = uniform_buffer,
         .time = 0,
+        .velocity = a.Vec3.zero(),
         .vertex_buffer = vertex_buffer,
         .view = a.Mat4.identity()
             .translate(a.Vec3.new(0, 0, -2))
@@ -235,8 +237,30 @@ fn windowListen(event_type: t.tac_WindowEventType, unused: ?*anyopaque) callconv
     _ = unused;
     switch (event_type) {
         t.tac_WindowEventType_Close => windowClose(&global_state),
+        t.tac_WindowEventType_Key => keyPress(&global_state),
         t.tac_WindowEventType_Redraw => windowRedraw(&global_state),
         t.tac_WindowEventType_Resize => windowResize(&global_state),
+        else => unreachable,
+    }
+}
+
+fn keyPress(state: *State) void {
+    const event = t.tac_keyEvent();
+    const speed: f32 = if (event.pressed) 0.02 else 0;
+    switch (event.code) {
+        t.tac_KeyCode_Undefined => {},
+        t.tac_KeyCode_Left => {
+            state.velocity.data[0] = -speed;
+        },
+        t.tac_KeyCode_Up => {
+            state.velocity.data[1] = speed;
+        },
+        t.tac_KeyCode_Right => {
+            state.velocity.data[0] = speed;
+        },
+        t.tac_KeyCode_Down => {
+            state.velocity.data[1] = -speed;
+        },
         else => unreachable,
     }
 }
@@ -250,11 +274,13 @@ fn windowClose(state: *State) void {
 }
 
 fn windowRedraw(state: *State) void {
+    state.position = state.position.add(state.velocity);
     state.time += 1.0 / 60.0;
     // TODO Be more selective about what uniforms we send when?
     const uniforms = Uniforms{
         .projection = state.projection,
         .view = state.view,
+        .position = state.position,
         .time = state.time,
     };
     g.wgpuQueueWriteBuffer(state.queue, state.uniform_buffer, 0, &uniforms, @sizeOf(Uniforms));
@@ -351,15 +377,17 @@ const State = struct {
     format: g.WGPUTextureFormat,
     index_buffer: g.WGPUBuffer,
     instance: g.WGPUInstance,
-    projection: a.Mat4,
     pipeline: g.WGPURenderPipeline,
     point_buffer: g.WGPUBuffer,
+    position: a.Vec3,
+    projection: a.Mat4,
     queue: g.WGPUQueue,
     size: t.tac_Vec2,
     swap_chain: g.WGPUSwapChain,
     surface: g.WGPUSurface,
     time: f32,
     uniform_buffer: g.WGPUBuffer,
+    velocity: a.Vec3,
     vertex_buffer: g.WGPUBuffer,
     view: a.Mat4,
 };
@@ -372,8 +400,7 @@ const Uniforms = extern struct {
     projection: a.Mat4,
     view: a.Mat4,
     time: f32,
-    // WGPU expects this padding in the struct from the shader side.
-    _: [3]f32 = .{0, 0, 0},
+    position: a.Vec3,
 };
 
 fn buildPerspective(size: t.tac_Vec2) a.Mat4 {

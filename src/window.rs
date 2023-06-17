@@ -1,17 +1,9 @@
-pub type WindowEventType = u32;
-#[allow(non_upper_case_globals)]
-const tac_WindowEventType_Close: WindowEventType = 1;
-#[allow(non_upper_case_globals)]
-const tac_WindowEventType_Redraw: WindowEventType = 2;
-#[allow(non_upper_case_globals)]
-const tac_WindowEventType_Resize: WindowEventType = 3;
-
 pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<System>) {
     // let (system, mut store) = env.data_and_store_mut();
     // let window = system.window.as_ref().unwrap();
     let mut modifiers: ModifiersState = ModifiersState::empty();
     event_loop.run(move |event, _, control_flow| {
-        let system = env.as_ref(&store);
+        let mut system = env.as_mut(&mut store);
         let window = system.window.as_ref().unwrap();
         let window_listen = system.window_listen.as_ref().unwrap().clone();
         let window_listen_userdata = system.window_listen_userdata;
@@ -26,7 +18,7 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                     store,
                     &[
                         // TODO How to put u32 into here? How to just let it wrap?
-                        Value::I32(event_type.try_into().unwrap()),
+                        Value::I32((event_type as u32).try_into().unwrap()),
                         Value::I32(userdata.try_into().unwrap()),
                     ],
                 )
@@ -43,7 +35,7 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                         send_event(
                             &mut store,
                             &window_listen,
-                            tac_WindowEventType_Close,
+                            WindowEventType::Close,
                             window_listen_userdata,
                         );
                         *control_flow = ControlFlow::Exit;
@@ -51,19 +43,33 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                     WindowEvent::KeyboardInput {
                         input:
                             KeyboardInput {
-                                state: ElementState::Pressed,
+                                state,
                                 virtual_keycode: Some(key),
                                 ..
                             },
                         ..
                     } => {
-                        if *key == VirtualKeyCode::F11
-                            || *key == VirtualKeyCode::Return && modifiers.alt()
+                        if *state == ElementState::Pressed
+                            && (*key == VirtualKeyCode::F11
+                                || *key == VirtualKeyCode::Return && modifiers.alt())
                         {
                             window.set_fullscreen(match window.fullscreen() {
                                 Some(_) => None,
                                 None => Some(winit::window::Fullscreen::Borderless(None)),
                             })
+                        } else {
+                            system.key_event = Some(
+                                KeyEvent {
+                                    code: convert_key(*key),
+                                    pressed: *state == ElementState::Pressed,
+                                }
+                            );
+                            send_event(
+                                &mut store,
+                                &window_listen,
+                                WindowEventType::Key,
+                                window_listen_userdata,
+                            );
                         }
                     }
                     WindowEvent::ModifiersChanged(state) => {
@@ -73,7 +79,7 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                         send_event(
                             &mut store,
                             &window_listen,
-                            tac_WindowEventType_Resize,
+                            WindowEventType::Resize,
                             window_listen_userdata,
                         );
                     }
@@ -81,7 +87,7 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                         send_event(
                             &mut store,
                             &window_listen,
-                            tac_WindowEventType_Resize,
+                            WindowEventType::Resize,
                             window_listen_userdata,
                         );
                     }
@@ -93,7 +99,7 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                 send_event(
                     &mut store,
                     &window_listen,
-                    tac_WindowEventType_Redraw,
+                    WindowEventType::Redraw,
                     window_listen_userdata,
                 );
                 // state.update();
@@ -120,6 +126,66 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
     });
 }
 
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[repr(u32)]
+pub enum WindowEventType {
+    Close = 1,
+    Key = 2,
+    Redraw = 3,
+    Resize = 4,
+}
+
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[repr(u32)]
+pub enum KeyCode {
+    Undefined = 0,
+    Left = 1,
+    Up = 2,
+    Right = 3,
+    Down = 4,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct KeyEvent {
+    code: KeyCode,
+    pressed: bool,
+}
+
+fn convert_key(wkey: VirtualKeyCode) -> KeyCode {
+    match wkey {
+        VirtualKeyCode::Left => KeyCode::Left,
+        VirtualKeyCode::Up => KeyCode::Up,
+        VirtualKeyCode::Right => KeyCode::Right,
+        VirtualKeyCode::Down => KeyCode::Down,
+        _ => KeyCode::Undefined,
+    }
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmKeyEvent {
+    code: u32,
+    pressed: bool,
+}
+
+pub fn tac_key_event(mut env: FunctionEnvMut<System>, result: u32) {
+    println!("tac_keyEvent({result})");
+    let (system, mut store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&mut store);
+    let key_event = match system.key_event {
+        Some(key_event) => WasmKeyEvent {
+            code: key_event.code as u32,
+            pressed: key_event.pressed,
+        },
+        None => WasmKeyEvent {
+            code: KeyCode::Undefined as u32,
+            pressed: false,
+        },
+    };
+    let result = result as u64;
+    WasmRef::<WasmKeyEvent>::new(&view, result).write(key_event).unwrap();
+}
+
 pub fn tac_window_inner_size(mut env: FunctionEnvMut<System>, result: u32) {
     println!("tac_windowInnerSize({result})");
     let (system, mut store) = env.data_and_store_mut();
@@ -142,7 +208,7 @@ pub fn tac_window_listen(mut env: FunctionEnvMut<System>, callback: u32, userdat
 }
 
 use crate::system::*;
-use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Value};
+use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Value, ValueType, WasmRef};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},

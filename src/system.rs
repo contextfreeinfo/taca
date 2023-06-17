@@ -127,6 +127,7 @@ pub struct System {
     pub encoder: WGPUCommandEncoder,
     pub functions: Option<Table>,
     pub instance: WGPUInstance,
+    pub key_event: Option<crate::window::KeyEvent>,
     pub memory: Option<Memory>,
     pub queue: WGPUQueue,
     pub pipelines: Vec<WGPURenderPipeline>,

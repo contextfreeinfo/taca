@@ -52,6 +52,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
     let env = FunctionEnv::new(&mut store, System::new(window));
     let import_object = imports! {
         "env" => {
+            "tac_keyEvent" => Function::new_typed_with_env(&mut store, &env, tac_key_event),
             "tac_windowInnerSize" => Function::new_typed_with_env(&mut store, &env, tac_window_inner_size),
             "tac_windowListen" => Function::new_typed_with_env(&mut store, &env, tac_window_listen),
             "wgpuAdapterDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_drop),
