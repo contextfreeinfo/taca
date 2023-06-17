@@ -1,6 +1,8 @@
 node_modules
 notes
 SDL2.dll
+shader.spv
+shader-out.wgsl
 # tacana
 tacana.exe
 tacana.pdb
