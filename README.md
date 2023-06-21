@@ -2,6 +2,8 @@
 
 Run `./run.sh` or just `cargo build` or such like.
 
+[Video intro here.](https://youtu.be/VhCgep06-I8)
+
 ## Old instructions
 
 To build:

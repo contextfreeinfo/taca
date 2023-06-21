@@ -169,7 +169,7 @@ struct WasmKeyEvent {
 }
 
 pub fn tac_key_event(mut env: FunctionEnvMut<System>, result: u32) {
-    println!("tac_keyEvent({result})");
+    // println!("tac_keyEvent({result})");
     let (system, mut store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&mut store);
     let key_event = match system.key_event {
