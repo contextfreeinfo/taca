@@ -149,7 +149,60 @@ pub fn main() void {
         },
     );
 
-    // Uniform binding
+    // Texture
+    const image_texture_desc = std.mem.zeroInit(g.WGPUTextureDescriptor, .{
+        .usage = g.WGPUTextureUsage_CopyDst | g.WGPUTextureUsage_TextureBinding,
+        .dimension = g.WGPUTextureDimension_2D,
+        .size = .{
+            .width = 256,
+            .height = 256,
+            .depthOrArrayLayers = 1,
+        },
+        .format = g.WGPUTextureFormat_RGBA8Unorm,
+        .mipLevelCount = 1,
+        .sampleCount = 1,
+        .viewFormatCount = 0,
+        .viewFormats = null,
+    });
+    const image_texture = g.wgpuDeviceCreateTexture(device, &image_texture_desc);
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = general_purpose_allocator.allocator();
+    const image_texture_data = allocator.alloc(
+        u8,
+        4 * image_texture_desc.size.width * image_texture_desc.size.height,
+    ) catch unreachable;
+    for (0..image_texture_desc.size.width) |j| {
+        for (0..image_texture_desc.size.height) |i| {
+            const n = 4 * (i * image_texture_desc.size.width + j);
+            image_texture_data[n + 0] = @intCast(u8, i);
+            image_texture_data[n + 1] = @intCast(u8, i);
+            image_texture_data[n + 2] = 128;
+            image_texture_data[n + 3] = 255;
+        }
+    }
+    g.wgpuQueueWriteTexture(
+        queue,
+        &std.mem.zeroInit(g.WGPUImageCopyTexture, .{.texture = image_texture}),
+        image_texture_data.ptr,
+        image_texture_data.len,
+        &std.mem.zeroInit(g.WGPUTextureDataLayout, .{
+            .bytesPerRow = 4 * image_texture_desc.size.width,
+            .rowsPerImage = image_texture_desc.size.height,
+        }),
+        &image_texture_desc.size,
+    );
+    const image_texture_view = g.wgpuTextureCreateView(
+        image_texture,
+        &std.mem.zeroInit(g.WGPUTextureViewDescriptor, .{
+            .format = image_texture_desc.format,
+            .dimension = g.WGPUTextureViewDimension_2D,
+            .mipLevelCount = 1,
+            .arrayLayerCount = 1,
+        }),
+    );
+    _ = image_texture_view;
+
+    // Uniform & texture binding
     const bind_group_layout_entry = std.mem.zeroInit(g.WGPUBindGroupLayoutEntry, .{
         .binding = 0,
         .visibility = g.WGPUShaderStage_Vertex,

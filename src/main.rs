@@ -78,6 +78,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "wgpuInstanceRequestAdapter" => Function::new_typed_with_env(&mut store, &env, wgpu_instance_request_adapter),
             "wgpuQueueSubmit" => Function::new_typed_with_env(&mut store, &env, wgpu_queue_submit),
             "wgpuQueueWriteBuffer" => Function::new_typed_with_env(&mut store, &env, wgpu_queue_write_buffer),
+            "wgpuQueueWriteTexture" => Function::new_typed_with_env(&mut store, &env, wgpu_queue_write_texture),
             "wgpuRenderPassEncoderDraw" => Function::new_typed_with_env(&mut store, &env, wgpu_render_pass_encoder_draw),
             "wgpuRenderPassEncoderDrawIndexed" => Function::new_typed_with_env(&mut store, &env, wgpu_render_pass_encoder_draw_indexed),
             "wgpuRenderPassEncoderEnd" => Function::new_typed_with_env(&mut store, &env, wgpu_render_pass_encoder_end),

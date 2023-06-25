@@ -115,7 +115,7 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                 // }
             }
             Event::RedrawEventsCleared => {
-                std::thread::sleep(std::time::Duration::from_secs_f64(1.0 / 60.0));
+                // std::thread::sleep(std::time::Duration::from_secs_f64(1.0 / 60.0));
                 // RedrawRequested will only trigger once, unless we manually
                 // request it.
                 // TODO Require redraw request from app before requesting?

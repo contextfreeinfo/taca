@@ -22,6 +22,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// TODO Replace all with script to generate json.
+
 typedef enum tac_KeyCode {
     tac_KeyCode_Undefined = 0,
     tac_KeyCode_Left = 1,
@@ -54,6 +56,7 @@ typedef void (*tac_WindowListenCallback)(tac_WindowEventType type, void* userdat
 
 tac_EXPORT tac_KeyEvent tac_keyEvent(void);
 tac_EXPORT tac_Vec2 tac_windowInnerSize(void);
+// TODO Use exported function and just register userdata here?
 tac_EXPORT void tac_windowListen(tac_WindowListenCallback callback, void* userdata);
 tac_EXPORT void tac_windowSetTitle(const char* title);
 

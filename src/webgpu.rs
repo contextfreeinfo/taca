@@ -1257,6 +1257,92 @@ pub fn wgpu_queue_write_buffer(
     }
 }
 
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUImageCopyTexture {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    texture: u32, // WGPUTexture
+    mip_level: u32,
+    origin: WasmWGPUOrigin3D,
+    aspect: native::WGPUTextureAspect,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWGPUOrigin3D {
+    x: u32,
+    y: u32,
+    z: u32,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmWWGPUTextureDataLayout {
+    next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
+    offset: u64,
+    bytes_per_row: u32,
+    rows_per_image: u32,
+}
+
+pub fn wgpu_queue_write_texture(
+    mut env: FunctionEnvMut<System>,
+    _queue: u32,
+    destination: u32, // WGPUImageCopyTexture const *
+    data: u32,
+    data_size: u32,   // size_t
+    data_layout: u32, // WGPUTextureDataLayout const *
+    write_size: u32,  // WGPUExtent3D const *
+) {
+    let (system, store) = env.data_and_store_mut();
+    if !system.queue.0.is_null() {
+        let view = system.memory.as_ref().unwrap().view(&store);
+        // TODO How to avoid this extra copy?
+        let data = WasmPtr::<u8>::new(data)
+            .slice(&view, data_size)
+            .unwrap()
+            .read_to_vec()
+            .unwrap();
+        let destination = WasmRef::<WasmWGPUImageCopyTexture>::new(&view, destination as u64)
+            .read()
+            .unwrap();
+        let data_layout = WasmRef::<WasmWWGPUTextureDataLayout>::new(&view, data_layout as u64)
+            .read()
+            .unwrap();
+        let write_size = WasmRef::<WasmWGPUExtent3D>::new(&view, write_size as u64)
+            .read()
+            .unwrap();
+        unsafe {
+            wgpu_native::device::wgpuQueueWriteTexture(
+                system.queue.0,
+                Some(&native::WGPUImageCopyTexture {
+                    nextInChain: null(),
+                    texture: system.textures[destination.texture as usize - 1].0,
+                    mipLevel: destination.mip_level,
+                    origin: native::WGPUOrigin3D {
+                        x: destination.origin.x,
+                        y: destination.origin.y,
+                        z: destination.origin.z,
+                    },
+                    aspect: destination.aspect,
+                }),
+                data.as_ptr(),
+                data_size as usize,
+                Some(&native::WGPUTextureDataLayout {
+                    nextInChain: null(),
+                    offset: data_layout.offset,
+                    bytesPerRow: data_layout.bytes_per_row,
+                    rowsPerImage: data_layout.rows_per_image,
+                }),
+                Some(&native::WGPUExtent3D {
+                    width: write_size.width,
+                    height: write_size.height,
+                    depthOrArrayLayers: write_size.depth_or_array_layers,
+                }),
+            );
+        }
+    }
+}
+
 pub fn wgpu_render_pass_encoder_draw(
     env: FunctionEnvMut<System>,
     _render_pass: u32,
