@@ -10,6 +10,9 @@ struct Uniforms {
 // a *binding*.
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 
+//@group(0) @binding(1) var textureSampler: sampler;
+@group(0) @binding(1) var texture: texture_2d<f32>;
+
 /**
  * A structure with fields labeled with vertex attribute locations can be used
  * as input to the entry point of a shader.
@@ -77,6 +80,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     var color = in.color;
     color = color * 0.6 + 0.4;
     color *= shading;
+    // Hack texture.
+    color = 0.97 * color + 0.03 * textureLoad(texture, vec2<i32>(in.position.xy / 10.0), 0).rgb;
     // Convert approximate srgb color space.
     // TODO Only if srgb format! TODO Need uniform to indicate that?
     return vec4f(pow(color, vec3f(2.2)), 1.0);

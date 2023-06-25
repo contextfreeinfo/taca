@@ -75,6 +75,7 @@ pub fn main() void {
             .maxTextureDimension2D = 3000,
             .maxTextureArrayLayers = 1,
             .maxBindGroups = 1,
+            .maxSampledTexturesPerShaderStage = 1,
             .maxBufferSize = @max(@sizeOf(@TypeOf(d.point_data)), @sizeOf(Uniforms)),
             .maxUniformBufferBindingSize = @sizeOf(Uniforms),
             .maxUniformBuffersPerShaderStage = 1,
@@ -174,9 +175,9 @@ pub fn main() void {
     for (0..image_texture_desc.size.width) |j| {
         for (0..image_texture_desc.size.height) |i| {
             const n = 4 * (i * image_texture_desc.size.width + j);
-            image_texture_data[n + 0] = @intCast(u8, i);
-            image_texture_data[n + 1] = @intCast(u8, i);
-            image_texture_data[n + 2] = 128;
+            image_texture_data[n + 0] = if ((i / 16) % 2 == (j / 16) % 2) 255 else 0;
+            image_texture_data[n + 1] = if (((i - j) / 16) % 2 == 0) 255 else 0;
+            image_texture_data[n + 2] = if (((i + j) / 16) % 2 == 0) 255 else 0;
             image_texture_data[n + 3] = 255;
         }
     }
@@ -200,38 +201,49 @@ pub fn main() void {
             .arrayLayerCount = 1,
         }),
     );
-    _ = image_texture_view;
 
     // Uniform & texture binding
-    const bind_group_layout_entry = std.mem.zeroInit(g.WGPUBindGroupLayoutEntry, .{
-        .binding = 0,
-        .visibility = g.WGPUShaderStage_Vertex,
-        .buffer = std.mem.zeroInit(g.WGPUBufferBindingLayout, .{
-            .type = g.WGPUBufferBindingType_Uniform,
-            .minBindingSize = @sizeOf(Uniforms),
-        }),
-    });
     const bind_group_layout = g.wgpuDeviceCreateBindGroupLayout(device, &g.WGPUBindGroupLayoutDescriptor{
         .nextInChain = null,
         .label = null,
-        .entryCount = 1,
-        .entries = &bind_group_layout_entry,
+        .entryCount = 2,
+        .entries = &[_]g.WGPUBindGroupLayoutEntry{
+            std.mem.zeroInit(g.WGPUBindGroupLayoutEntry, .{
+                .binding = 0,
+                .visibility = g.WGPUShaderStage_Vertex | g.WGPUShaderStage_Fragment,
+                .buffer = std.mem.zeroInit(g.WGPUBufferBindingLayout, .{
+                    .type = g.WGPUBufferBindingType_Uniform,
+                    .minBindingSize = @sizeOf(Uniforms),
+                }),
+            }),
+            std.mem.zeroInit(g.WGPUBindGroupLayoutEntry, .{
+                .binding = 1,
+                .visibility = g.WGPUShaderStage_Fragment,
+                .sampler = std.mem.zeroInit(g.WGPUSamplerBindingLayout, .{
+                    .type = g.WGPUSamplerBindingType_NonFiltering,
+                }),
+                .texture = std.mem.zeroInit(g.WGPUTextureBindingLayout, .{
+                    .sampleType = g.WGPUTextureSampleType_Float,
+                    .viewDimension = g.WGPUTextureViewDimension_2D,
+                }),
+            }),
+        },
     });
     const bind_group = g.wgpuDeviceCreateBindGroup(device, &g.WGPUBindGroupDescriptor{
         .nextInChain = null,
         .label = null,
         .layout = bind_group_layout,
-        .entryCount = 1,
+        .entryCount = 2,
         .entries = &[_]g.WGPUBindGroupEntry{
-            .{
-                .nextInChain = null,
+            std.mem.zeroInit(g.WGPUBindGroupEntry, .{
                 .binding = 0,
                 .buffer = uniform_buffer,
-                .offset = 0,
                 .size = @sizeOf(Uniforms),
-                .sampler = null,
-                .textureView = null,
-            },
+            }),
+            std.mem.zeroInit(g.WGPUBindGroupEntry, .{
+                .binding = 1,
+                .textureView = image_texture_view,
+            }),
         },
     });
 

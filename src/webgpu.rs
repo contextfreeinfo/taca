@@ -359,11 +359,17 @@ pub fn wgpu_device_create_bind_group(
             native::WGPUBindGroupEntry {
                 nextInChain: null(),
                 binding: entry.binding,
-                buffer: system.buffers[entry.buffer as usize - 1].0,
+                buffer: match entry.buffer {
+                    0 => null_mut(),
+                    _ => system.buffers[entry.buffer as usize - 1].0,
+                },
                 offset: entry.offset,
                 size: entry.size,
                 sampler: null_mut(),
-                textureView: null_mut(),
+                textureView: match entry.texture_view {
+                    0 => null_mut(),
+                    _ => system.texture_views[entry.texture_view as usize - 1].0,
+                },
             }
         })
         .collect();
