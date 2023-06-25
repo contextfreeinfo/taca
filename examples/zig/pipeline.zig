@@ -23,7 +23,7 @@ pub fn buildPipeline(
                         .next = null,
                         .sType = g.WGPUSType_ShaderModuleWGSLDescriptor,
                     },
-                    .code = @embedFile("./shader.wgsl"),
+                    .code = @embedFile("./shader.opt.wgsl"),
                 },
             ),
             .label = null,

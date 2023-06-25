@@ -10,6 +10,7 @@ vendor
 zig-cache
 *.asm.js
 *.o
+*.opt.*
 *.wasm
 *.wasm.map
 *.wat

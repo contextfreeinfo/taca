@@ -1,5 +1,6 @@
 # naga shader.wgsl shader.spv &&
 # naga shader.spv shader-out.wgsl &&
+node minify.js &&
 zig build-exe -target wasm32-wasi -O ReleaseSmall --export-table \
     -I ../../include/wgpu-native -I ../../include/taca \
     explore-webgpu.zig && \
