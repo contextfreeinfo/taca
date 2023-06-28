@@ -1,4 +1,11 @@
-## Old instructions
+## Instructions
+
+Original plan was to go through C interfaces in Zig for the implementation as
+well. Considering going back to this, but starting with a focus of a simplified
+user experience as the initial focus, since raw WebGPU is no fun and I like
+small binaries.
+
+SDL also has haptic feedback built in, so that could end up fun.
 
 To build:
 
