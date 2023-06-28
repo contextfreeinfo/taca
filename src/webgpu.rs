@@ -1115,6 +1115,7 @@ unsafe fn wgpu_instance_create_surface_any(
         let raw_window_handle::RawDisplayHandle::Xlib(xlib_display) = raw_display else {
             unreachable!()
         };
+        // println!("xlib: {:?} {}", xlib_display.display, xlib_window.window);
         Some(native::WGPUSurfaceDescriptorFromXlibWindow {
             chain: native::WGPUChainedStruct {
                 next: null(),

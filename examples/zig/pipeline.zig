@@ -1,27 +1,28 @@
 const std = @import("std");
 // const print = std.debug.print;
 const d = @import("./data.zig");
-const g = @cImport({
+const c = @cImport({
+    @cInclude("taca.h");
     @cInclude("wgpu.h");
     @cInclude("webgpu-headers/webgpu.h");
 });
 
 pub fn buildPipeline(
-    device: g.WGPUDevice,
-    format: g.WGPUTextureFormat,
-    bind_group_layout: g.WGPUBindGroupLayout,
-) g.WGPURenderPipeline {
+    device: c.WGPUDevice,
+    format: c.WGPUTextureFormat,
+    bind_group_layout: c.WGPUBindGroupLayout,
+) c.WGPURenderPipeline {
     // From:
     // https://github.com/eliemichel/LearnWebGPU-Code/blob/b089aa69e27965af04045098287f02a23b2a8845/main.cpp
-    const shader_module = g.wgpuDeviceCreateShaderModule(
+    const shader_module = c.wgpuDeviceCreateShaderModule(
         device,
-        &g.WGPUShaderModuleDescriptor{
+        &c.WGPUShaderModuleDescriptor{
             .nextInChain = @ptrCast(
-                *const g.WGPUChainedStruct,
-                &g.WGPUShaderModuleWGSLDescriptor{
+                *const c.WGPUChainedStruct,
+                &c.WGPUShaderModuleWGSLDescriptor{
                     .chain = .{
                         .next = null,
-                        .sType = g.WGPUSType_ShaderModuleWGSLDescriptor,
+                        .sType = c.WGPUSType_ShaderModuleWGSLDescriptor,
                     },
                     .code = @embedFile("./shader.opt.wgsl"),
                 },
@@ -31,39 +32,39 @@ pub fn buildPipeline(
             .hints = null,
         },
     ) orelse unreachable;
-    const vertex_attributes = [_]g.WGPUVertexAttribute{
+    const vertex_attributes = [_]c.WGPUVertexAttribute{
         .{
-            .format = g.WGPUVertexFormat_Float32x3,
+            .format = c.WGPUVertexFormat_Float32x3,
             .offset = 0,
             .shaderLocation = 0,
         },
         .{
-            .format = g.WGPUVertexFormat_Float32x3,
+            .format = c.WGPUVertexFormat_Float32x3,
             .offset = d.vertex_norm_offset * @sizeOf(f32),
             .shaderLocation = 1,
         },
         .{
-            .format = g.WGPUVertexFormat_Float32x3,
+            .format = c.WGPUVertexFormat_Float32x3,
             .offset = d.vertex_color_offset * @sizeOf(f32),
             .shaderLocation = 2,
         },
     };
-    const vertex_buffer_layout = g.WGPUVertexBufferLayout{
+    const vertex_buffer_layout = c.WGPUVertexBufferLayout{
         .arrayStride = d.vertex_stride,
-        .stepMode = g.WGPUVertexStepMode_Vertex,
+        .stepMode = c.WGPUVertexStepMode_Vertex,
         .attributeCount = vertex_attributes.len,
         .attributes = &vertex_attributes,
     };
-    const pipeline_layout = g.wgpuDeviceCreatePipelineLayout(
+    const pipeline_layout = c.wgpuDeviceCreatePipelineLayout(
         device,
-        &g.WGPUPipelineLayoutDescriptor{
+        &c.WGPUPipelineLayoutDescriptor{
             .nextInChain = null,
             .label = null,
             .bindGroupLayoutCount = 1,
-            .bindGroupLayouts = &[_]g.WGPUBindGroupLayout{bind_group_layout},
+            .bindGroupLayouts = &[_]c.WGPUBindGroupLayout{bind_group_layout},
         },
     ) orelse unreachable;
-    const pipeline = g.wgpuDeviceCreateRenderPipeline(device, &g.WGPURenderPipelineDescriptor{
+    const pipeline = c.wgpuDeviceCreateRenderPipeline(device, &c.WGPURenderPipelineDescriptor{
         .nextInChain = null,
         .label = null,
         .layout = pipeline_layout,
@@ -76,38 +77,38 @@ pub fn buildPipeline(
             .bufferCount = 1,
             .buffers = &vertex_buffer_layout,
         },
-        .fragment = &g.WGPUFragmentState{
+        .fragment = &c.WGPUFragmentState{
             .nextInChain = null,
             .module = shader_module,
             .entryPoint = "fs_main",
             .constantCount = 0,
             .constants = null,
             .targetCount = 1,
-            .targets = &[_]g.WGPUColorTargetState{
+            .targets = &[_]c.WGPUColorTargetState{
                 .{
                     .nextInChain = null,
                     .format = format,
                     .blend = null,
-                    .writeMask = g.WGPUColorWriteMask_All,
+                    .writeMask = c.WGPUColorWriteMask_All,
                 },
             },
         },
         .primitive = .{
             .nextInChain = null,
-            .topology = g.WGPUPrimitiveTopology_TriangleList,
-            .stripIndexFormat = g.WGPUIndexFormat_Undefined,
-            .frontFace = g.WGPUFrontFace_CCW,
-            .cullMode = g.WGPUCullMode_None,
+            .topology = c.WGPUPrimitiveTopology_TriangleList,
+            .stripIndexFormat = c.WGPUIndexFormat_Undefined,
+            .frontFace = c.WGPUFrontFace_CCW,
+            .cullMode = c.WGPUCullMode_None,
         },
-        .depthStencil = &std.mem.zeroInit(g.WGPUDepthStencilState, .{
-            .format = g.WGPUTextureFormat_Depth24Plus,
+        .depthStencil = &std.mem.zeroInit(c.WGPUDepthStencilState, .{
+            .format = c.WGPUTextureFormat_Depth24Plus,
             .depthWriteEnabled = true,
-            .depthCompare = g.WGPUCompareFunction_Less,
-            .stencilFront = std.mem.zeroInit(g.WGPUStencilFaceState, .{
-                .compare = g.WGPUCompareFunction_Always,
+            .depthCompare = c.WGPUCompareFunction_Less,
+            .stencilFront = std.mem.zeroInit(c.WGPUStencilFaceState, .{
+                .compare = c.WGPUCompareFunction_Always,
             }),
-            .stencilBack = std.mem.zeroInit(g.WGPUStencilFaceState, .{
-                .compare = g.WGPUCompareFunction_Always,
+            .stencilBack = std.mem.zeroInit(c.WGPUStencilFaceState, .{
+                .compare = c.WGPUCompareFunction_Always,
             }),
             // TODO Tutorial encouraged these defaults but then wants zeros?
             // .stencilReadMask = 0xFFFFFFFF,

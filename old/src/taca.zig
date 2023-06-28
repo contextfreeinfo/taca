@@ -4,7 +4,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 pub fn main() !void {
-    try runWasm();
+    // try runWasm();
     runSdl();
 }
 
@@ -45,7 +45,59 @@ fn loadFile(alloc: *std.mem.Allocator, name: []const u8) ![]u8 {
     return try file.readToEndAlloc(alloc, (try file.stat()).size);
 }
 
-fn runSdl() void { // TODO Raylib for static linking?
+const SysWMinfo = extern struct {
+    version: c.SDL_version,
+    subsystem: c.SDL_SYSWM_TYPE,
+    info: extern union {
+        x11: extern struct {
+            display: *anyopaque,
+            window: c_ulong,
+        },
+        dummy: [64]u8,
+    },
+};
+
+fn runWgpu(window: *c.SDL_Window) void {
+    var sys: c.SDL_SysWMinfo = undefined;
+    c.SDL_GetVersion(&sys.version);
+    if (c.SDL_GetWindowWMInfo(window, &sys) == c.SDL_FALSE) {
+        unreachable;
+    }
+    // Use a generic type for now so we don't have to worry about compile-time detection.
+    // TODO Figure out compile-time detection?
+    const generic = @ptrCast(*SysWMinfo, &sys);
+    std.debug.print("subsystem: {}\n", .{sys.subsystem});
+    const instance = c.wgpuCreateInstance(&c.WGPUInstanceDescriptor{
+        .nextInChain = null,
+    }) orelse unreachable;
+    const sys_descriptor = switch (sys.subsystem) {
+        c.SDL_SYSWM_X11 => x11: {
+            std.debug.print("x11 info: {} {}\n", .{@ptrToInt(generic.info.x11.display), generic.info.x11.window});
+            break :x11 @ptrCast(
+                *const c.WGPUChainedStruct,
+                &c.WGPUSurfaceDescriptorFromXlibWindow{
+                    .chain = .{
+                        .next = null,
+                        .sType = c.WGPUSType_SurfaceDescriptorFromXlibWindow,
+                    },
+                    .display = generic.info.x11.display,
+                    .window = @intCast(u32, generic.info.x11.window),
+                },
+            );
+        },
+        else => null,
+    };
+    const surface = c.wgpuInstanceCreateSurface(
+        instance,
+        &c.WGPUSurfaceDescriptor{
+            .nextInChain = sys_descriptor,
+            .label = null,
+        },
+    ) orelse unreachable;
+    _ = surface;
+}
+
+fn runSdl() void {
     var init_result = c.SDL_Init(c.SDL_INIT_VIDEO);
     assert(init_result >= 0);
     defer c.SDL_Quit();
@@ -58,6 +110,7 @@ fn runSdl() void { // TODO Raylib for static linking?
         c.SDL_WINDOW_SHOWN,
     ).?;
     defer c.SDL_DestroyWindow(window);
+    runWgpu(window);
     var surface: *c.SDL_Surface = c.SDL_GetWindowSurface(window);
     _ = c.SDL_FillRect(
         surface,

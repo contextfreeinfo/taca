@@ -6,31 +6,29 @@ const assert = std.debug.assert;
 const a = @import("./zalgebra/main.zig");
 const d = @import("./data.zig");
 const p = @import("./pipeline.zig");
-const g = @cImport({
+const c = @cImport({
+    @cInclude("taca.h");
     @cInclude("wgpu.h");
     @cInclude("webgpu-headers/webgpu.h");
-});
-const t = @cImport({
-    @cInclude("taca.h");
 });
 
 pub fn main() void {
     // Instance
-    const instance = g.wgpuCreateInstance(&g.WGPUInstanceDescriptor{
+    const instance = c.wgpuCreateInstance(&c.WGPUInstanceDescriptor{
         .nextInChain = null,
     }) orelse unreachable;
-    errdefer g.wgpuInstanceDrop(instance);
+    errdefer c.wgpuInstanceDrop(instance);
 
     // Surface
-    const surface = g.wgpuInstanceCreateSurface(
+    const surface = c.wgpuInstanceCreateSurface(
         instance,
-        &g.WGPUSurfaceDescriptor{
+        &c.WGPUSurfaceDescriptor{
             .nextInChain = @ptrCast(
-                *const g.WGPUChainedStruct,
-                &g.WGPUSurfaceDescriptorFromCanvasHTMLSelector{
+                *const c.WGPUChainedStruct,
+                &c.WGPUSurfaceDescriptorFromCanvasHTMLSelector{
                     .chain = .{
                         .next = null,
-                        .sType = g.WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
+                        .sType = c.WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector,
                     },
                     .selector = "",
                 },
@@ -38,7 +36,7 @@ pub fn main() void {
             .label = null,
         },
     ) orelse unreachable;
-    errdefer g.wgpuSurfaceDrop(surface);
+    errdefer c.wgpuSurfaceDrop(surface);
 
     // Adapter
     // This only works because the callback is effectively synchronous.
@@ -47,30 +45,30 @@ pub fn main() void {
         .instance = instance,
         .surface = surface,
     };
-    g.wgpuInstanceRequestAdapter(
+    c.wgpuInstanceRequestAdapter(
         instance,
-        &g.WGPURequestAdapterOptions{
+        &c.WGPURequestAdapterOptions{
             .nextInChain = null,
             .compatibleSurface = surface,
-            .powerPreference = g.WGPUPowerPreference_Undefined,
+            .powerPreference = c.WGPUPowerPreference_Undefined,
             .forceFallbackAdapter = false,
         },
         requestAdapterCallback,
         &request_adapter_callback_data,
     );
     const adapter = request_adapter_callback_data.adapter orelse unreachable;
-    var supported_limits = std.mem.zeroInit(g.WGPUSupportedLimits, .{});
-    _ = g.wgpuAdapterGetLimits(adapter, &supported_limits) or unreachable;
-    errdefer g.wgpuAdapterDrop(adapter);
+    var supported_limits = std.mem.zeroInit(c.WGPUSupportedLimits, .{});
+    _ = c.wgpuAdapterGetLimits(adapter, &supported_limits) or unreachable;
+    errdefer c.wgpuAdapterDrop(adapter);
 
     // Device & Queue
     var request_device_callback_data = RequestDeviceCallbackData{
         .adapter = adapter,
         .surface = surface,
     };
-    const required_limits = g.WGPURequiredLimits{
+    const required_limits = c.WGPURequiredLimits{
         .nextInChain = null,
-        .limits = std.mem.zeroInit(g.WGPULimits, .{
+        .limits = std.mem.zeroInit(c.WGPULimits, .{
             .maxTextureDimension1D = 5000,
             .maxTextureDimension2D = 3000,
             .maxTextureArrayLayers = 1,
@@ -87,85 +85,85 @@ pub fn main() void {
             .maxInterStageShaderComponents = 6,
         }),
     };
-    g.wgpuAdapterRequestDevice(
+    c.wgpuAdapterRequestDevice(
         adapter,
-        &g.WGPUDeviceDescriptor{
+        &c.WGPUDeviceDescriptor{
             .nextInChain = null,
             .label = null,
             .requiredFeaturesCount = 0,
             .requiredFeatures = null,
             .requiredLimits = &required_limits,
-            .defaultQueue = std.mem.zeroInit(g.WGPUQueueDescriptor, .{}),
+            .defaultQueue = std.mem.zeroInit(c.WGPUQueueDescriptor, .{}),
         },
         requestDeviceCallback,
         &request_device_callback_data,
     );
     const device = request_device_callback_data.device orelse unreachable;
-    errdefer g.wgpuDeviceDrop(device);
-    g.wgpuDeviceSetUncapturedErrorCallback(device, deviceUncapturedErrorCallback, null);
-    const queue = g.wgpuDeviceGetQueue(device);
+    errdefer c.wgpuDeviceDrop(device);
+    c.wgpuDeviceSetUncapturedErrorCallback(device, deviceUncapturedErrorCallback, null);
+    const queue = c.wgpuDeviceGetQueue(device);
 
     // Buffers
-    const vertex_buffer = g.wgpuDeviceCreateBuffer(
+    const vertex_buffer = c.wgpuDeviceCreateBuffer(
         device,
-        &g.WGPUBufferDescriptor{
+        &c.WGPUBufferDescriptor{
             .nextInChain = null,
             .label = null,
-            .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Vertex,
+            .usage = c.WGPUBufferUsage_CopyDst | c.WGPUBufferUsage_Vertex,
             .size = d.vertex_data_size,
             .mappedAtCreation = false,
         },
     );
-    g.wgpuQueueWriteBuffer(queue, vertex_buffer, 0, &d.vertex_data, d.vertex_data_size);
-    const index_buffer = g.wgpuDeviceCreateBuffer(
+    c.wgpuQueueWriteBuffer(queue, vertex_buffer, 0, &d.vertex_data, d.vertex_data_size);
+    const index_buffer = c.wgpuDeviceCreateBuffer(
         device,
-        &g.WGPUBufferDescriptor{
+        &c.WGPUBufferDescriptor{
             .nextInChain = null,
             .label = null,
-            .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Index,
+            .usage = c.WGPUBufferUsage_CopyDst | c.WGPUBufferUsage_Index,
             .size = @sizeOf(@TypeOf(d.index_data)),
             .mappedAtCreation = false,
         },
     );
-    g.wgpuQueueWriteBuffer(queue, index_buffer, 0, &d.index_data, @sizeOf(@TypeOf(d.index_data)));
-    const point_buffer = g.wgpuDeviceCreateBuffer(
+    c.wgpuQueueWriteBuffer(queue, index_buffer, 0, &d.index_data, @sizeOf(@TypeOf(d.index_data)));
+    const point_buffer = c.wgpuDeviceCreateBuffer(
         device,
-        &g.WGPUBufferDescriptor{
+        &c.WGPUBufferDescriptor{
             .nextInChain = null,
             .label = null,
-            .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Vertex,
+            .usage = c.WGPUBufferUsage_CopyDst | c.WGPUBufferUsage_Vertex,
             .size = @sizeOf(@TypeOf(d.point_data)),
             .mappedAtCreation = false,
         },
     );
-    g.wgpuQueueWriteBuffer(queue, point_buffer, 0, &d.point_data, @sizeOf(@TypeOf(d.point_data)));
-    const uniform_buffer = g.wgpuDeviceCreateBuffer(
+    c.wgpuQueueWriteBuffer(queue, point_buffer, 0, &d.point_data, @sizeOf(@TypeOf(d.point_data)));
+    const uniform_buffer = c.wgpuDeviceCreateBuffer(
         device,
-        &g.WGPUBufferDescriptor{
+        &c.WGPUBufferDescriptor{
             .nextInChain = null,
             .label = null,
-            .usage = g.WGPUBufferUsage_CopyDst | g.WGPUBufferUsage_Uniform,
+            .usage = c.WGPUBufferUsage_CopyDst | c.WGPUBufferUsage_Uniform,
             .size = @sizeOf(Uniforms),
             .mappedAtCreation = false,
         },
     );
 
     // Texture
-    const image_texture_desc = std.mem.zeroInit(g.WGPUTextureDescriptor, .{
-        .usage = g.WGPUTextureUsage_CopyDst | g.WGPUTextureUsage_TextureBinding,
-        .dimension = g.WGPUTextureDimension_2D,
+    const image_texture_desc = std.mem.zeroInit(c.WGPUTextureDescriptor, .{
+        .usage = c.WGPUTextureUsage_CopyDst | c.WGPUTextureUsage_TextureBinding,
+        .dimension = c.WGPUTextureDimension_2D,
         .size = .{
             .width = 256,
             .height = 256,
             .depthOrArrayLayers = 1,
         },
-        .format = g.WGPUTextureFormat_RGBA8Unorm,
+        .format = c.WGPUTextureFormat_RGBA8Unorm,
         .mipLevelCount = 1,
         .sampleCount = 1,
         .viewFormatCount = 0,
         .viewFormats = null,
     });
-    const image_texture = g.wgpuDeviceCreateTexture(device, &image_texture_desc);
+    const image_texture = c.wgpuDeviceCreateTexture(device, &image_texture_desc);
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = general_purpose_allocator.allocator();
     const image_texture_data = allocator.alloc(
@@ -181,66 +179,66 @@ pub fn main() void {
             image_texture_data[n + 3] = 255;
         }
     }
-    g.wgpuQueueWriteTexture(
+    c.wgpuQueueWriteTexture(
         queue,
-        &std.mem.zeroInit(g.WGPUImageCopyTexture, .{.texture = image_texture}),
+        &std.mem.zeroInit(c.WGPUImageCopyTexture, .{.texture = image_texture}),
         image_texture_data.ptr,
         image_texture_data.len,
-        &std.mem.zeroInit(g.WGPUTextureDataLayout, .{
+        &std.mem.zeroInit(c.WGPUTextureDataLayout, .{
             .bytesPerRow = 4 * image_texture_desc.size.width,
             .rowsPerImage = image_texture_desc.size.height,
         }),
         &image_texture_desc.size,
     );
-    const image_texture_view = g.wgpuTextureCreateView(
+    const image_texture_view = c.wgpuTextureCreateView(
         image_texture,
-        &std.mem.zeroInit(g.WGPUTextureViewDescriptor, .{
+        &std.mem.zeroInit(c.WGPUTextureViewDescriptor, .{
             .format = image_texture_desc.format,
-            .dimension = g.WGPUTextureViewDimension_2D,
+            .dimension = c.WGPUTextureViewDimension_2D,
             .mipLevelCount = 1,
             .arrayLayerCount = 1,
         }),
     );
 
     // Uniform & texture binding
-    const bind_group_layout = g.wgpuDeviceCreateBindGroupLayout(device, &g.WGPUBindGroupLayoutDescriptor{
+    const bind_group_layout = c.wgpuDeviceCreateBindGroupLayout(device, &c.WGPUBindGroupLayoutDescriptor{
         .nextInChain = null,
         .label = null,
         .entryCount = 2,
-        .entries = &[_]g.WGPUBindGroupLayoutEntry{
-            std.mem.zeroInit(g.WGPUBindGroupLayoutEntry, .{
+        .entries = &[_]c.WGPUBindGroupLayoutEntry{
+            std.mem.zeroInit(c.WGPUBindGroupLayoutEntry, .{
                 .binding = 0,
-                .visibility = g.WGPUShaderStage_Vertex | g.WGPUShaderStage_Fragment,
-                .buffer = std.mem.zeroInit(g.WGPUBufferBindingLayout, .{
-                    .type = g.WGPUBufferBindingType_Uniform,
+                .visibility = c.WGPUShaderStage_Vertex | c.WGPUShaderStage_Fragment,
+                .buffer = std.mem.zeroInit(c.WGPUBufferBindingLayout, .{
+                    .type = c.WGPUBufferBindingType_Uniform,
                     .minBindingSize = @sizeOf(Uniforms),
                 }),
             }),
-            std.mem.zeroInit(g.WGPUBindGroupLayoutEntry, .{
+            std.mem.zeroInit(c.WGPUBindGroupLayoutEntry, .{
                 .binding = 1,
-                .visibility = g.WGPUShaderStage_Fragment,
-                .sampler = std.mem.zeroInit(g.WGPUSamplerBindingLayout, .{
-                    .type = g.WGPUSamplerBindingType_NonFiltering,
+                .visibility = c.WGPUShaderStage_Fragment,
+                .sampler = std.mem.zeroInit(c.WGPUSamplerBindingLayout, .{
+                    .type = c.WGPUSamplerBindingType_NonFiltering,
                 }),
-                .texture = std.mem.zeroInit(g.WGPUTextureBindingLayout, .{
-                    .sampleType = g.WGPUTextureSampleType_Float,
-                    .viewDimension = g.WGPUTextureViewDimension_2D,
+                .texture = std.mem.zeroInit(c.WGPUTextureBindingLayout, .{
+                    .sampleType = c.WGPUTextureSampleType_Float,
+                    .viewDimension = c.WGPUTextureViewDimension_2D,
                 }),
             }),
         },
     });
-    const bind_group = g.wgpuDeviceCreateBindGroup(device, &g.WGPUBindGroupDescriptor{
+    const bind_group = c.wgpuDeviceCreateBindGroup(device, &c.WGPUBindGroupDescriptor{
         .nextInChain = null,
         .label = null,
         .layout = bind_group_layout,
         .entryCount = 2,
-        .entries = &[_]g.WGPUBindGroupEntry{
-            std.mem.zeroInit(g.WGPUBindGroupEntry, .{
+        .entries = &[_]c.WGPUBindGroupEntry{
+            std.mem.zeroInit(c.WGPUBindGroupEntry, .{
                 .binding = 0,
                 .buffer = uniform_buffer,
                 .size = @sizeOf(Uniforms),
             }),
-            std.mem.zeroInit(g.WGPUBindGroupEntry, .{
+            std.mem.zeroInit(c.WGPUBindGroupEntry, .{
                 .binding = 1,
                 .textureView = image_texture_view,
             }),
@@ -248,12 +246,12 @@ pub fn main() void {
     });
 
     // Depth texture & swap chain
-    const size = t.tac_windowInnerSize();
+    const size = c.tac_windowInnerSize();
     const depth_texture_out = createDepthTexture(.{
         .device = device,
         .size = size,
     });
-    const format = g.wgpuSurfaceGetPreferredFormat(surface, adapter);
+    const format = c.wgpuSurfaceGetPreferredFormat(surface, adapter);
     const pipeline = p.buildPipeline(device, format, bind_group_layout);
     const swap_chain = createSwapChain(.{
         .device = device,
@@ -295,35 +293,35 @@ pub fn main() void {
     // Probably smaller binaries with this instead of exported functions for
     // each even type?
     // TODO Pass in state pointer even if global?
-    t.tac_windowListen(windowListen, null);
+    c.tac_windowListen(windowListen, null);
 }
 
-fn windowListen(event_type: t.tac_WindowEventType, unused: ?*anyopaque) callconv(.C) void {
+fn windowListen(event_type: c.tac_WindowEventType, unused: ?*anyopaque) callconv(.C) void {
     _ = unused;
     switch (event_type) {
-        t.tac_WindowEventType_Close => windowClose(&global_state),
-        t.tac_WindowEventType_Key => keyPress(&global_state),
-        t.tac_WindowEventType_Redraw => windowRedraw(&global_state),
-        t.tac_WindowEventType_Resize => windowResize(&global_state),
+        c.tac_WindowEventType_Close => windowClose(&global_state),
+        c.tac_WindowEventType_Key => keyPress(&global_state),
+        c.tac_WindowEventType_Redraw => windowRedraw(&global_state),
+        c.tac_WindowEventType_Resize => windowResize(&global_state),
         else => unreachable,
     }
 }
 
 fn keyPress(state: *State) void {
-    const event = t.tac_keyEvent();
+    const event = c.tac_keyEvent();
     const speed: f32 = if (event.pressed) 0.02 else 0;
     switch (event.code) {
-        t.tac_KeyCode_Undefined => {},
-        t.tac_KeyCode_Left => {
+        c.tac_KeyCode_Undefined => {},
+        c.tac_KeyCode_Left => {
             updateSpeed(&state.velocity, 0, -1, speed);
         },
-        t.tac_KeyCode_Up => {
+        c.tac_KeyCode_Up => {
             updateSpeed(&state.velocity, 1, 1, speed);
         },
-        t.tac_KeyCode_Right => {
+        c.tac_KeyCode_Right => {
             updateSpeed(&state.velocity, 0, 1, speed);
         },
-        t.tac_KeyCode_Down => {
+        c.tac_KeyCode_Down => {
             updateSpeed(&state.velocity, 1, -1, speed);
         },
         else => unreachable,
@@ -337,10 +335,10 @@ fn updateSpeed(vec: *a.Vec3, index: usize, direction: f32, speed: f32) void {
 }
 
 fn windowClose(state: *State) void {
-    g.wgpuDeviceDrop(state.device);
-    g.wgpuAdapterDrop(state.adapter);
-    g.wgpuSurfaceDrop(state.surface);
-    g.wgpuInstanceDrop(state.instance);
+    c.wgpuDeviceDrop(state.device);
+    c.wgpuAdapterDrop(state.adapter);
+    c.wgpuSurfaceDrop(state.surface);
+    c.wgpuInstanceDrop(state.instance);
     // std.debug.print("Virtual time: {}\n", .{state.time});
 }
 
@@ -354,26 +352,26 @@ fn windowRedraw(state: *State) void {
         .position = state.position,
         .time = state.time,
     };
-    g.wgpuQueueWriteBuffer(state.queue, state.uniform_buffer, 0, &uniforms, @sizeOf(Uniforms));
-    const view = g.wgpuSwapChainGetCurrentTextureView(state.swap_chain) orelse unreachable;
-    const encoder = g.wgpuDeviceCreateCommandEncoder(
+    c.wgpuQueueWriteBuffer(state.queue, state.uniform_buffer, 0, &uniforms, @sizeOf(Uniforms));
+    const view = c.wgpuSwapChainGetCurrentTextureView(state.swap_chain) orelse unreachable;
+    const encoder = c.wgpuDeviceCreateCommandEncoder(
         state.device,
-        &g.WGPUCommandEncoderDescriptor{
+        &c.WGPUCommandEncoderDescriptor{
             .nextInChain = null,
             .label = null,
         },
     ) orelse unreachable;
-    const render_pass = g.wgpuCommandEncoderBeginRenderPass(
+    const render_pass = c.wgpuCommandEncoderBeginRenderPass(
         encoder,
-        &g.WGPURenderPassDescriptor{
+        &c.WGPURenderPassDescriptor{
             .nextInChain = null,
             .label = null,
             .colorAttachmentCount = 1,
-            .colorAttachments = &g.WGPURenderPassColorAttachment{
+            .colorAttachments = &c.WGPURenderPassColorAttachment{
                 .view = view,
                 .resolveTarget = null,
-                .loadOp = g.WGPULoadOp_Clear,
-                .storeOp = g.WGPUStoreOp_Store,
+                .loadOp = c.WGPULoadOp_Clear,
+                .storeOp = c.WGPUStoreOp_Store,
                 .clearValue = .{
                     .r = 0.05,
                     .g = 0.05,
@@ -381,14 +379,14 @@ fn windowRedraw(state: *State) void {
                     .a = 1.0,
                 },
             },
-            .depthStencilAttachment = &g.WGPURenderPassDepthStencilAttachment{
+            .depthStencilAttachment = &c.WGPURenderPassDepthStencilAttachment{
                 .view = state.depth_texture_out.depth_texture_view,
-                .depthLoadOp = g.WGPULoadOp_Clear,
-                .depthStoreOp = g.WGPUStoreOp_Store,
+                .depthLoadOp = c.WGPULoadOp_Clear,
+                .depthStoreOp = c.WGPUStoreOp_Store,
                 .depthClearValue = 1,
                 .depthReadOnly = false,
-                .stencilLoadOp = g.WGPULoadOp_Clear,
-                .stencilStoreOp = g.WGPUStoreOp_Store,
+                .stencilLoadOp = c.WGPULoadOp_Clear,
+                .stencilStoreOp = c.WGPUStoreOp_Store,
                 .stencilClearValue = 0,
                 .stencilReadOnly = true,
             },
@@ -397,40 +395,40 @@ fn windowRedraw(state: *State) void {
             .timestampWrites = null,
         },
     ) orelse unreachable;
-    g.wgpuRenderPassEncoderSetPipeline(render_pass, state.pipeline);
-    // g.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.vertex_buffer, 0, d.vertex_data_size);
-    // g.wgpuRenderPassEncoderDraw(render_pass, d.vertex_count, 1, 0, 0);
-    g.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.point_buffer, 0, @sizeOf(@TypeOf(d.point_data)));
-    g.wgpuRenderPassEncoderSetIndexBuffer(render_pass, state.index_buffer, g.WGPUIndexFormat_Uint16, 0, @sizeOf(@TypeOf(d.index_data)));
-    g.wgpuRenderPassEncoderSetBindGroup(render_pass, 0, state.bind_group, 0, null);
-    g.wgpuRenderPassEncoderDrawIndexed(render_pass, d.index_data.len, 1, 0, 0, 0);
-    g.wgpuRenderPassEncoderEnd(render_pass);
-    g.wgpuTextureViewDrop(view);
-    const command_buffer = g.wgpuCommandEncoderFinish(
+    c.wgpuRenderPassEncoderSetPipeline(render_pass, state.pipeline);
+    // c.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.vertex_buffer, 0, d.vertex_data_size);
+    // c.wgpuRenderPassEncoderDraw(render_pass, d.vertex_count, 1, 0, 0);
+    c.wgpuRenderPassEncoderSetVertexBuffer(render_pass, 0, state.point_buffer, 0, @sizeOf(@TypeOf(d.point_data)));
+    c.wgpuRenderPassEncoderSetIndexBuffer(render_pass, state.index_buffer, c.WGPUIndexFormat_Uint16, 0, @sizeOf(@TypeOf(d.index_data)));
+    c.wgpuRenderPassEncoderSetBindGroup(render_pass, 0, state.bind_group, 0, null);
+    c.wgpuRenderPassEncoderDrawIndexed(render_pass, d.index_data.len, 1, 0, 0, 0);
+    c.wgpuRenderPassEncoderEnd(render_pass);
+    c.wgpuTextureViewDrop(view);
+    const command_buffer = c.wgpuCommandEncoderFinish(
         encoder,
-        &g.WGPUCommandBufferDescriptor{
+        &c.WGPUCommandBufferDescriptor{
             .nextInChain = null,
             .label = null,
         },
     ) orelse unreachable;
-    g.wgpuQueueSubmit(state.queue, 1, &command_buffer);
-    g.wgpuSwapChainPresent(state.swap_chain);
+    c.wgpuQueueSubmit(state.queue, 1, &command_buffer);
+    c.wgpuSwapChainPresent(state.swap_chain);
 }
 
 fn windowResize(state: *State) void {
-    const size = t.tac_windowInnerSize();
+    const size = c.tac_windowInnerSize();
     if (size.x > 0 and size.y > 0) {
         state.projection = buildPerspective(size);
         state.size = size;
         // Depth texture
-        g.wgpuTextureViewDrop(state.depth_texture_out.depth_texture_view);
-        g.wgpuTextureDestroy(state.depth_texture_out.depth_texture);
+        c.wgpuTextureViewDrop(state.depth_texture_out.depth_texture_view);
+        c.wgpuTextureDestroy(state.depth_texture_out.depth_texture);
         state.depth_texture_out = createDepthTexture(.{
             .device = state.device,
             .size = state.size,
         });
         // Swap chain
-        g.wgpuSwapChainDrop(state.swap_chain);
+        c.wgpuSwapChainDrop(state.swap_chain);
         state.swap_chain = createSwapChain(.{
             .device = state.device,
             .format = state.format,
@@ -441,25 +439,25 @@ fn windowResize(state: *State) void {
 }
 
 const State = struct {
-    adapter: g.WGPUAdapter,
-    bind_group: g.WGPUBindGroup,
+    adapter: c.WGPUAdapter,
+    bind_group: c.WGPUBindGroup,
     depth_texture_out: CreateDepthTextureOut,
-    device: g.WGPUDevice,
-    format: g.WGPUTextureFormat,
-    index_buffer: g.WGPUBuffer,
-    instance: g.WGPUInstance,
-    pipeline: g.WGPURenderPipeline,
-    point_buffer: g.WGPUBuffer,
+    device: c.WGPUDevice,
+    format: c.WGPUTextureFormat,
+    index_buffer: c.WGPUBuffer,
+    instance: c.WGPUInstance,
+    pipeline: c.WGPURenderPipeline,
+    point_buffer: c.WGPUBuffer,
     position: a.Vec3,
     projection: a.Mat4,
-    queue: g.WGPUQueue,
-    size: t.tac_Vec2,
-    swap_chain: g.WGPUSwapChain,
-    surface: g.WGPUSurface,
+    queue: c.WGPUQueue,
+    size: c.tac_Vec2,
+    swap_chain: c.WGPUSwapChain,
+    surface: c.WGPUSurface,
     time: f32,
-    uniform_buffer: g.WGPUBuffer,
+    uniform_buffer: c.WGPUBuffer,
     velocity: a.Vec3,
-    vertex_buffer: g.WGPUBuffer,
+    vertex_buffer: c.WGPUBuffer,
     view: a.Mat4,
 };
 
@@ -474,7 +472,7 @@ const Uniforms = extern struct {
     position: a.Vec3,
 };
 
-fn buildPerspective(size: t.tac_Vec2) a.Mat4 {
+fn buildPerspective(size: c.tac_Vec2) a.Mat4 {
     // The tutorial uses different calculations than zalgebra, and I'm not
     // getting what I want from zalgebra, so go with tutorial.
     const aspect = @intToFloat(f32, size.x) / @intToFloat(f32, size.y);
@@ -495,22 +493,22 @@ fn buildPerspective(size: t.tac_Vec2) a.Mat4 {
 }
 
 const CreateDepthTextureIn = struct {
-    device: g.WGPUDevice,
-    size: t.tac_Vec2,
+    device: c.WGPUDevice,
+    size: c.tac_Vec2,
 };
 
 const CreateDepthTextureOut = struct {
-    depth_texture: g.WGPUTexture,
-    depth_texture_view: g.WGPUTextureView,
+    depth_texture: c.WGPUTexture,
+    depth_texture_view: c.WGPUTextureView,
 };
 
 fn createDepthTexture(in: CreateDepthTextureIn) CreateDepthTextureOut {
-    const depth_texture_format: g.WGPUTextureFormat = g.WGPUTextureFormat_Depth24Plus;
-    const depth_texture = g.wgpuDeviceCreateTexture(
+    const depth_texture_format: c.WGPUTextureFormat = c.WGPUTextureFormat_Depth24Plus;
+    const depth_texture = c.wgpuDeviceCreateTexture(
         in.device,
-        &std.mem.zeroInit(g.WGPUTextureDescriptor, .{
-            .usage = g.WGPUTextureUsage_RenderAttachment,
-            .dimension = g.WGPUTextureDimension_2D,
+        &std.mem.zeroInit(c.WGPUTextureDescriptor, .{
+            .usage = c.WGPUTextureUsage_RenderAttachment,
+            .dimension = c.WGPUTextureDimension_2D,
             .size = .{
                 .width = @intCast(u32, in.size.x),
                 .height = @intCast(u32, in.size.y),
@@ -523,14 +521,14 @@ fn createDepthTexture(in: CreateDepthTextureIn) CreateDepthTextureOut {
             .viewFormats = &depth_texture_format,
         }),
     );
-    const depth_texture_view = g.wgpuTextureCreateView(
+    const depth_texture_view = c.wgpuTextureCreateView(
         depth_texture,
-        &std.mem.zeroInit(g.WGPUTextureViewDescriptor, .{
+        &std.mem.zeroInit(c.WGPUTextureViewDescriptor, .{
             .format = depth_texture_format,
-            .dimension = g.WGPUTextureViewDimension_2D,
+            .dimension = c.WGPUTextureViewDimension_2D,
             .mipLevelCount = 1,
             .arrayLayerCount = 1,
-            .aspect = g.WGPUTextureAspect_DepthOnly,
+            .aspect = c.WGPUTextureAspect_DepthOnly,
         }),
     );
     return .{
@@ -540,24 +538,24 @@ fn createDepthTexture(in: CreateDepthTextureIn) CreateDepthTextureOut {
 }
 
 const CreateSwapChainData = struct {
-    device: g.WGPUDevice,
-    format: g.WGPUTextureFormat,
-    size: t.tac_Vec2,
-    surface: g.WGPUSurface,
+    device: c.WGPUDevice,
+    format: c.WGPUTextureFormat,
+    size: c.tac_Vec2,
+    surface: c.WGPUSurface,
 };
 
-fn createSwapChain(data: CreateSwapChainData) g.WGPUSwapChain {
-    const swap_chain = g.wgpuDeviceCreateSwapChain(
+fn createSwapChain(data: CreateSwapChainData) c.WGPUSwapChain {
+    const swap_chain = c.wgpuDeviceCreateSwapChain(
         data.device,
         data.surface,
-        &g.WGPUSwapChainDescriptor{
+        &c.WGPUSwapChainDescriptor{
             .nextInChain = null,
             .label = null,
-            .usage = g.WGPUTextureUsage_RenderAttachment,
+            .usage = c.WGPUTextureUsage_RenderAttachment,
             .format = data.format,
             .width = @intCast(u32, data.size.x),
             .height = @intCast(u32, data.size.y),
-            .presentMode = g.WGPUPresentMode_Fifo,
+            .presentMode = c.WGPUPresentMode_Fifo,
         },
     ) orelse unreachable;
     return swap_chain;
@@ -566,18 +564,18 @@ fn createSwapChain(data: CreateSwapChainData) g.WGPUSwapChain {
 // Adapter
 
 const RequestAdapterCallbackData = struct {
-    adapter: ?g.WGPUAdapter = null,
-    instance: g.WGPUInstance,
-    surface: g.WGPUSurface,
+    adapter: ?c.WGPUAdapter = null,
+    instance: c.WGPUInstance,
+    surface: c.WGPUSurface,
 };
 
 fn requestAdapterCallback(
-    status: g.WGPURequestAdapterStatus,
-    adapter: g.WGPUAdapter,
+    status: c.WGPURequestAdapterStatus,
+    adapter: c.WGPUAdapter,
     message: [*c]const u8,
     userdata: ?*anyopaque,
 ) callconv(.C) void {
-    assert(status == g.WGPURequestDeviceStatus_Success);
+    assert(status == c.WGPURequestDeviceStatus_Success);
     _ = message;
     var data = @ptrCast(
         *RequestAdapterCallbackData,
@@ -589,18 +587,18 @@ fn requestAdapterCallback(
 // Device
 
 const RequestDeviceCallbackData = struct {
-    adapter: g.WGPUAdapter,
-    device: ?g.WGPUDevice = null,
-    surface: g.WGPUSurface,
+    adapter: c.WGPUAdapter,
+    device: ?c.WGPUDevice = null,
+    surface: c.WGPUSurface,
 };
 
 fn requestDeviceCallback(
-    status: g.WGPURequestDeviceStatus,
-    device: g.WGPUDevice,
+    status: c.WGPURequestDeviceStatus,
+    device: c.WGPUDevice,
     message: [*c]const u8,
     userdata: ?*anyopaque,
 ) callconv(.C) void {
-    assert(status == g.WGPURequestDeviceStatus_Success);
+    assert(status == c.WGPURequestDeviceStatus_Success);
     _ = message;
     var data = @ptrCast(
         *RequestDeviceCallbackData,
@@ -610,7 +608,7 @@ fn requestDeviceCallback(
 }
 
 fn deviceUncapturedErrorCallback(
-    status: g.WGPURequestDeviceStatus,
+    status: c.WGPURequestDeviceStatus,
     message: [*c]const u8,
     userdata: ?*anyopaque,
 ) callconv(.C) void {
