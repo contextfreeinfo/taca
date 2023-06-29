@@ -58,12 +58,10 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
                                 None => Some(winit::window::Fullscreen::Borderless(None)),
                             })
                         } else {
-                            system.key_event = Some(
-                                KeyEvent {
-                                    code: convert_key(*key),
-                                    pressed: *state == ElementState::Pressed,
-                                }
-                            );
+                            system.key_event = Some(KeyEvent {
+                                code: convert_key(*key),
+                                pressed: *state == ElementState::Pressed,
+                            });
                             send_event(
                                 &mut store,
                                 &window_listen,
@@ -183,7 +181,9 @@ pub fn tac_key_event(mut env: FunctionEnvMut<System>, result: u32) {
         },
     };
     let result = result as u64;
-    WasmRef::<WasmKeyEvent>::new(&view, result).write(key_event).unwrap();
+    WasmRef::<WasmKeyEvent>::new(&view, result)
+        .write(key_event)
+        .unwrap();
 }
 
 pub fn tac_window_inner_size(mut env: FunctionEnvMut<System>, result: u32) {
@@ -207,8 +207,19 @@ pub fn tac_window_listen(mut env: FunctionEnvMut<System>, callback: u32, userdat
     system.window_listen_userdata = userdata;
 }
 
+pub fn tac_window_set_title(mut env: FunctionEnvMut<System>, title: u32) {
+    println!("tac_windowSetTitle({title})");
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let title = WasmPtr::<u8>::new(title)
+        .read_utf8_string_with_nul(&view)
+        .unwrap();
+    let window = system.window.as_ref().unwrap();
+    window.set_title(title.as_str());
+}
+
 use crate::system::*;
-use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Value, ValueType, WasmRef};
+use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Value, ValueType, WasmPtr, WasmRef};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},

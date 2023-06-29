@@ -13,6 +13,8 @@ const c = @cImport({
 });
 
 pub fn main() void {
+    c.tac_windowSetTitle("Exploring WebGPU with Taca");
+
     // Instance
     const instance = c.wgpuCreateInstance(&c.WGPUInstanceDescriptor{
         .nextInChain = null,

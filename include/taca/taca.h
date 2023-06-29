@@ -1,5 +1,4 @@
-#ifndef TACANA_H_
-#define TACANA_H_
+#pragma once
 
 #if defined(tac_SHARED_LIBRARY)
 #    if defined(_WIN32)
@@ -59,5 +58,3 @@ tac_EXPORT tac_Vec2 tac_windowInnerSize(void);
 // TODO Use exported function and just register userdata here?
 tac_EXPORT void tac_windowListen(tac_WindowListenCallback callback, void* userdata);
 tac_EXPORT void tac_windowSetTitle(const char* title);
-
-#endif // TACANA_H_
