@@ -21,6 +21,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "gpu.h"
+
 // TODO Replace all with script to generate json.
 
 typedef enum tac_KeyCode {
@@ -53,8 +55,10 @@ typedef struct tac_KeyEvent {
 // For now, call other functions to get details.
 typedef void (*tac_WindowListenCallback)(tac_WindowEventType type, void* userdata);
 
+// TODO Some init call giving a buffer to work with?
+
 tac_EXPORT tac_KeyEvent tac_keyEvent(void);
 tac_EXPORT tac_Vec2 tac_windowInnerSize(void);
-// TODO Use exported function and just register userdata here?
+// TODO Use exported function and just register userdata here!!
 tac_EXPORT void tac_windowListen(tac_WindowListenCallback callback, void* userdata);
 tac_EXPORT void tac_windowSetTitle(const char* title);

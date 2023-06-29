@@ -8,8 +8,8 @@ const d = @import("./data.zig");
 const p = @import("./pipeline.zig");
 const c = @cImport({
     @cInclude("taca.h");
+    @cInclude("webgpu.h");
     @cInclude("wgpu.h");
-    @cInclude("webgpu-headers/webgpu.h");
 });
 
 pub fn main() void {

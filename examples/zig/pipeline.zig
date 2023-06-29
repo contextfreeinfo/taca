@@ -3,8 +3,8 @@ const std = @import("std");
 const d = @import("./data.zig");
 const c = @cImport({
     @cInclude("taca.h");
+    @cInclude("webgpu.h");
     @cInclude("wgpu.h");
-    @cInclude("webgpu-headers/webgpu.h");
 });
 
 pub fn buildPipeline(
