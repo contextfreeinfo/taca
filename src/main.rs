@@ -115,6 +115,11 @@ fn run_app(args: &RunArgs) -> Result<()> {
             .get_table("__indirect_function_table")?
             .clone(),
     );
+    env_mut.named_window_listen = instance
+        .exports
+        .get_function("windowListen")
+        .ok()
+        .map(|it| it.clone());
 
     match _start.call(&mut store, &[]) {
         Ok(_) => {

@@ -292,19 +292,19 @@ pub fn main() void {
     // std.debug.print("---->\n{}\n", .{global_state.view});
 
     // Listen
-    // Probably smaller binaries with this instead of exported functions for
-    // each even type?
-    // TODO Pass in state pointer even if global?
-    c.tac_windowListen(windowListen, null);
+    // Option for either named export via null or else an indexed export with pointer.
+    // And pass in state pointer even if global for now.
+    c.tac_windowListen(null, &global_state);
+    // c.tac_windowListen(windowListen, &global_state);
 }
 
-fn windowListen(event_type: c.tac_WindowEventType, unused: ?*anyopaque) callconv(.C) void {
-    _ = unused;
+export fn windowListen(event_type: c.tac_WindowEventType, userdata: ?*anyopaque) void {
+    const state = @ptrCast(*State, @alignCast(@alignOf(State), userdata));
     switch (event_type) {
-        c.tac_WindowEventType_Close => windowClose(&global_state),
-        c.tac_WindowEventType_Key => keyPress(&global_state),
-        c.tac_WindowEventType_Redraw => windowRedraw(&global_state),
-        c.tac_WindowEventType_Resize => windowResize(&global_state),
+        c.tac_WindowEventType_Close => windowClose(state),
+        c.tac_WindowEventType_Key => keyPress(state),
+        c.tac_WindowEventType_Redraw => windowRedraw(state),
+        c.tac_WindowEventType_Resize => windowResize(state),
         else => unreachable,
     }
 }

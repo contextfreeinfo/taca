@@ -129,6 +129,7 @@ pub struct System {
     pub instance: WGPUInstance,
     pub key_event: Option<crate::window::KeyEvent>,
     pub memory: Option<Memory>,
+    pub named_window_listen: Option<wasmer::Function>,
     pub queue: WGPUQueue,
     pub pipelines: Vec<WGPURenderPipeline>,
     pub pipeline_layouts: Vec<WGPUPipelineLayout>,

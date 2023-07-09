@@ -49,12 +49,6 @@ pub fn buildPipeline(
             .shaderLocation = 2,
         },
     };
-    const vertex_buffer_layout = c.WGPUVertexBufferLayout{
-        .arrayStride = d.vertex_stride,
-        .stepMode = c.WGPUVertexStepMode_Vertex,
-        .attributeCount = vertex_attributes.len,
-        .attributes = &vertex_attributes,
-    };
     const pipeline_layout = c.wgpuDeviceCreatePipelineLayout(
         device,
         &c.WGPUPipelineLayoutDescriptor{
@@ -75,7 +69,12 @@ pub fn buildPipeline(
             .constantCount = 0,
             .constants = null,
             .bufferCount = 1,
-            .buffers = &vertex_buffer_layout,
+            .buffers = &c.WGPUVertexBufferLayout{
+                .arrayStride = d.vertex_stride,
+                .stepMode = c.WGPUVertexStepMode_Vertex,
+                .attributeCount = vertex_attributes.len,
+                .attributes = &vertex_attributes,
+            },
         },
         .fragment = &c.WGPUFragmentState{
             .nextInChain = null,
