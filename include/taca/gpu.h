@@ -19,15 +19,15 @@ typedef enum taca_BufferKind {
 struct taca_GpuBufferImpl;
 typedef struct taca_GpuBufferImpl* taca_GpuBuffer;
 
-tac_EXPORT taca_GpuBuffer taca_gpuIndexBufferInit();
-tac_EXPORT taca_GpuBuffer taca_gpuUniformBufferInit();
-tac_EXPORT taca_GpuBuffer taca_gpuVertexBufferInit(taca_GpuBuffer vertexBuffer);
+taca_EXPORT taca_GpuBuffer taca_gpuIndexBufferInit();
+taca_EXPORT taca_GpuBuffer taca_gpuUniformBufferInit();
+taca_EXPORT taca_GpuBuffer taca_gpuVertexBufferInit(taca_GpuBuffer vertexBuffer);
 
-tac_EXPORT void taca_gpuBufferWrite(taca_GpuBuffer buffer, size_t size, const void* data);
-tac_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
-tac_EXPORT void taca_gpuInit(const taca_GpuConfig* config);
-tac_EXPORT void taca_gpuPresent(void);
+taca_EXPORT void taca_gpuBufferWrite(taca_GpuBuffer buffer, size_t size, const void* data);
+taca_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
+taca_EXPORT void taca_gpuInit(const taca_GpuConfig* config);
+taca_EXPORT void taca_gpuPresent(void);
 
 // WGPU_EXPORT void wgpuRenderPassEncoderSetBindGroup(WGPURenderPassEncoder renderPassEncoder, uint32_t groupIndex, WGPUBindGroup group, uint32_t dynamicOffsetCount, uint32_t const * dynamicOffsets);
 // c.wgpuRenderPassEncoderSetBindGroup(render_pass, 0, state.bind_group, 0, null);
-// tac_EXPORT void taca_gpuBind(...);
+// taca_EXPORT void taca_gpuBind(...);

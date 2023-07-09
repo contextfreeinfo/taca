@@ -52,10 +52,10 @@ fn run_app(args: &RunArgs) -> Result<()> {
     let env = FunctionEnv::new(&mut store, System::new(window));
     let import_object = imports! {
         "env" => {
-            "tac_keyEvent" => Function::new_typed_with_env(&mut store, &env, tac_key_event),
-            "tac_windowInnerSize" => Function::new_typed_with_env(&mut store, &env, tac_window_inner_size),
-            "tac_windowListen" => Function::new_typed_with_env(&mut store, &env, tac_window_listen),
-            "tac_windowSetTitle" => Function::new_typed_with_env(&mut store, &env, tac_window_set_title),
+            "taca_keyEvent" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
+            "taca_windowInnerSize" => Function::new_typed_with_env(&mut store, &env, taca_window_inner_size),
+            "taca_windowListen" => Function::new_typed_with_env(&mut store, &env, taca_window_listen),
+            "taca_windowSetTitle" => Function::new_typed_with_env(&mut store, &env, taca_window_set_title),
             "wgpuAdapterDrop" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_drop),
             "wgpuAdapterGetLimits" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_get_limits),
             "wgpuAdapterRequestDevice" => Function::new_typed_with_env(&mut store, &env, wgpu_adapter_request_device),

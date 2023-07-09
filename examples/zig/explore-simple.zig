@@ -2,7 +2,7 @@ const c = @cImport({@cInclude("taca.h");});
 const d = @import("./data.zig");
 
 pub fn main() void {
-    c.tac_windowSetTitle("Taca-Simplified WebGPU");
+    c.taca_windowSetTitle("Taca-Simplified WebGPU");
     const vertex_attributes = [_]c.WGPUVertexAttribute{
         .{
             .format = c.WGPUVertexFormat_Float32x3,

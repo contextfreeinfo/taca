@@ -13,7 +13,7 @@ const c = @cImport({
 });
 
 pub fn main() void {
-    c.tac_windowSetTitle("Exploring WebGPU with Taca");
+    c.taca_windowSetTitle("Exploring WebGPU with Taca");
 
     // Instance
     const instance = c.wgpuCreateInstance(&c.WGPUInstanceDescriptor{
@@ -248,7 +248,7 @@ pub fn main() void {
     });
 
     // Depth texture & swap chain
-    const size = c.tac_windowInnerSize();
+    const size = c.taca_windowInnerSize();
     const depth_texture_out = createDepthTexture(.{
         .device = device,
         .size = size,
@@ -294,36 +294,36 @@ pub fn main() void {
     // Listen
     // Option for either named export via null or else an indexed export with pointer.
     // And pass in state pointer even if global for now.
-    c.tac_windowListen(null, &global_state);
-    // c.tac_windowListen(windowListen, &global_state);
+    c.taca_windowListen(null, &global_state);
+    // c.taca_windowListen(windowListen, &global_state);
 }
 
-export fn windowListen(event_type: c.tac_WindowEventType, userdata: ?*anyopaque) void {
+export fn windowListen(event_type: c.taca_WindowEventType, userdata: ?*anyopaque) void {
     const state = @ptrCast(*State, @alignCast(@alignOf(State), userdata));
     switch (event_type) {
-        c.tac_WindowEventType_Close => windowClose(state),
-        c.tac_WindowEventType_Key => keyPress(state),
-        c.tac_WindowEventType_Redraw => windowRedraw(state),
-        c.tac_WindowEventType_Resize => windowResize(state),
+        c.taca_WindowEventType_Close => windowClose(state),
+        c.taca_WindowEventType_Key => keyPress(state),
+        c.taca_WindowEventType_Redraw => windowRedraw(state),
+        c.taca_WindowEventType_Resize => windowResize(state),
         else => unreachable,
     }
 }
 
 fn keyPress(state: *State) void {
-    const event = c.tac_keyEvent();
+    const event = c.taca_keyEvent();
     const speed: f32 = if (event.pressed) 0.02 else 0;
     switch (event.code) {
-        c.tac_KeyCode_Undefined => {},
-        c.tac_KeyCode_Left => {
+        c.taca_KeyCode_Undefined => {},
+        c.taca_KeyCode_Left => {
             updateSpeed(&state.velocity, 0, -1, speed);
         },
-        c.tac_KeyCode_Up => {
+        c.taca_KeyCode_Up => {
             updateSpeed(&state.velocity, 1, 1, speed);
         },
-        c.tac_KeyCode_Right => {
+        c.taca_KeyCode_Right => {
             updateSpeed(&state.velocity, 0, 1, speed);
         },
-        c.tac_KeyCode_Down => {
+        c.taca_KeyCode_Down => {
             updateSpeed(&state.velocity, 1, -1, speed);
         },
         else => unreachable,
@@ -418,7 +418,7 @@ fn windowRedraw(state: *State) void {
 }
 
 fn windowResize(state: *State) void {
-    const size = c.tac_windowInnerSize();
+    const size = c.taca_windowInnerSize();
     if (size.x > 0 and size.y > 0) {
         state.projection = buildPerspective(size);
         state.size = size;
@@ -453,7 +453,7 @@ const State = struct {
     position: a.Vec3,
     projection: a.Mat4,
     queue: c.WGPUQueue,
-    size: c.tac_Vec2,
+    size: c.taca_Vec2,
     swap_chain: c.WGPUSwapChain,
     surface: c.WGPUSurface,
     time: f32,
@@ -474,7 +474,7 @@ const Uniforms = extern struct {
     position: a.Vec3,
 };
 
-fn buildPerspective(size: c.tac_Vec2) a.Mat4 {
+fn buildPerspective(size: c.taca_Vec2) a.Mat4 {
     // The tutorial uses different calculations than zalgebra, and I'm not
     // getting what I want from zalgebra, so go with tutorial.
     const aspect = @intToFloat(f32, size.x) / @intToFloat(f32, size.y);
@@ -496,7 +496,7 @@ fn buildPerspective(size: c.tac_Vec2) a.Mat4 {
 
 const CreateDepthTextureIn = struct {
     device: c.WGPUDevice,
-    size: c.tac_Vec2,
+    size: c.taca_Vec2,
 };
 
 const CreateDepthTextureOut = struct {
@@ -542,7 +542,7 @@ fn createDepthTexture(in: CreateDepthTextureIn) CreateDepthTextureOut {
 const CreateSwapChainData = struct {
     device: c.WGPUDevice,
     format: c.WGPUTextureFormat,
-    size: c.tac_Vec2,
+    size: c.taca_Vec2,
     surface: c.WGPUSurface,
 };
 

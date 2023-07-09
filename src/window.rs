@@ -166,8 +166,8 @@ struct WasmKeyEvent {
     pressed: bool,
 }
 
-pub fn tac_key_event(mut env: FunctionEnvMut<System>, result: u32) {
-    // println!("tac_keyEvent({result})");
+pub fn taca_key_event(mut env: FunctionEnvMut<System>, result: u32) {
+    // println!("taca_keyEvent({result})");
     let (system, mut store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&mut store);
     let key_event = match system.key_event {
@@ -186,8 +186,8 @@ pub fn tac_key_event(mut env: FunctionEnvMut<System>, result: u32) {
         .unwrap();
 }
 
-pub fn tac_window_inner_size(mut env: FunctionEnvMut<System>, result: u32) {
-    println!("tac_windowInnerSize({result})");
+pub fn taca_window_inner_size(mut env: FunctionEnvMut<System>, result: u32) {
+    println!("taca_windowInnerSize({result})");
     let (system, mut store) = env.data_and_store_mut();
     let memory = system.memory.as_ref().unwrap().view(&mut store);
     let size = system.window.as_ref().unwrap().inner_size();
@@ -198,8 +198,8 @@ pub fn tac_window_inner_size(mut env: FunctionEnvMut<System>, result: u32) {
         .unwrap();
 }
 
-pub fn tac_window_listen(mut env: FunctionEnvMut<System>, callback: u32, userdata: u32) {
-    println!("tac_windowListen({callback}, {userdata})");
+pub fn taca_window_listen(mut env: FunctionEnvMut<System>, callback: u32, userdata: u32) {
+    println!("taca_windowListen({callback}, {userdata})");
     let (mut system, mut store) = env.data_and_store_mut();
     let functions = system.functions.as_ref().unwrap();
     system.window_listen = match callback {
@@ -214,8 +214,8 @@ pub fn tac_window_listen(mut env: FunctionEnvMut<System>, callback: u32, userdat
     system.window_listen_userdata = userdata;
 }
 
-pub fn tac_window_set_title(mut env: FunctionEnvMut<System>, title: u32) {
-    println!("tac_windowSetTitle({title})");
+pub fn taca_window_set_title(mut env: FunctionEnvMut<System>, title: u32) {
+    println!("taca_windowSetTitle({title})");
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let title = WasmPtr::<u8>::new(title)
