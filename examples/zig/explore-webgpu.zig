@@ -294,8 +294,8 @@ pub fn main() void {
     // Listen
     // Option for either named export via null or else an indexed export with pointer.
     // And pass in state pointer even if global for now.
-    c.taca_windowListen(null, &global_state);
-    // c.taca_windowListen(windowListen, &global_state);
+    // c.taca_windowListen(null, &global_state);
+    c.taca_windowListen(windowListen, &global_state);
 }
 
 export fn windowListen(event_type: c.taca_WindowEventType, userdata: ?*anyopaque) void {

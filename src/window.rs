@@ -209,7 +209,7 @@ pub fn taca_window_listen(mut env: FunctionEnvMut<System>, callback: u32, userda
         _ => {
             let value = functions.get(&mut store, callback).unwrap();
             Some(value.unwrap_funcref().as_ref().unwrap().clone())
-        },
+        }
     };
     system.window_listen_userdata = userdata;
 }

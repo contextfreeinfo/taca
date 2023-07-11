@@ -109,12 +109,11 @@ fn run_app(args: &RunArgs) -> Result<()> {
     // Something like this: wasi_env.data_mut(&mut store).set_memory(memory.clone());
     // TODO Check function type to see if cli args are expected?
     let _start = instance.exports.get_function("_start")?;
-    env_mut.functions = Some(
-        instance
-            .exports
-            .get_table("__indirect_function_table")?
-            .clone(),
-    );
+    env_mut.functions = instance
+        .exports
+        .get_table("__indirect_function_table")
+        .ok()
+        .map(|it| it.clone());
     env_mut.named_window_listen = instance
         .exports
         .get_function("windowListen")
