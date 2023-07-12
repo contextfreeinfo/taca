@@ -1,5 +1,7 @@
 const a = @import("./zalgebra/main.zig");
-const c = @cImport({@cInclude("taca.h");});
+const c = @cImport({
+    @cInclude("taca.h");
+});
 const d = @import("./data.zig");
 
 pub fn main() void {
@@ -23,7 +25,6 @@ pub fn main() void {
     };
     c.taca_gpuInit(&c.taca_GpuConfig{
         .indexFormat = c.WGPUIndexFormat_Uint16,
-        .uniformSize = @sizeOf(Uniforms),
         .vertexBufferLayout = &c.WGPUVertexBufferLayout{
             .arrayStride = d.vertex_stride,
             .stepMode = c.WGPUVertexStepMode_Vertex,
@@ -32,19 +33,18 @@ pub fn main() void {
         },
         .wgsl = @embedFile("./shader.opt.wgsl"),
     });
-    const vertex_buffer = c.taca_gpuVertexBufferInit();
-    const index_buffer = c.taca_gpuIndexBufferInit(vertex_buffer);
-    c.taca_gpuBufferWrite(vertex_buffer, @sizeOf(@TypeOf(d.point_data)), &d.point_data);
-    c.taca_gpuBufferWrite(index_buffer, @sizeOf(@TypeOf(d.index_data)), &d.index_data);
     const size = c.taca_windowInnerSize();
     global_state = .{
-        .index_buffer = index_buffer,
+        .index_buffer = c.taca_gpuIndexBufferCreate(
+            c.taca_gpuVertexBufferCreate(@sizeOf(@TypeOf(d.point_data)), &d.point_data),
+            &d.index_data,
+        ),
         .position = a.Vec3.zero(),
         .projection = buildPerspective(size),
         .size = size,
         .time = 0,
-        .uniform_buffer = c.taca_gpuUniformBufferInit(),
-        .vertex_buffer = vertex_buffer,
+        .uniform_buffer = c.taca_gpuUniformBufferCreate(@sizeOf(Uniforms)),
+        // TODO Include linear algebra and perspective library? Too slow?
         .view = a.Mat4.identity()
             .translate(a.Vec3.new(0, 0, -2))
             .rotate(135, a.Vec3.new(1, 0, 0))
@@ -73,7 +73,7 @@ fn windowRedraw(state: *State) void {
         .time = state.time,
         .position = state.position,
     };
-    c.taca_gpuBufferWrite(state.uniform_buffer, @sizeOf(Uniforms), &uniforms);
+    c.taca_gpuBufferWrite(state.uniform_buffer, &uniforms);
     c.taca_gpuDraw(state.index_buffer);
     c.taca_gpuPresent();
 }
@@ -93,7 +93,6 @@ const State = struct {
     size: c.taca_Vec2,
     time: f32,
     uniform_buffer: c.taca_GpuBuffer,
-    vertex_buffer: c.taca_GpuBuffer,
     view: a.Mat4,
 };
 
@@ -116,10 +115,10 @@ fn buildPerspective(size: c.taca_Vec2) a.Mat4 {
     const divider: f32 = 1.0 / (focal_length * (far - near));
     const perspective = (a.Mat4{
         .data = .{
-            .{1, 0, 0, 0},
-            .{0, aspect, 0, 0},
-            .{0, 0, far * divider, -far * near * divider},
-            .{0, 0, 1 / focal_length, 0},
+            .{ 1, 0, 0, 0 },
+            .{ 0, aspect, 0, 0 },
+            .{ 0, 0, far * divider, -far * near * divider },
+            .{ 0, 0, 1 / focal_length, 0 },
         },
     }).transpose();
     // return a.perspective(45.0, aspect, 0.1, 100.0);

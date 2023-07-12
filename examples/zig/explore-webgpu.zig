@@ -183,7 +183,7 @@ pub fn main() void {
     }
     c.wgpuQueueWriteTexture(
         queue,
-        &std.mem.zeroInit(c.WGPUImageCopyTexture, .{.texture = image_texture}),
+        &std.mem.zeroInit(c.WGPUImageCopyTexture, .{ .texture = image_texture }),
         image_texture_data.ptr,
         image_texture_data.len,
         &std.mem.zeroInit(c.WGPUTextureDataLayout, .{
@@ -484,10 +484,10 @@ fn buildPerspective(size: c.taca_Vec2) a.Mat4 {
     const divider: f32 = 1.0 / (focal_length * (far - near));
     const perspective = (a.Mat4{
         .data = .{
-            .{1, 0, 0, 0},
-            .{0, aspect, 0, 0},
-            .{0, 0, far * divider, -far * near * divider},
-            .{0, 0, 1 / focal_length, 0},
+            .{ 1, 0, 0, 0 },
+            .{ 0, aspect, 0, 0 },
+            .{ 0, 0, far * divider, -far * near * divider },
+            .{ 0, 0, 1 / focal_length, 0 },
         },
     }).transpose();
     // return a.perspective(45.0, aspect, 0.1, 100.0);
