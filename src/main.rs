@@ -52,6 +52,13 @@ fn run_app(args: &RunArgs) -> Result<()> {
     let env = FunctionEnv::new(&mut store, System::new(window));
     let import_object = imports! {
         "env" => {
+            "taca_gpuBufferWrite" => Function::new_typed_with_env(&mut store, &env, taca_gpu_buffer_write),
+            "taca_gpuDraw" => Function::new_typed_with_env(&mut store, &env, taca_gpu_draw),
+            "taca_gpuIndexBufferCreate" => Function::new_typed_with_env(&mut store, &env, taca_gpu_index_buffer_create),
+            "taca_gpuInit" => Function::new_typed_with_env(&mut store, &env, taca_gpu_init),
+            "taca_gpuPresent" => Function::new_typed_with_env(&mut store, &env, taca_gpu_present),
+            "taca_gpuUniformBufferCreate" => Function::new_typed_with_env(&mut store, &env, taca_gpu_uniform_buffer_create),
+            "taca_gpuVertexBufferCreate" => Function::new_typed_with_env(&mut store, &env, taca_gpu_vertex_buffer_create),
             "taca_keyEvent" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
             "taca_windowInnerSize" => Function::new_typed_with_env(&mut store, &env, taca_window_inner_size),
             "taca_windowListen" => Function::new_typed_with_env(&mut store, &env, taca_window_listen),
@@ -191,6 +198,7 @@ fn proc_exit(code: u32) -> std::result::Result<(), ExitCode> {
     Err(ExitCode(code))
 }
 
+mod gpu;
 mod system;
 mod webgpu;
 mod window;
@@ -204,6 +212,7 @@ use wasmer::{
 };
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 
+use crate::gpu::*;
 use crate::system::*;
 use crate::webgpu::*;
 use crate::window::*;

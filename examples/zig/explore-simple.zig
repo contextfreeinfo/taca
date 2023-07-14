@@ -24,7 +24,6 @@ pub fn main() void {
         },
     };
     c.taca_gpuInit(&c.taca_GpuConfig{
-        .indexFormat = c.WGPUIndexFormat_Uint16,
         .vertexBufferLayout = &c.WGPUVertexBufferLayout{
             .arrayStride = d.vertex_stride,
             .stepMode = c.WGPUVertexStepMode_Vertex,
@@ -37,6 +36,7 @@ pub fn main() void {
     global_state = .{
         .index_buffer = c.taca_gpuIndexBufferCreate(
             c.taca_gpuVertexBufferCreate(@sizeOf(@TypeOf(d.point_data)), &d.point_data),
+            c.WGPUIndexFormat_Uint16,
             &d.index_data,
         ),
         .position = a.Vec3.zero(),

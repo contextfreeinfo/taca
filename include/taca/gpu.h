@@ -3,7 +3,6 @@
 #include <webgpu.h>
 
 typedef struct taca_GpuConfig {
-    WGPUIndexFormat indexFormat;
     const WGPUVertexBufferLayout* vertexBufferLayout;
     /// Vertex shader "vertex_main" and fragment shader "fragment_main".
     const char* wgsl;
@@ -19,7 +18,7 @@ struct taca_GpuBufferImpl;
 typedef struct taca_GpuBufferImpl* taca_GpuBuffer;
 
 // Vertex stride and buffer size and index format imply index buffer size.
-taca_EXPORT taca_GpuBuffer taca_gpuIndexBufferCreate(taca_GpuBuffer vertexBuffer, const void* data);
+taca_EXPORT taca_GpuBuffer taca_gpuIndexBufferCreate(taca_GpuBuffer vertex, WGPUIndexFormat indexFormat, const void* data);
 taca_EXPORT taca_GpuBuffer taca_gpuUniformBufferCreate(size_t size);
 taca_EXPORT taca_GpuBuffer taca_gpuVertexBufferCreate(size_t size, const void* data);
 
