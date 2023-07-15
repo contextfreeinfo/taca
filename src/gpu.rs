@@ -1,5 +1,5 @@
-use crate::system::System;
-use wasmer::{FunctionEnvMut, ValueType};
+use crate::{system::System, webgpu::WasmWGPUVertexBufferLayout};
+use wasmer::{FunctionEnvMut, ValueType, WasmPtr};
 use wgpu_native::native;
 
 // taca_EXPORT void taca_gpuBufferWrite(taca_GpuBuffer buffer, const void* data);
@@ -25,16 +25,23 @@ pub fn taca_gpu_index_buffer_create(
 #[derive(Copy, Clone, Debug, ValueType)]
 #[repr(C)]
 struct WasmGpuConfig {
-    index_format: native::WGPUIndexFormat,
-    // next_in_chain: WasmPtr<WasmWGPUChainedStruct>,
-    // label: WasmPtr<u8>,
-    // bind_group_layout_count: u32,
-    // bind_group_layouts: WasmPtr<u32>, // WGPUBindGroupLayout const *
+    vertex_buffer_layout: WasmPtr<WasmWGPUVertexBufferLayout>,
+    wgsl: WasmPtr<u8>,
 }
 
 // taca_EXPORT void taca_gpuInit(const taca_GpuConfig* config);
 pub fn taca_gpu_init(mut env: FunctionEnvMut<System>, config: u32) {
-    let (mut system, mut store) = env.data_and_store_mut();
+    let (mut system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let config = WasmPtr::<WasmGpuConfig>::new(config).read(&view).unwrap();
+    let vertex_layout = config.vertex_buffer_layout.read(&view).unwrap();
+    let vertex_attributes = vertex_layout.attributes_vec(&view);
+    let vertex_layout = native::WGPUVertexBufferLayout {
+        arrayStride: vertex_layout.array_stride,
+        stepMode: vertex_layout.step_mode,
+        attributeCount: vertex_layout.attribute_count,
+        attributes: vertex_attributes.as_ptr(),
+    };
 }
 
 // taca_EXPORT void taca_gpuPresent(void);

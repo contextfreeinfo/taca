@@ -635,19 +635,37 @@ struct WasmWGPUVertexState {
 
 #[derive(Copy, Clone, Debug, ValueType)]
 #[repr(C)]
-struct WasmWGPUVertexBufferLayout {
-    array_stride: u64,
-    step_mode: native::WGPUVertexStepMode,
-    attribute_count: u32,
-    attributes: WasmPtr<WasmWGPUVertexAttribute>,
+pub struct WasmWGPUVertexBufferLayout {
+    pub array_stride: u64,
+    pub step_mode: native::WGPUVertexStepMode,
+    pub attribute_count: u32,
+    pub attributes: WasmPtr<WasmWGPUVertexAttribute>,
+}
+
+impl WasmWGPUVertexBufferLayout {
+    pub fn attributes_vec(&self, view: &MemoryView) -> Vec<native::WGPUVertexAttribute> {
+        self.attributes
+            .slice(view, self.attribute_count)
+            .unwrap()
+            .iter()
+            .map(|attribute| {
+                let attribute = attribute.read().unwrap();
+                native::WGPUVertexAttribute {
+                    format: attribute.format,
+                    offset: attribute.offset,
+                    shaderLocation: attribute.shader_location,
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Copy, Clone, Debug, ValueType)]
 #[repr(C)]
-struct WasmWGPUVertexAttribute {
-    format: native::WGPUVertexFormat,
-    offset: u64,
-    shader_location: u32,
+pub struct WasmWGPUVertexAttribute {
+    pub format: native::WGPUVertexFormat,
+    pub offset: u64,
+    pub shader_location: u32,
 }
 
 #[derive(Copy, Clone, Debug, ValueType)]
@@ -752,21 +770,7 @@ pub fn wgpu_device_create_render_pipeline(
         .iter()
         .map(|buffer| {
             let buffer = buffer.read().unwrap();
-            let attributes = buffer
-                .attributes
-                .slice(&memory, buffer.attribute_count)
-                .unwrap()
-                .iter()
-                .map(|attribute| {
-                    let attribute = attribute.read().unwrap();
-                    native::WGPUVertexAttribute {
-                        format: attribute.format,
-                        offset: attribute.offset,
-                        shaderLocation: attribute.shader_location,
-                    }
-                })
-                .collect();
-            vertex_attributes.push(attributes);
+            vertex_attributes.push(buffer.attributes_vec(&memory));
             native::WGPUVertexBufferLayout {
                 arrayStride: buffer.array_stride,
                 stepMode: buffer.step_mode,
