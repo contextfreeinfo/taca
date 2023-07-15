@@ -23,27 +23,27 @@ pub fn main() void {
             .shaderLocation = 2,
         },
     };
-    c.taca_gpuInit(&c.taca_GpuConfig{
-        .vertexBufferLayout = &c.WGPUVertexBufferLayout{
-            .arrayStride = d.vertex_stride,
-            .stepMode = c.WGPUVertexStepMode_Vertex,
-            .attributeCount = vertex_attributes.len,
-            .attributes = &vertex_attributes,
-        },
-        .wgsl = @embedFile("./shader.opt.wgsl"),
-    });
-    const size = c.taca_windowInnerSize();
+    _ = c.taca_gpu_shaderCreate(@embedFile("./shader.opt.wgsl"));
     global_state = .{
-        .index_buffer = c.taca_gpuIndexBufferCreate(
-            c.taca_gpuVertexBufferCreate(@sizeOf(@TypeOf(d.point_data)), &d.point_data),
-            c.WGPUIndexFormat_Uint16,
+        .index_buffer = c.taca_gpu_indexBufferCreate(
+            @sizeOf(@TypeOf(d.index_data)),
             &d.index_data,
+            c.WGPUIndexFormat_Uint16,
+            c.taca_gpu_vertexBufferCreate(
+                @sizeOf(@TypeOf(d.point_data)),
+                &d.point_data,
+                &c.WGPUVertexBufferLayout{
+                    .arrayStride = d.vertex_stride,
+                    .stepMode = c.WGPUVertexStepMode_Vertex,
+                    .attributeCount = vertex_attributes.len,
+                    .attributes = &vertex_attributes,
+                },
+            ),
         ),
         .position = a.Vec3.zero(),
-        .projection = buildPerspective(size),
-        .size = size,
+        .projection = buildPerspective(c.taca_windowInnerSize()),
         .time = 0,
-        .uniform_buffer = c.taca_gpuUniformBufferCreate(@sizeOf(Uniforms)),
+        .uniform_buffer = c.taca_gpu_uniformBufferCreate(@sizeOf(Uniforms)),
         // TODO Include linear algebra and perspective library? Too slow?
         .view = a.Mat4.identity()
             .translate(a.Vec3.new(0, 0, -2))
@@ -73,26 +73,24 @@ fn windowRedraw(state: *State) void {
         .time = state.time,
         .position = state.position,
     };
-    c.taca_gpuBufferWrite(state.uniform_buffer, &uniforms);
-    c.taca_gpuDraw(state.index_buffer);
-    c.taca_gpuPresent();
+    c.taca_gpu_bufferWrite(state.uniform_buffer, &uniforms);
+    c.taca_gpu_draw(state.index_buffer);
+    c.taca_gpu_present();
 }
 
 fn windowResize(state: *State) void {
     const size = c.taca_windowInnerSize();
     if (size.x > 0 and size.y > 0) {
         state.projection = buildPerspective(size);
-        state.size = size;
     }
 }
 
 const State = struct {
-    index_buffer: c.taca_GpuBuffer,
+    index_buffer: c.taca_gpu_Buffer,
     position: a.Vec3,
     projection: a.Mat4,
-    size: c.taca_Vec2,
     time: f32,
-    uniform_buffer: c.taca_GpuBuffer,
+    uniform_buffer: c.taca_gpu_Buffer,
     view: a.Mat4,
 };
 

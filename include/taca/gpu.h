@@ -2,32 +2,23 @@
 
 #include <webgpu.h>
 
-typedef struct taca_GpuConfig {
-    const WGPUVertexBufferLayout* vertexBufferLayout;
-    /// Vertex shader "vertex_main" and fragment shader "fragment_main".
-    const char* wgsl;
-} taca_GpuConfig;
+struct taca_gpu_BufferImpl;
+typedef struct taca_gpu_BufferImpl* taca_gpu_Buffer;
 
-typedef enum taca_BufferKind {
-    taca_BufferKind_Index = 1,
-    taca_BufferKind_Uniform = 2,
-    taca_BufferKind_Vertex = 3,
-} taca_BufferKind;
+struct taca_gpu_ShaderImpl;
+typedef struct taca_gpu_ShaderImpl* taca_gpu_Shader;
 
-struct taca_GpuBufferImpl;
-typedef struct taca_GpuBufferImpl* taca_GpuBuffer;
+taca_EXPORT taca_gpu_Shader taca_gpu_shaderCreate(const char* wgsl);
 
-// Vertex stride and buffer size and index format imply index buffer size.
-taca_EXPORT taca_GpuBuffer taca_gpuIndexBufferCreate(taca_GpuBuffer vertex, WGPUIndexFormat indexFormat, const void* data);
-taca_EXPORT taca_GpuBuffer taca_gpuUniformBufferCreate(size_t size);
-taca_EXPORT taca_GpuBuffer taca_gpuVertexBufferCreate(size_t size, const void* data);
+taca_EXPORT taca_gpu_Buffer taca_gpu_indexBufferCreate(size_t size, const void* data, WGPUIndexFormat indexFormat, taca_gpu_Buffer vertex);
+taca_EXPORT taca_gpu_Buffer taca_gpu_uniformBufferCreate(size_t size);
+taca_EXPORT taca_gpu_Buffer taca_gpu_vertexBufferCreate(size_t size, const void* data, const WGPUVertexBufferLayout* layout);
 
 // Presume full refill of same buffer size by default.
-taca_EXPORT void taca_gpuBufferWrite(taca_GpuBuffer buffer, const void* data);
-taca_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
-taca_EXPORT void taca_gpuInit(const taca_GpuConfig* config);
-taca_EXPORT void taca_gpuPresent(void);
+taca_EXPORT void taca_gpu_bufferWrite(taca_gpu_Buffer buffer, const void* data);
+taca_EXPORT void taca_gpu_draw(taca_gpu_Buffer buffer);
+taca_EXPORT void taca_gpu_present(void);
 
 // WGPU_EXPORT void wgpuRenderPassEncoderSetBindGroup(WGPURenderPassEncoder renderPassEncoder, uint32_t groupIndex, WGPUBindGroup group, uint32_t dynamicOffsetCount, uint32_t const * dynamicOffsets);
 // c.wgpuRenderPassEncoderSetBindGroup(render_pass, 0, state.bind_group, 0, null);
-// taca_EXPORT void taca_gpuBind(...);
+// taca_EXPORT void taca_gpu_Bind(...);

@@ -885,7 +885,24 @@ pub fn wgpu_device_create_shader_module(
     let descriptor = descriptor.read(&memory).unwrap();
     let next = descriptor.next_in_chain.read(&memory).unwrap();
     let s_type = next.s_type;
-    let mut wgsl = native::WGPUShaderModuleWGSLDescriptor {
+    match s_type {
+        native::WGPUSType_ShaderModuleWGSLDescriptor => {
+            let wgsl_next =
+                WasmPtr::<WGPUShaderModuleWGSLDescriptor>::new(descriptor.next_in_chain.offset());
+            let wgsl_next = wgsl_next.read(&memory).unwrap();
+            wgpu_device_create_shader_module_simple(system, &store, wgsl_next.code)
+        }
+        _ => panic!(),
+    }
+}
+
+pub fn wgpu_device_create_shader_module_simple(
+    system: &mut System,
+    store: &StoreMut,
+    wgsl: WasmPtr<u8>,
+) -> u32 {
+    let memory = system.memory.as_ref().unwrap().view(store);
+    let mut wgsl_descriptor = native::WGPUShaderModuleWGSLDescriptor {
         chain: native::WGPUChainedStruct {
             next: null(),
             sType: native::WGPUSType_ShaderModuleWGSLDescriptor,
@@ -893,18 +910,12 @@ pub fn wgpu_device_create_shader_module(
         code: null(),
     };
     let code: Option<CString>;
-    let native_next = match s_type {
-        native::WGPUSType_ShaderModuleWGSLDescriptor => {
-            let wgsl_next =
-                WasmPtr::<WGPUShaderModuleWGSLDescriptor>::new(descriptor.next_in_chain.offset());
-            let wgsl_next = wgsl_next.read(&memory).unwrap();
-            let cstring = read_cstring(wgsl_next.code, &memory).unwrap();
-            code = Some(cstring);
-            wgsl.code = code.as_ref().unwrap().as_ptr();
-            &wgsl as *const native::WGPUShaderModuleWGSLDescriptor
-                as *const native::WGPUChainedStruct
-        }
-        _ => panic!(),
+    let native_next = {
+        let cstring = read_cstring(wgsl, &memory).unwrap();
+        code = Some(cstring);
+        wgsl_descriptor.code = code.as_ref().unwrap().as_ptr();
+        &wgsl_descriptor as *const native::WGPUShaderModuleWGSLDescriptor
+            as *const native::WGPUChainedStruct
     };
     // println!("{:?}", code.as_ref().unwrap());
     let shader = unsafe {
@@ -1610,6 +1621,6 @@ use std::{
     mem::MaybeUninit,
     ptr::{null, null_mut},
 };
-use wasmer::{FunctionEnvMut, MemoryView, Value, ValueType, WasmPtr, WasmRef};
+use wasmer::{FunctionEnvMut, MemoryView, StoreMut, Value, ValueType, WasmPtr, WasmRef};
 use wgpu_native::native;
 use winit::window::Window;
