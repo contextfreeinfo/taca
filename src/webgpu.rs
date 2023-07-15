@@ -890,7 +890,11 @@ pub fn wgpu_device_create_shader_module(
             let wgsl_next =
                 WasmPtr::<WGPUShaderModuleWGSLDescriptor>::new(descriptor.next_in_chain.offset());
             let wgsl_next = wgsl_next.read(&memory).unwrap();
-            wgpu_device_create_shader_module_simple(system, &store, wgsl_next.code)
+            wgpu_device_create_shader_module_simple(
+                system,
+                &store,
+                read_cstring(wgsl_next.code, &memory).unwrap(),
+            )
         }
         _ => panic!(),
     }
@@ -899,7 +903,7 @@ pub fn wgpu_device_create_shader_module(
 pub fn wgpu_device_create_shader_module_simple(
     system: &mut System,
     store: &StoreMut,
-    wgsl: WasmPtr<u8>,
+    wgsl: CString,
 ) -> u32 {
     let memory = system.memory.as_ref().unwrap().view(store);
     let mut wgsl_descriptor = native::WGPUShaderModuleWGSLDescriptor {
@@ -911,8 +915,7 @@ pub fn wgpu_device_create_shader_module_simple(
     };
     let code: Option<CString>;
     let native_next = {
-        let cstring = read_cstring(wgsl, &memory).unwrap();
-        code = Some(cstring);
+        code = Some(wgsl);
         wgsl_descriptor.code = code.as_ref().unwrap().as_ptr();
         &wgsl_descriptor as *const native::WGPUShaderModuleWGSLDescriptor
             as *const native::WGPUChainedStruct

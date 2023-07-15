@@ -201,12 +201,12 @@ pub fn taca_window_inner_size(mut env: FunctionEnvMut<System>, result: u32) {
 pub fn taca_window_listen(mut env: FunctionEnvMut<System>, callback: u32, userdata: u32) {
     println!("taca_windowListen({callback}, {userdata})");
     let (mut system, mut store) = env.data_and_store_mut();
-    let functions = system.functions.as_ref().unwrap();
     system.window_listen = match callback {
         // Support option for named export in case some compilers don't like
         // exporting function tables.
         0 => system.named_window_listen.clone(),
         _ => {
+            let functions = system.functions.as_ref().unwrap();
             let value = functions.get(&mut store, callback).unwrap();
             Some(value.unwrap_funcref().as_ref().unwrap().clone())
         }

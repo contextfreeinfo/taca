@@ -1,52 +1,81 @@
-use std::ptr::null;
+use std::{
+    ptr::null,
+    sync::{Arc, Mutex}, ffi::CString,
+};
 
 use crate::{
     system::System,
-    webgpu::{wgpu_device_create_shader_module_simple, WasmWGPUVertexBufferLayout},
+    webgpu::{wgpu_device_create_shader_module_simple, WasmWGPUVertexBufferLayout, read_cstring},
 };
 use wasmer::{FunctionEnvMut, ValueType, WasmPtr};
 use wgpu_native::native;
 
+pub struct GpuBuffer {
+    data: Vec<u8>,
+    detail: GpuBufferDetail,
+    size: usize,
+    written: bool,
+}
+
+pub enum GpuBufferDetail {
+    Index {
+        format: native::WGPUIndexFormat,
+        vertex: Arc<Mutex<GpuBuffer>>,
+    },
+    Uniform,
+    Vertex {
+        layout: WasmWGPUVertexBufferLayout,
+    },
+}
+
+#[derive(Default)]
+pub struct SimpleGpu {
+    buffers: Vec<Arc<Mutex<GpuBuffer>>>,
+    shaders: Vec<CString>,
+}
+
 // taca_EXPORT void taca_gpuBufferWrite(taca_GpuBuffer buffer, const void* data);
 pub fn taca_gpu_buffer_write(mut env: FunctionEnvMut<System>, buffer: u32, data: u32) {
-    let (mut system, mut store) = env.data_and_store_mut();
-}
-
-// taca_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
-pub fn taca_gpu_draw(mut env: FunctionEnvMut<System>, buffer: u32) {
-    let (mut system, mut store) = env.data_and_store_mut();
-}
-
-// taca_EXPORT taca_GpuBuffer taca_gpuIndexBufferCreate(taca_GpuBuffer vertex, const void* data);
-pub fn taca_gpu_index_buffer_create(
-    mut env: FunctionEnvMut<System>,
-    vertex: u32,
-    data: u32,
-) -> u32 {
-    let (mut system, mut store) = env.data_and_store_mut();
-    0
-}
-
-#[derive(Copy, Clone, Debug, ValueType)]
-#[repr(C)]
-struct WasmGpuConfig {
-    vertex_buffer_layout: WasmPtr<WasmWGPUVertexBufferLayout>,
-    wgsl: WasmPtr<u8>,
-}
-
-// taca_EXPORT void taca_gpuInit(const taca_GpuConfig* config);
-pub fn taca_gpu_init(mut env: FunctionEnvMut<System>, config: u32) {
-    let (mut system, store) = env.data_and_store_mut();
+    let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
-    let config = WasmPtr::<WasmGpuConfig>::new(config).read(&view).unwrap();
-    let vertex_layout = config.vertex_buffer_layout.read(&view).unwrap();
-    let vertex_attributes = vertex_layout.attributes_vec(&view);
-    let vertex_layout = native::WGPUVertexBufferLayout {
-        arrayStride: vertex_layout.array_stride,
-        stepMode: vertex_layout.step_mode,
-        attributeCount: vertex_layout.attribute_count,
-        attributes: vertex_attributes.as_ptr(),
-    };
+    let mut buffer = system.gpu.buffers[buffer as usize].lock().unwrap();
+    let data = WasmPtr::<u8>::new(data)
+        .slice(&view, buffer.data.len() as u32)
+        .unwrap()
+        .read_to_vec()
+        .unwrap();
+    buffer.data = data;
+    buffer.written = false;
+}
+
+fn taca_gpu_ensure_device() {
+    // TODO Also queue.
+    // TODO Write pending buffers.
+    // let buffer = unsafe {
+    //     wgpu_native::device::wgpuDeviceCreateBuffer(
+    //         system.device.0,
+    //         Some(&native::WGPUBufferDescriptor {
+    //             nextInChain: null(),
+    //             label: null(),
+    //             usage: native::WGPUBufferUsage_CopyDst | native::WGPUBufferUsage_Vertex,
+    //             size: size as u64,
+    //             mappedAtCreation: false,
+    //         }),
+    //     )
+    // };
+    // unsafe {
+    //     wgpu_native::device::wgpuQueueWriteBuffer(
+    //         system.queue.0,
+    //         system.buffers[buffer as usize - 1].0,
+    //         0,
+    //         data.as_ptr(),
+    //         size as usize,
+    //     );
+    // }
+}
+
+fn taca_gpu_ensure_pipeline() {
+    taca_gpu_ensure_device();
     // TODO Also init anything else needed.
     // let pipeline_layout = unsafe {
     //     wgpu_native::device::wgpuDeviceCreatePipelineLayout(
@@ -128,6 +157,41 @@ pub fn taca_gpu_init(mut env: FunctionEnvMut<System>, config: u32) {
     // system.pipelines.len().try_into().unwrap()
 }
 
+fn taca_gpu_ensure_render_pass() {
+    taca_gpu_ensure_pipeline();
+}
+
+// taca_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
+pub fn taca_gpu_draw(mut env: FunctionEnvMut<System>, buffer: u32) {
+    let (mut system, mut store) = env.data_and_store_mut();
+    // TODO Ensure queue.
+}
+
+pub fn taca_gpu_index_buffer_create(
+    mut env: FunctionEnvMut<System>,
+    size: u32,
+    data: u32,
+    format: u32,
+    vertex: u32,
+) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    system.gpu.buffers.push(Arc::new(Mutex::new(GpuBuffer {
+        data: WasmPtr::<u8>::new(data)
+            .slice(&view, size)
+            .unwrap()
+            .read_to_vec()
+            .unwrap(),
+        detail: GpuBufferDetail::Index {
+            format,
+            vertex: system.gpu.buffers[vertex as usize].clone(),
+        },
+        size: 0,
+        written: false,
+    })));
+    system.buffers.len() as u32
+}
+
 // taca_EXPORT void taca_gpuPresent(void);
 pub fn taca_gpu_present(mut env: FunctionEnvMut<System>) {
     let (mut system, mut store) = env.data_and_store_mut();
@@ -135,17 +199,55 @@ pub fn taca_gpu_present(mut env: FunctionEnvMut<System>) {
 
 pub fn taca_gpu_shader_create(mut env: FunctionEnvMut<System>, wgsl: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
-    wgpu_device_create_shader_module_simple(system, &store, WasmPtr::<u8>::new(wgsl))
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let wgsl = read_cstring(WasmPtr::<u8>::new(wgsl), &view).unwrap();
+    system.gpu.shaders.push(wgsl);
+    // wgpu_device_create_shader_module_simple(system, &store, WasmPtr::<u8>::new(wgsl))
+    system.gpu.shaders.len() as u32
 }
 
 // taca_EXPORT taca_GpuBuffer taca_gpuUniformBufferCreate(size_t size);
 pub fn taca_gpu_uniform_buffer_create(mut env: FunctionEnvMut<System>, size: u32) -> u32 {
-    let (mut system, mut store) = env.data_and_store_mut();
-    0
+    let (system, _) = env.data_and_store_mut();
+    system.gpu.buffers.push(Arc::new(Mutex::new(GpuBuffer {
+        data: vec![0; size as usize],
+        detail: GpuBufferDetail::Uniform,
+        size: 0,
+        written: false,
+    })));
+    system.buffers.len() as u32
 }
 
-// taca_EXPORT taca_GpuBuffer taca_gpuVertexBufferCreate(size_t size, const void* data);
-pub fn taca_gpu_vertex_buffer_create(mut env: FunctionEnvMut<System>, size: u32, data: u32) -> u32 {
-    let (mut system, mut store) = env.data_and_store_mut();
-    0
+// taca_EXPORT taca_gpu_Buffer taca_gpu_vertexBufferCreate(size_t size, const void* data, const WGPUVertexBufferLayout* layout);
+pub fn taca_gpu_vertex_buffer_create(
+    mut env: FunctionEnvMut<System>,
+    size: u32,
+    data: u32,
+    layout: u32,
+) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    // TODO How to avoid this extra copy?
+    let data = WasmPtr::<u8>::new(data)
+        .slice(&view, size)
+        .unwrap()
+        .read_to_vec()
+        .unwrap();
+    let layout = WasmPtr::<WasmWGPUVertexBufferLayout>::new(layout)
+        .read(&view)
+        .unwrap();
+    // let vertex_attributes = layout.attributes_vec(&view);
+    // let layout = native::WGPUVertexBufferLayout {
+    //     arrayStride: layout.array_stride,
+    //     stepMode: layout.step_mode,
+    //     attributeCount: layout.attribute_count,
+    //     attributes: vertex_attributes.as_ptr(),
+    // };
+    system.gpu.buffers.push(Arc::new(Mutex::new(GpuBuffer {
+        data,
+        detail: GpuBufferDetail::Vertex { layout },
+        size: 0,
+        written: false,
+    })));
+    system.buffers.len() as u32
 }

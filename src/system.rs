@@ -126,6 +126,7 @@ pub struct System {
     pub device_uncaptured_error_callback_userdata: u32,
     pub encoder: WGPUCommandEncoder,
     pub functions: Option<Table>,
+    pub gpu: SimpleGpu,
     pub instance: WGPUInstance,
     pub key_event: Option<crate::window::KeyEvent>,
     pub memory: Option<Memory>,
@@ -159,3 +160,5 @@ use std::ptr::null_mut;
 use wasmer::{Memory, Table};
 use wgpu_native::native;
 use winit::window::Window;
+
+use crate::gpu::SimpleGpu;
