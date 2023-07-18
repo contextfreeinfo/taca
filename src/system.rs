@@ -129,6 +129,7 @@ pub struct System {
     pub gpu: SimpleGpu,
     pub instance: WGPUInstance,
     pub key_event: Option<crate::window::KeyEvent>,
+    pub limits: Option<native::WGPULimits>,
     pub memory: Option<Memory>,
     pub named_window_listen: Option<wasmer::Function>,
     pub queue: WGPUQueue,

@@ -46,6 +46,20 @@ struct WasmWGPUSupportedLimits {
     limits: WasmWGPULimits,
 }
 
+pub fn wgpu_adapter_get_limits_simple(system: &System) -> WGPULimits {
+    unsafe {
+        let preset = MaybeUninit::<native::WGPULimits>::zeroed();
+        let mut values = native::WGPUSupportedLimits {
+            nextInChain: null_mut(),
+            limits: preset.assume_init(),
+        };
+        let success =
+            wgpu_native::device::wgpuAdapterGetLimits(system.adapter.0, Some(&mut values));
+        assert!(success);
+        values.limits
+    }
+}
+
 pub fn wgpu_adapter_get_limits(mut env: FunctionEnvMut<System>, adapter: u32, limits: u32) -> u32 {
     println!("wgpuAdapterGetLimits({adapter}, {limits})");
     let (system, store) = env.data_and_store_mut();
@@ -53,21 +67,15 @@ pub fn wgpu_adapter_get_limits(mut env: FunctionEnvMut<System>, adapter: u32, li
         0
     } else {
         unsafe {
-            let preset = MaybeUninit::<native::WGPULimits>::zeroed();
-            let mut values = native::WGPUSupportedLimits {
-                nextInChain: null_mut(),
-                limits: preset.assume_init(),
-            };
-            let result =
-                wgpu_native::device::wgpuAdapterGetLimits(system.adapter.0, Some(&mut values));
+            let found_limits = wgpu_adapter_get_limits_simple(system);
             let values_wasm = WasmWGPUSupportedLimits {
                 next_in_chain: WasmPtr::null(),
-                limits: std::mem::transmute::<native::WGPULimits, WasmWGPULimits>(values.limits),
+                limits: std::mem::transmute::<native::WGPULimits, WasmWGPULimits>(found_limits),
             };
             let memory = system.memory.as_ref().unwrap().view(&store);
             let limits_ref = WasmRef::<WasmWGPUSupportedLimits>::new(&memory, limits as u64);
             limits_ref.write(values_wasm).unwrap();
-            result as u32
+            1
         }
     }
 }
@@ -92,31 +100,13 @@ struct WasmWGPUQueueDescriptor {
     label: WasmPtr<u8>,
 }
 
-pub fn wgpu_adapter_request_device(
-    mut env: FunctionEnvMut<System>,
-    adapter: u32,
-    descriptor: u32,
-    callback: u32,
-    userdata: u32,
-) {
-    println!("wgpuAdapterRequestDevice({adapter}, {descriptor}, {callback}, {userdata})");
-    let (system, mut store) = env.data_and_store_mut();
+pub fn wgpu_adapter_ensure_device_simple(system: &mut System) {
     if system.device.0.is_null() {
         let adapter = system.adapter.0;
-        let memory = system.memory.as_ref().unwrap().view(&store);
-        let descriptor = WasmRef::<WasmWGPUDeviceDescriptor>::new(&memory, descriptor as u64);
-        let limits = descriptor
-            .read()
-            .unwrap()
-            .required_limits
-            .deref(&memory)
-            .read()
-            .unwrap()
-            .limits;
         unsafe {
             let required_limits = native::WGPURequiredLimits {
                 nextInChain: null(),
-                limits: std::mem::transmute::<WasmWGPULimits, native::WGPULimits>(limits),
+                limits: system.limits.unwrap(),
             };
             // println!("limits: {:?}", required_limits.limits);
             wgpu_native::device::wgpuAdapterRequestDevice(
@@ -153,6 +143,33 @@ pub fn wgpu_adapter_request_device(
                 system.device = WGPUDevice(device);
             }
         }
+    }
+}
+
+pub fn wgpu_adapter_request_device(
+    mut env: FunctionEnvMut<System>,
+    adapter: u32,
+    descriptor: u32,
+    callback: u32,
+    userdata: u32,
+) {
+    println!("wgpuAdapterRequestDevice({adapter}, {descriptor}, {callback}, {userdata})");
+    let (mut system, mut store) = env.data_and_store_mut();
+    // TODO Extra ensure simple.
+    if system.device.0.is_null() {
+        let memory = system.memory.as_ref().unwrap().view(&store);
+        let descriptor = WasmRef::<WasmWGPUDeviceDescriptor>::new(&memory, descriptor as u64);
+        let limits = descriptor
+            .read()
+            .unwrap()
+            .required_limits
+            .deref(&memory)
+            .read()
+            .unwrap()
+            .limits;
+        system.limits =
+            Some(unsafe { std::mem::transmute::<WasmWGPULimits, native::WGPULimits>(limits) });
+        wgpu_adapter_ensure_device_simple(&mut system);
         // TODO Report error if none rather than panicking.
         let functions = system.functions.as_ref().unwrap();
         let value = functions.get(&mut store, callback).unwrap();
@@ -303,9 +320,7 @@ pub fn wgpu_command_encoder_finish(
     1
 }
 
-pub fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) -> u32 {
-    println!("wgpuCreateInstance({descriptor})");
-    let system = env.data_mut();
+pub fn wgpu_ensure_instance_simple(system: &mut System) {
     if system.instance.0.is_null() {
         system.instance.0 = unsafe {
             wgpu_native::wgpuCreateInstance(Some(&native::WGPUInstanceDescriptor {
@@ -313,6 +328,10 @@ pub fn wgpu_create_instance(mut env: FunctionEnvMut<System>, descriptor: u32) ->
             }))
         };
     }
+}
+
+pub fn wgpu_create_instance(mut env: FunctionEnvMut<System>, _descriptor: u32) -> u32 {
+    wgpu_ensure_instance_simple(env.data_mut());
     1
 }
 
@@ -892,7 +911,6 @@ pub fn wgpu_device_create_shader_module(
             let wgsl_next = wgsl_next.read(&memory).unwrap();
             wgpu_device_create_shader_module_simple(
                 system,
-                &store,
                 read_cstring(wgsl_next.code, &memory).unwrap(),
             )
         }
@@ -900,12 +918,7 @@ pub fn wgpu_device_create_shader_module(
     }
 }
 
-pub fn wgpu_device_create_shader_module_simple(
-    system: &mut System,
-    store: &StoreMut,
-    wgsl: CString,
-) -> u32 {
-    let memory = system.memory.as_ref().unwrap().view(store);
+pub fn wgpu_device_create_shader_module_simple(system: &mut System, wgsl: CString) -> u32 {
     let mut wgsl_descriptor = native::WGPUShaderModuleWGSLDescriptor {
         chain: native::WGPUChainedStruct {
             next: null(),
@@ -1061,12 +1074,15 @@ pub fn wgpu_device_drop(_env: FunctionEnvMut<System>, device: u32) {
     println!("wgpuDeviceDrop({device})");
 }
 
-pub fn wgpu_device_get_queue(mut env: FunctionEnvMut<System>, adapter: u32) -> u32 {
-    println!("wgpuDeviceGetQueue({adapter})");
-    let system = env.data_mut();
+pub fn wgpu_device_ensure_queue_simple(system: &mut System) {
     if system.queue.0.is_null() {
         system.queue.0 = unsafe { wgpu_native::device::wgpuDeviceGetQueue(system.device.0) };
     }
+}
+
+pub fn wgpu_device_get_queue(mut env: FunctionEnvMut<System>, adapter: u32) -> u32 {
+    println!("wgpuDeviceGetQueue({adapter})");
+    wgpu_device_ensure_queue_simple(env.data_mut());
     1
 }
 
@@ -1106,18 +1122,20 @@ pub fn wgpu_device_set_uncaptured_error_callback(
     }
 }
 
-pub fn wgpu_instance_create_surface(
-    mut env: FunctionEnvMut<System>,
-    instance: u32,
-    descriptor: u32,
-) -> u32 {
-    println!("wgpuInstanceCreateSurface({instance}, {descriptor})");
-    let system = env.data_mut();
+pub fn wgpu_instance_ensure_surface_simple(system: &mut System) {
     if system.surface.0.is_null() {
         system.surface.0 = unsafe {
             wgpu_instance_create_surface_any(system.instance.0, system.window.as_ref().unwrap())
         };
     }
+}
+
+pub fn wgpu_instance_create_surface(
+    mut env: FunctionEnvMut<System>,
+    _instance: u32,
+    _descriptor: u32,
+) -> u32 {
+    wgpu_instance_ensure_surface_simple(env.data_mut());
     1
 }
 
@@ -1181,15 +1199,7 @@ const WGPURequestAdapterStatus_Success: i32 = 0;
 #[allow(non_upper_case_globals)]
 const WGPURequestDeviceStatus_Success: i32 = 0;
 
-pub fn wgpu_instance_request_adapter(
-    mut env: FunctionEnvMut<System>,
-    instance: u32,
-    options: u32,
-    callback: u32,
-    userdata: u32,
-) {
-    println!("wgpuInstanceRequestAdapter({instance}, {options}, {callback}, {userdata})");
-    let (system, mut store) = env.data_and_store_mut();
+pub fn wgpu_instance_ensure_adapter_simple(system: &mut System) {
     if system.adapter.0.is_null() {
         unsafe {
             wgpu_native::device::wgpuInstanceRequestAdapter(
@@ -1218,6 +1228,19 @@ pub fn wgpu_instance_request_adapter(
                 system.adapter.0 = adapter;
             }
         }
+    }
+}
+
+pub fn wgpu_instance_request_adapter(
+    mut env: FunctionEnvMut<System>,
+    _instance: u32,
+    _options: u32,
+    callback: u32,
+    userdata: u32,
+) {
+    let (system, mut store) = env.data_and_store_mut();
+    if system.adapter.0.is_null() {
+        wgpu_instance_ensure_adapter_simple(system);
         // TODO Report error if none rather than panicking.
         let functions = system.functions.as_ref().unwrap();
         let value = functions.get(&mut store, callback).unwrap();
@@ -1625,5 +1648,5 @@ use std::{
     ptr::{null, null_mut},
 };
 use wasmer::{FunctionEnvMut, MemoryView, StoreMut, Value, ValueType, WasmPtr, WasmRef};
-use wgpu_native::native;
+use wgpu_native::native::{self, WGPULimits};
 use winit::window::Window;
