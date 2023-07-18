@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    system::{System, WGPUBuffer},
+    system::{System, WGPUBuffer, WGPURenderPipeline},
     webgpu::{
         read_cstring, wgpu_adapter_ensure_device_simple, wgpu_adapter_get_limits_simple,
         wgpu_device_create_shader_module_simple, wgpu_device_ensure_queue_simple,
@@ -15,7 +15,7 @@ use crate::{
 };
 use wasmer::{FunctionEnvMut, ValueType, WasmPtr};
 use wgpu_native::{
-    device::{wgpuBufferDrop, wgpuDeviceDrop},
+    device::{wgpuBufferDrop, wgpuDeviceDrop, wgpuRenderPipelineDrop},
     native,
 };
 
@@ -40,6 +40,7 @@ pub enum GpuBufferDetail {
 #[derive(Default)]
 pub struct SimpleGpu {
     buffers: Vec<Arc<Mutex<GpuBuffer>>>,
+    pipeline: WGPURenderPipeline,
     shaders: Vec<CString>,
 }
 
@@ -227,7 +228,7 @@ fn update_buffers(system: &mut System, need_all: bool) {
     }
 }
 
-fn taca_gpu_ensure_device(system: &mut System) {
+fn taca_gpu_ensure_device(system: &mut System) -> bool {
     // TODO Some clean flag to skip all these checks?
     // Instance, surface, & adapter.
     wgpu_ensure_instance_simple(system);
@@ -250,11 +251,81 @@ fn taca_gpu_ensure_device(system: &mut System) {
     }
     // Buffers.
     update_buffers(system, any_change);
+    any_change
 }
 
 fn taca_gpu_ensure_pipeline(system: &mut System) {
-    taca_gpu_ensure_device(system);
-    // TODO Also init anything else needed.
+    let had_pipeline = !system.gpu.pipeline.0.is_null();
+    let any_change = taca_gpu_ensure_device(system) || !had_pipeline;
+    if !any_change {
+        return;
+    }
+    if had_pipeline {
+        // TODO Should this have been dropped already if we redid the device?
+        unsafe {
+            wgpuRenderPipelineDrop(system.gpu.pipeline.0);
+        }
+        system.gpu.pipeline.0 = null_mut();
+    }
+    let mut entries = Vec::<native::WGPUBindGroupLayoutEntry>::new();
+    for buffer in &system.gpu.buffers {
+        let buffer = buffer.lock().unwrap();
+        let entry = match buffer.detail {
+            GpuBufferDetail::Uniform => native::WGPUBindGroupLayoutEntry {
+                nextInChain: null(),
+                binding: 0,
+                visibility: native::WGPUShaderStage_Vertex | native::WGPUShaderStage_Fragment,
+                buffer: native::WGPUBufferBindingLayout {
+                    nextInChain: null(),
+                    type_: native::WGPUBufferBindingType_Uniform,
+                    hasDynamicOffset: false,
+                    minBindingSize: 0,
+                },
+                sampler: native::WGPUSamplerBindingLayout {
+                    nextInChain: null(),
+                    type_: native::WGPUSamplerBindingType_Undefined,
+                },
+                texture: native::WGPUTextureBindingLayout {
+                    nextInChain: null(),
+                    sampleType: native::WGPUTextureSampleType_Undefined,
+                    viewDimension: native::WGPUTextureViewDimension_Undefined,
+                    multisampled: false,
+                },
+                storageTexture: native::WGPUStorageTextureBindingLayout {
+                    nextInChain: null(),
+                    access: native::WGPUStorageTextureAccess_Undefined,
+                    format: native::WGPUTextureFormat_Undefined,
+                    viewDimension: native::WGPUTextureViewDimension_Undefined,
+                },
+            },
+            _ => continue,
+        };
+        entries.push(entry);
+    }
+    //         std.mem.zeroInit(c.WGPUBindGroupLayoutEntry, .{
+    //             .binding = 1,
+    //             .visibility = c.WGPUShaderStage_Fragment,
+    //             .sampler = std.mem.zeroInit(c.WGPUSamplerBindingLayout, .{
+    //                 .type = c.WGPUSamplerBindingType_NonFiltering,
+    //             }),
+    //             .texture = std.mem.zeroInit(c.WGPUTextureBindingLayout, .{
+    //                 .sampleType = c.WGPUTextureSampleType_Float,
+    //                 .viewDimension = c.WGPUTextureViewDimension_2D,
+    //             }),
+    //         }),
+    //     },
+    // TODO Store this for later.
+    let layout = unsafe {
+        wgpu_native::device::wgpuDeviceCreateBindGroupLayout(
+            system.device.0,
+            Some(&native::WGPUBindGroupLayoutDescriptor {
+                nextInChain: null(),
+                label: null(),
+                entryCount: entries.len() as u32,
+                entries: entries.as_ptr(),
+            }),
+        )
+    };
     // let pipeline_layout = unsafe {
     //     wgpu_native::device::wgpuDeviceCreatePipelineLayout(
     //         system.device.0,
