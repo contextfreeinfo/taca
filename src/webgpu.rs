@@ -911,14 +911,14 @@ pub fn wgpu_device_create_shader_module(
             let wgsl_next = wgsl_next.read(&memory).unwrap();
             wgpu_device_create_shader_module_simple(
                 system,
-                read_cstring(wgsl_next.code, &memory).unwrap(),
+                read_cstring(wgsl_next.code, &memory).unwrap().as_c_str(),
             )
         }
         _ => panic!(),
     }
 }
 
-pub fn wgpu_device_create_shader_module_simple(system: &mut System, wgsl: CString) -> u32 {
+pub fn wgpu_device_create_shader_module_simple(system: &mut System, wgsl: &CStr) -> u32 {
     let mut wgsl_descriptor = native::WGPUShaderModuleWGSLDescriptor {
         chain: native::WGPUChainedStruct {
             next: null(),
@@ -926,7 +926,7 @@ pub fn wgpu_device_create_shader_module_simple(system: &mut System, wgsl: CStrin
         },
         code: null(),
     };
-    let code: Option<CString>;
+    let code: Option<&CStr>;
     let native_next = {
         code = Some(wgsl);
         wgsl_descriptor.code = code.as_ref().unwrap().as_ptr();
@@ -1523,14 +1523,16 @@ pub fn wgpu_surface_drop(_env: FunctionEnvMut<System>, surface: u32) {
     // TODO
 }
 
+pub fn wgpu_surface_get_preferred_format_simple(system: &System) -> native::WGPUTextureFormat {
+    unsafe { wgpu_native::wgpuSurfaceGetPreferredFormat(system.surface.0, system.adapter.0) }
+}
+
 pub fn wgpu_surface_get_preferred_format(
     env: FunctionEnvMut<System>,
-    surface: u32,
-    adapter: u32,
+    _surface: u32,
+    _adapter: u32,
 ) -> u32 {
-    println!("wgpuSurfaceGetPreferredFormat({surface}, {adapter})");
-    let system = env.data();
-    unsafe { wgpu_native::wgpuSurfaceGetPreferredFormat(system.surface.0, system.adapter.0) }
+    wgpu_surface_get_preferred_format_simple(env.data())
         .try_into()
         .unwrap()
 }
@@ -1647,6 +1649,6 @@ use std::{
     mem::MaybeUninit,
     ptr::{null, null_mut},
 };
-use wasmer::{FunctionEnvMut, MemoryView, StoreMut, Value, ValueType, WasmPtr, WasmRef};
+use wasmer::{FunctionEnvMut, MemoryView, Value, ValueType, WasmPtr, WasmRef};
 use wgpu_native::native::{self, WGPULimits};
 use winit::window::Window;

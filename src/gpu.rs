@@ -10,10 +10,11 @@ use crate::{
         read_cstring, wgpu_adapter_ensure_device_simple, wgpu_adapter_get_limits_simple,
         wgpu_device_create_shader_module_simple, wgpu_device_ensure_queue_simple,
         wgpu_ensure_instance_simple, wgpu_instance_ensure_adapter_simple,
-        wgpu_instance_ensure_surface_simple, WasmWGPUVertexBufferLayout,
+        wgpu_instance_ensure_surface_simple, wgpu_surface_get_preferred_format_simple,
+        WasmWGPUVertexBufferLayout,
     },
 };
-use wasmer::{FunctionEnvMut, ValueType, WasmPtr};
+use wasmer::{FunctionEnvMut, WasmPtr};
 use wgpu_native::{
     device::{wgpuBufferDrop, wgpuDeviceDrop, wgpuRenderPipelineDrop},
     native,
@@ -33,8 +34,14 @@ pub enum GpuBufferDetail {
     },
     Uniform,
     Vertex {
-        layout: WasmWGPUVertexBufferLayout,
+        layout: WgpuVertexBufferLayout,
     },
+}
+
+pub struct WgpuVertexBufferLayout {
+    pub array_stride: u64,
+    pub step_mode: native::WGPUVertexStepMode,
+    pub attributes: Vec<native::WGPUVertexAttribute>,
 }
 
 #[derive(Default)]
@@ -101,15 +108,19 @@ fn check_limits(system: &mut System) -> bool {
     let max_vertex_buffer_attributes: usize = vertex_buffers
         .clone()
         .map(|it| {
-            let layout = extract_enum_value!(it.lock().unwrap().detail, GpuBufferDetail::Vertex { layout } => layout);
-            layout.attribute_count
+            let buffer = it.lock().unwrap();
+            let layout =
+                extract_enum_value!(&buffer.detail, GpuBufferDetail::Vertex { layout } => layout);
+            layout.attributes.len()
         })
         .max()
         .unwrap_or(0) as usize;
     let max_vertex_buffer_stride: usize = vertex_buffers
         .clone()
         .map(|it| {
-            let layout = extract_enum_value!(it.lock().unwrap().detail, GpuBufferDetail::Vertex { layout } => layout);
+            let buffer = it.lock().unwrap();
+            let layout =
+                extract_enum_value!(&buffer.detail, GpuBufferDetail::Vertex { layout } => layout);
             layout.array_stride
         })
         .max()
@@ -326,81 +337,111 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
             }),
         )
     };
-    // let pipeline_layout = unsafe {
-    //     wgpu_native::device::wgpuDeviceCreatePipelineLayout(
-    //         system.device.0,
-    //         Some(&native::WGPUPipelineLayoutDescriptor {
-    //             nextInChain: null(),
-    //             label: null(),
-    //             bindGroupLayoutCount: descriptor.bind_group_layout_count,
-    //             bindGroupLayouts: bind_group_layouts.as_ptr(),
-    //         }),
-    //     )
-    // };
-    // let pipeline = unsafe {
-    //     wgpu_native::device::wgpuDeviceCreateRenderPipeline(
-    //         system.device.0,
-    //         Some(&native::WGPURenderPipelineDescriptor {
-    //             nextInChain: null(),
-    //             label: null(),
-    //             layout: system.pipeline_layouts[descriptor.layout as usize - 1].0,
-    //             vertex: native::WGPUVertexState {
-    //                 nextInChain: null(),
-    //                 module: system.shaders[descriptor.vertex.module as usize - 1].0,
-    //                 entryPoint: vertex_entry_point.as_ptr(),
-    //                 constantCount: 0,
-    //                 constants: null(),
-    //                 bufferCount: descriptor.vertex.buffer_count,
-    //                 buffers: vertex_layouts.as_ptr(),
-    //             },
-    //             primitive: native::WGPUPrimitiveState {
-    //                 nextInChain: null(),
-    //                 topology: descriptor.primitive.topology,
-    //                 stripIndexFormat: descriptor.primitive.strip_index_format,
-    //                 frontFace: descriptor.primitive.front_face,
-    //                 cullMode: descriptor.primitive.cull_mode,
-    //             },
-    //             depthStencil: &native::WGPUDepthStencilState {
-    //                 nextInChain: null(),
-    //                 format: depth_stencil.format,
-    //                 depthWriteEnabled: depth_stencil.depth_write_enabled,
-    //                 depthCompare: depth_stencil.depth_compare,
-    //                 stencilFront: native::WGPUStencilFaceState {
-    //                     compare: depth_stencil.stencil_front.compare,
-    //                     failOp: depth_stencil.stencil_front.fail_op,
-    //                     depthFailOp: depth_stencil.stencil_front.depth_fail_op,
-    //                     passOp: depth_stencil.stencil_front.pass_op,
-    //                 },
-    //                 stencilBack: native::WGPUStencilFaceState {
-    //                     compare: depth_stencil.stencil_back.compare,
-    //                     failOp: depth_stencil.stencil_back.fail_op,
-    //                     depthFailOp: depth_stencil.stencil_back.depth_fail_op,
-    //                     passOp: depth_stencil.stencil_back.pass_op,
-    //                 },
-    //                 stencilReadMask: depth_stencil.stencil_read_mask,
-    //                 stencilWriteMask: depth_stencil.stencil_write_mask,
-    //                 depthBias: depth_stencil.depth_bias,
-    //                 depthBiasSlopeScale: depth_stencil.depth_bias_slope_scale,
-    //                 depthBiasClamp: depth_stencil.depth_bias_clamp,
-    //             },
-    //             multisample: native::WGPUMultisampleState {
-    //                 nextInChain: null(),
-    //                 count: descriptor.multisample.count,
-    //                 mask: descriptor.multisample.mask,
-    //                 alphaToCoverageEnabled: descriptor.multisample.alpha_to_coverage_enabled,
-    //             },
-    //             fragment: &native::WGPUFragmentState {
-    //                 nextInChain: null(),
-    //                 module: system.shaders[fragment.module as usize - 1].0,
-    //                 entryPoint: fragment_entry_point.as_ptr(),
-    //                 constantCount: 0,
-    //                 constants: null(),
-    //                 targetCount: fragment.target_count,
-    //                 targets: fragment_targets.as_ptr(),
-    //             } as *const native::WGPUFragmentState,
-    //         }),
-    //     )
-    // };
+    // TODO Store this for later.
+    let pipeline_layout = unsafe {
+        wgpu_native::device::wgpuDeviceCreatePipelineLayout(
+            system.device.0,
+            Some(&native::WGPUPipelineLayoutDescriptor {
+                nextInChain: null(),
+                label: null(),
+                bindGroupLayoutCount: 1,
+                bindGroupLayouts: &layout,
+            }),
+        )
+    };
+    let shader =
+        wgpu_device_create_shader_module_simple(system, system.gpu.shaders[0].clone().as_c_str());
+    let shader = system.shaders[shader as usize - 1].0;
+    let limits = system.limits.to_owned().unwrap();
+    let vertex_layouts: Vec<_> = system
+        .gpu
+        .buffers
+        .clone()
+        .iter()
+        .filter(|it| matches!(it.lock().unwrap().detail, GpuBufferDetail::Vertex { .. }))
+        .map(|it| {
+            let buffer = it.lock().unwrap();
+            let layout =
+                extract_enum_value!(&buffer.detail, GpuBufferDetail::Vertex { layout } => layout);
+            native::WGPUVertexBufferLayout {
+                arrayStride: layout.array_stride,
+                stepMode: layout.step_mode,
+                attributeCount: layout.attributes.len() as u32,
+                attributes: layout.attributes.as_ptr(),
+            }
+        })
+        .collect();
+    let format = wgpu_surface_get_preferred_format_simple(system);
+    let target = native::WGPUColorTargetState {
+        nextInChain: null(),
+        format,
+        blend: null(),
+        writeMask: native::WGPUColorWriteMask_All,
+    };
+    let pipeline = unsafe {
+        wgpu_native::device::wgpuDeviceCreateRenderPipeline(
+            system.device.0,
+            Some(&native::WGPURenderPipelineDescriptor {
+                nextInChain: null(),
+                label: null(),
+                layout: pipeline_layout,
+                vertex: native::WGPUVertexState {
+                    nextInChain: null(),
+                    module: shader,
+                    entryPoint: "vs_main\0".as_bytes().as_ptr() as *const i8,
+                    constantCount: 0,
+                    constants: null(),
+                    bufferCount: vertex_layouts.len() as u32,
+                    buffers: vertex_layouts.as_ptr(),
+                },
+                primitive: native::WGPUPrimitiveState {
+                    nextInChain: null(),
+                    topology: native::WGPUPrimitiveTopology_TriangleList,
+                    stripIndexFormat: native::WGPUIndexFormat_Undefined,
+                    frontFace: native::WGPUFrontFace_CCW,
+                    cullMode: native::WGPUCullMode_None,
+                },
+                depthStencil: &native::WGPUDepthStencilState {
+                    nextInChain: null(),
+                    format: native::WGPUTextureFormat_Depth24Plus,
+                    depthWriteEnabled: true,
+                    depthCompare: native::WGPUCompareFunction_Less,
+                    stencilFront: native::WGPUStencilFaceState {
+                        compare: native::WGPUCompareFunction_Always,
+                        failOp: native::WGPUStencilOperation_Keep,
+                        depthFailOp: native::WGPUStencilOperation_Keep,
+                        passOp: native::WGPUStencilOperation_Keep,
+                    },
+                    stencilBack: native::WGPUStencilFaceState {
+                        compare: native::WGPUCompareFunction_Always,
+                        failOp: native::WGPUStencilOperation_Keep,
+                        depthFailOp: native::WGPUStencilOperation_Keep,
+                        passOp: native::WGPUStencilOperation_Keep,
+                    },
+                    stencilReadMask: 0,
+                    stencilWriteMask: 0,
+                    depthBias: 0,
+                    depthBiasSlopeScale: 0.0,
+                    depthBiasClamp: 0.0,
+                },
+                multisample: native::WGPUMultisampleState {
+                    nextInChain: null(),
+                    count: 1,
+                    mask: 0xFFFFFFFF,
+                    alphaToCoverageEnabled: false,
+                },
+                fragment: &native::WGPUFragmentState {
+                    nextInChain: null(),
+                    module: shader,
+                    entryPoint: "fs_main\0".as_bytes().as_ptr() as *const i8,
+                    constantCount: 0,
+                    constants: null(),
+                    targetCount: 1,
+                    targets: &target,
+                } as *const native::WGPUFragmentState,
+            }),
+        )
+    };
     // assert_ne!(null(), pipeline);
     // system.pipelines.push(WGPURenderPipeline(pipeline));
     // system.pipelines.len().try_into().unwrap()
@@ -485,16 +526,15 @@ pub fn taca_gpu_vertex_buffer_create(
         .unwrap()
         .read_to_vec()
         .unwrap();
+    // TODO Read into self-contained nested data with vecs.
     let layout = WasmPtr::<WasmWGPUVertexBufferLayout>::new(layout)
         .read(&view)
         .unwrap();
-    // let vertex_attributes = layout.attributes_vec(&view);
-    // let layout = native::WGPUVertexBufferLayout {
-    //     arrayStride: layout.array_stride,
-    //     stepMode: layout.step_mode,
-    //     attributeCount: layout.attribute_count,
-    //     attributes: vertex_attributes.as_ptr(),
-    // };
+    let layout = WgpuVertexBufferLayout {
+        array_stride: layout.array_stride,
+        step_mode: layout.step_mode,
+        attributes: layout.attributes_vec(&view),
+    };
     system.gpu.buffers.push(Arc::new(Mutex::new(GpuBuffer {
         buffer: Default::default(),
         data,
