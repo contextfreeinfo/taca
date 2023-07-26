@@ -11,7 +11,7 @@ use crate::{
         wgpu_device_create_shader_module_simple, wgpu_device_ensure_queue_simple,
         wgpu_ensure_instance_simple, wgpu_instance_ensure_adapter_simple,
         wgpu_instance_ensure_surface_simple, wgpu_surface_get_preferred_format_simple,
-        WasmWGPUVertexBufferLayout, wgpu_device_ensure_uncaptured_error_callback_simple,
+        WasmWGPUVertexBufferLayout, wgpu_device_ensure_uncaptured_error_callback_simple, wgpu_device_ensure_command_encoder_simple, wgpu_ensure_command_encoder_finish_simple, wgpu_ensure_queue_submit_simple,
     },
 };
 use wasmer::{FunctionEnvMut, WasmPtr};
@@ -482,13 +482,7 @@ fn taca_gpu_ensure_render_pass(system: &mut System) {
             wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0)
         };
     }
-    // const encoder = c.wgpuDeviceCreateCommandEncoder(
-    //     state.device,
-    //     &c.WGPUCommandEncoderDescriptor{
-    //         .nextInChain = null,
-    //         .label = null,
-    //     },
-    // ) orelse unreachable;
+    wgpu_device_ensure_command_encoder_simple(system);
     // const render_pass = c.wgpuCommandEncoderBeginRenderPass(
     //     encoder,
     //     &c.WGPURenderPassDescriptor{
@@ -563,14 +557,18 @@ pub fn taca_gpu_index_buffer_create(
 pub fn taca_gpu_present(mut env: FunctionEnvMut<System>) {
     let system = env.data_mut();
     taca_gpu_ensure_render_pass(system);
+    // TODO Render pass end.
     if !system.gpu.texture_view.0.is_null() {
         unsafe {
             wgpu_native::device::wgpuTextureViewDrop(system.gpu.texture_view.0);
             system.gpu.texture_view.0 = null_mut();
         }
     }
-    // TODO Render pass end.
-    // TODO Present.
+    wgpu_ensure_command_encoder_finish_simple(system);
+    wgpu_ensure_queue_submit_simple(system);
+    unsafe {
+        wgpu_native::device::wgpuSwapChainPresent(system.swap_chain.0);
+    }
 }
 
 pub fn taca_gpu_shader_create(mut env: FunctionEnvMut<System>, wgsl: u32) -> u32 {

@@ -23,7 +23,7 @@ pub fn main() void {
             .shaderLocation = 2,
         },
     };
-    _ = c.taca_gpu_shaderCreate(@embedFile("./shader.opt.wgsl"));
+    _ = c.taca_gpu_shaderCreate(@embedFile("./shader-no-texture.opt.wgsl"));
     global_state = .{
         .index_buffer = c.taca_gpu_indexBufferCreate(
             @sizeOf(@TypeOf(d.index_data)),

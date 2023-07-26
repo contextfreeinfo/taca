@@ -301,12 +301,7 @@ pub fn wgpu_command_encoder_begin_render_pass(
     1
 }
 
-pub fn wgpu_command_encoder_finish(
-    mut env: FunctionEnvMut<System>,
-    _encoder: u32,
-    _descriptor: u32,
-) -> u32 {
-    let system = env.data_mut();
+pub fn wgpu_ensure_command_encoder_finish_simple(system: &mut System) {
     if !system.encoder.0.is_null() {
         system.command_buffer.0 = unsafe {
             wgpu_native::command::wgpuCommandEncoderFinish(
@@ -319,6 +314,14 @@ pub fn wgpu_command_encoder_finish(
         };
         system.encoder.0 = null_mut();
     }
+}
+
+pub fn wgpu_command_encoder_finish(
+    mut env: FunctionEnvMut<System>,
+    _encoder: u32,
+    _descriptor: u32,
+) -> u32 {
+    wgpu_ensure_command_encoder_finish_simple(env.data_mut());
     1
 }
 
@@ -564,13 +567,7 @@ pub fn wgpu_device_create_buffer(
     system.buffers.len().try_into().unwrap()
 }
 
-pub fn wgpu_device_create_command_encoder(
-    mut env: FunctionEnvMut<System>,
-    _device: u32,
-    _descriptor: u32,
-) -> u32 {
-    // println!("wgpuDeviceCreateCommandEncoder({device}, {descriptor})");
-    let system = env.data_mut();
+pub fn wgpu_device_ensure_command_encoder_simple(system: &mut System) {
     if system.encoder.0.is_null() {
         system.encoder.0 = unsafe {
             wgpu_native::device::wgpuDeviceCreateCommandEncoder(
@@ -582,6 +579,14 @@ pub fn wgpu_device_create_command_encoder(
             )
         };
     }
+}
+
+pub fn wgpu_device_create_command_encoder(
+    mut env: FunctionEnvMut<System>,
+    _device: u32,
+    _descriptor: u32,
+) -> u32 {
+    wgpu_device_ensure_command_encoder_simple(env.data_mut());
     1
 }
 
@@ -1095,7 +1100,7 @@ pub fn wgpu_device_ensure_uncaptured_error_callback_simple(system: &mut System) 
             _system: *mut std::os::raw::c_void,
         ) {
             let message = unsafe { CStr::from_ptr(message) };
-            panic!("WGPUDeviceUncapturedErrorCallback {status}: {message:?}");
+            println!("WGPUDeviceUncapturedErrorCallback {status}: {message:?}");
             // TODO Push onto global error queue by id then pull elsewhere?
         }
         unsafe {
@@ -1264,13 +1269,7 @@ pub fn wgpu_instance_request_adapter(
     }
 }
 
-pub fn wgpu_queue_submit(
-    mut env: FunctionEnvMut<System>,
-    _queue: u32,
-    _command_count: u32,
-    _commands: u32,
-) {
-    let system = env.data_mut();
+pub fn wgpu_ensure_queue_submit_simple(system: &mut System) {
     if !system.queue.0.is_null() && !system.command_buffer.0.is_null() {
         unsafe {
             // TODO Any way to know if the count is right???
@@ -1278,6 +1277,15 @@ pub fn wgpu_queue_submit(
         }
         system.command_buffer.0 = null_mut();
     }
+}
+
+pub fn wgpu_queue_submit(
+    mut env: FunctionEnvMut<System>,
+    _queue: u32,
+    _command_count: u32,
+    _commands: u32,
+) {
+    wgpu_ensure_queue_submit_simple(env.data_mut());
 }
 
 pub fn wgpu_queue_write_buffer(
