@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    system::{System, WGPUBuffer, WGPURenderPipeline},
+    system::{System, WGPUBuffer, WGPURenderPipeline, WGPUTextureView},
     webgpu::{
         read_cstring, wgpu_adapter_ensure_device_simple, wgpu_adapter_get_limits_simple,
         wgpu_device_create_shader_module_simple, wgpu_device_ensure_queue_simple,
@@ -49,6 +49,7 @@ pub struct SimpleGpu {
     buffers: Vec<Arc<Mutex<GpuBuffer>>>,
     pipeline: WGPURenderPipeline,
     shaders: Vec<CString>,
+    texture_view: WGPUTextureView,
 }
 
 // taca_EXPORT void taca_gpuBufferWrite(taca_GpuBuffer buffer, const void* data);
@@ -239,6 +240,31 @@ fn update_buffers(system: &mut System, need_all: bool) {
     }
 }
 
+
+fn ensure_swap_chain(system: &mut System) -> bool {
+    if !system.swap_chain.0.is_null() {
+        return false;
+    }
+    let format = wgpu_surface_get_preferred_format_simple(system);
+    let size = system.window.as_ref().unwrap().inner_size();
+    system.swap_chain.0 = unsafe {
+        wgpu_native::device::wgpuDeviceCreateSwapChain(
+            system.device.0,
+            system.surface.0,
+            Some(&native::WGPUSwapChainDescriptor {
+                nextInChain: null(),
+                label: null(),
+                usage: native::WGPUTextureUsage_RenderAttachment,
+                format,
+                width: size.width,
+                height: size.height,
+                presentMode: native::WGPUPresentMode_Fifo,
+            }),
+        )
+    };
+    true
+}
+
 fn taca_gpu_ensure_device(system: &mut System) -> bool {
     // TODO Some clean flag to skip all these checks?
     // Instance, surface, & adapter.
@@ -247,7 +273,7 @@ fn taca_gpu_ensure_device(system: &mut System) -> bool {
     wgpu_instance_ensure_adapter_simple(system);
     // Device & queue.
     let had_device = !system.device.0.is_null();
-    let any_change = check_limits(system) || !had_device;
+    let mut any_change = check_limits(system) || !had_device;
     if any_change || !had_device {
         if had_device {
             unsafe {
@@ -262,6 +288,7 @@ fn taca_gpu_ensure_device(system: &mut System) -> bool {
     }
     // Buffers.
     update_buffers(system, any_change);
+    any_change |= ensure_swap_chain(system);
     any_change
 }
 
@@ -352,7 +379,6 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
     let shader =
         wgpu_device_create_shader_module_simple(system, system.gpu.shaders[0].clone().as_c_str());
     let shader = system.shaders[shader as usize - 1].0;
-    let limits = system.limits.to_owned().unwrap();
     let vertex_layouts: Vec<_> = system
         .gpu
         .buffers
@@ -442,13 +468,59 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
             }),
         )
     };
-    // assert_ne!(null(), pipeline);
-    // system.pipelines.push(WGPURenderPipeline(pipeline));
-    // system.pipelines.len().try_into().unwrap()
+    assert_ne!(null(), pipeline);
+    system.gpu.pipeline.0 = pipeline;
 }
 
 fn taca_gpu_ensure_render_pass(system: &mut System) {
     taca_gpu_ensure_pipeline(system);
+    if system.gpu.texture_view.0.is_null() {
+        system.gpu.texture_view.0 = unsafe {
+            wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0)
+        };
+    }
+    // const encoder = c.wgpuDeviceCreateCommandEncoder(
+    //     state.device,
+    //     &c.WGPUCommandEncoderDescriptor{
+    //         .nextInChain = null,
+    //         .label = null,
+    //     },
+    // ) orelse unreachable;
+    // const render_pass = c.wgpuCommandEncoderBeginRenderPass(
+    //     encoder,
+    //     &c.WGPURenderPassDescriptor{
+    //         .nextInChain = null,
+    //         .label = null,
+    //         .colorAttachmentCount = 1,
+    //         .colorAttachments = &c.WGPURenderPassColorAttachment{
+    //             .view = view,
+    //             .resolveTarget = null,
+    //             .loadOp = c.WGPULoadOp_Clear,
+    //             .storeOp = c.WGPUStoreOp_Store,
+    //             .clearValue = .{
+    //                 .r = 0.05,
+    //                 .g = 0.05,
+    //                 .b = 0.05,
+    //                 .a = 1.0,
+    //             },
+    //         },
+    //         .depthStencilAttachment = &c.WGPURenderPassDepthStencilAttachment{
+    //             .view = state.depth_texture_out.depth_texture_view,
+    //             .depthLoadOp = c.WGPULoadOp_Clear,
+    //             .depthStoreOp = c.WGPUStoreOp_Store,
+    //             .depthClearValue = 1,
+    //             .depthReadOnly = false,
+    //             .stencilLoadOp = c.WGPULoadOp_Clear,
+    //             .stencilStoreOp = c.WGPUStoreOp_Store,
+    //             .stencilClearValue = 0,
+    //             .stencilReadOnly = true,
+    //         },
+    //         .occlusionQuerySet = null,
+    //         .timestampWriteCount = 0,
+    //         .timestampWrites = null,
+    //     },
+    // ) orelse unreachable;
+    // c.wgpuRenderPassEncoderSetPipeline(render_pass, state.pipeline);
 }
 
 // taca_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
@@ -488,6 +560,14 @@ pub fn taca_gpu_index_buffer_create(
 pub fn taca_gpu_present(mut env: FunctionEnvMut<System>) {
     let system = env.data_mut();
     taca_gpu_ensure_render_pass(system);
+    if !system.gpu.texture_view.0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuTextureViewDrop(system.gpu.texture_view.0);
+            system.gpu.texture_view.0 = null_mut();
+        }
+    }
+    // TODO Render pass end.
+    // TODO Present.
 }
 
 pub fn taca_gpu_shader_create(mut env: FunctionEnvMut<System>, wgsl: u32) -> u32 {

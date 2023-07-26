@@ -973,11 +973,10 @@ struct WasmWGPUSwapChainDescriptor {
 
 pub fn wgpu_device_create_swap_chain(
     mut env: FunctionEnvMut<System>,
-    device: u32,
-    surface: u32,
+    _device: u32,
+    _surface: u32,
     descriptor: u32,
 ) -> u32 {
-    println!("wgpuDeviceCreateSwapChain({device}, {surface}, {descriptor})");
     let (system, store) = env.data_and_store_mut();
     if system.swap_chain.0.is_null() {
         let memory = system.memory.as_ref().unwrap().view(&store);
