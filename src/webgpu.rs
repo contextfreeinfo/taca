@@ -100,8 +100,9 @@ struct WasmWGPUQueueDescriptor {
     label: WasmPtr<u8>,
 }
 
-pub fn wgpu_adapter_ensure_device_simple(system: &mut System) {
-    if system.device.0.is_null() {
+pub fn wgpu_adapter_ensure_device_simple(system: &mut System) -> bool {
+    let needed = system.device.0.is_null();
+    if needed {
         let adapter = system.adapter.0;
         unsafe {
             let required_limits = native::WGPURequiredLimits {
@@ -144,6 +145,7 @@ pub fn wgpu_adapter_ensure_device_simple(system: &mut System) {
             }
         }
     }
+    needed
 }
 
 pub fn wgpu_adapter_request_device(
@@ -1085,13 +1087,33 @@ pub fn wgpu_device_get_queue(mut env: FunctionEnvMut<System>, adapter: u32) -> u
     1
 }
 
+pub fn wgpu_device_ensure_uncaptured_error_callback_simple(system: &mut System) {
+    if !system.device.0.is_null() {
+        extern "C" fn error_callback(
+            status: native::WGPUErrorType,
+            message: *const std::os::raw::c_char,
+            _system: *mut std::os::raw::c_void,
+        ) {
+            let message = unsafe { CStr::from_ptr(message) };
+            panic!("WGPUDeviceUncapturedErrorCallback {status}: {message:?}");
+            // TODO Push onto global error queue by id then pull elsewhere?
+        }
+        unsafe {
+            wgpu_native::wgpuDeviceSetUncapturedErrorCallback(
+                system.device.0,
+                Some(error_callback),
+                null_mut(),
+            );
+        }
+    }
+}
+
 pub fn wgpu_device_set_uncaptured_error_callback(
     mut env: FunctionEnvMut<System>,
     _device: u32,
     callback: u32,
     userdata: u32,
 ) {
-    println!("wgpuDeviceSetUncapturedErrorCallback({callback}, {userdata})");
     let (mut system, mut store) = env.data_and_store_mut();
     if !system.device.0.is_null() {
         let functions = system.functions.as_ref().unwrap();
@@ -1099,25 +1121,8 @@ pub fn wgpu_device_set_uncaptured_error_callback(
         system.device_uncaptured_error_callback =
             Some(value.unwrap_funcref().as_ref().unwrap().clone());
         system.device_uncaptured_error_callback_userdata = userdata;
-        unsafe {
-            extern "C" fn error_callback(
-                status: native::WGPUErrorType,
-                message: *const std::os::raw::c_char,
-                _system: *mut std::os::raw::c_void,
-            ) {
-                let message = unsafe { CStr::from_ptr(message) };
-                panic!("WGPUDeviceUncapturedErrorCallback {status}: {message:?}");
-                // TODO Push onto global error queue by id then pull elsewhere?
-                // unsafe {
-                //     // TODO How to call the function???????
-                // }
-            }
-            wgpu_native::wgpuDeviceSetUncapturedErrorCallback(
-                system.device.0,
-                Some(error_callback),
-                null_mut(),
-            );
-        }
+        // TODO How to call the function???????
+        wgpu_device_ensure_uncaptured_error_callback_simple(system);
     }
 }
 

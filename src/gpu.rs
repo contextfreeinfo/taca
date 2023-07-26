@@ -11,7 +11,7 @@ use crate::{
         wgpu_device_create_shader_module_simple, wgpu_device_ensure_queue_simple,
         wgpu_ensure_instance_simple, wgpu_instance_ensure_adapter_simple,
         wgpu_instance_ensure_surface_simple, wgpu_surface_get_preferred_format_simple,
-        WasmWGPUVertexBufferLayout,
+        WasmWGPUVertexBufferLayout, wgpu_device_ensure_uncaptured_error_callback_simple,
     },
 };
 use wasmer::{FunctionEnvMut, WasmPtr};
@@ -283,7 +283,10 @@ fn taca_gpu_ensure_device(system: &mut System) -> bool {
             }
             system.device.0 = null_mut();
         }
-        wgpu_adapter_ensure_device_simple(system);
+        if wgpu_adapter_ensure_device_simple(system) {
+            // Always get error messages.
+            wgpu_device_ensure_uncaptured_error_callback_simple(system);
+        }
         wgpu_device_ensure_queue_simple(system);
     }
     // Buffers.
