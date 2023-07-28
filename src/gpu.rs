@@ -8,10 +8,12 @@ use crate::{
     system::{System, WGPUBuffer, WGPURenderPipeline, WGPUTextureView},
     webgpu::{
         read_cstring, wgpu_adapter_ensure_device_simple, wgpu_adapter_get_limits_simple,
-        wgpu_device_create_shader_module_simple, wgpu_device_ensure_queue_simple,
-        wgpu_ensure_instance_simple, wgpu_instance_ensure_adapter_simple,
+        wgpu_device_create_shader_module_simple, wgpu_device_ensure_command_encoder_simple,
+        wgpu_device_ensure_queue_simple, wgpu_device_ensure_uncaptured_error_callback_simple,
+        wgpu_ensure_command_encoder_finish_simple, wgpu_ensure_instance_simple,
+        wgpu_ensure_queue_submit_simple, wgpu_instance_ensure_adapter_simple,
         wgpu_instance_ensure_surface_simple, wgpu_surface_get_preferred_format_simple,
-        WasmWGPUVertexBufferLayout, wgpu_device_ensure_uncaptured_error_callback_simple, wgpu_device_ensure_command_encoder_simple, wgpu_ensure_command_encoder_finish_simple, wgpu_ensure_queue_submit_simple,
+        WasmWGPUVertexBufferLayout,
     },
 };
 use wasmer::{FunctionEnvMut, WasmPtr};
@@ -240,7 +242,6 @@ fn update_buffers(system: &mut System, need_all: bool) {
     }
 }
 
-
 fn ensure_swap_chain(system: &mut System) -> bool {
     if !system.swap_chain.0.is_null() {
         return false;
@@ -367,6 +368,23 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
             }),
         )
     };
+    // const bind_group = c.wgpuDeviceCreateBindGroup(device, &c.WGPUBindGroupDescriptor{
+    //     .nextInChain = null,
+    //     .label = null,
+    //     .layout = bind_group_layout,
+    //     .entryCount = 2,
+    //     .entries = &[_]c.WGPUBindGroupEntry{
+    //         std.mem.zeroInit(c.WGPUBindGroupEntry, .{
+    //             .binding = 0,
+    //             .buffer = uniform_buffer,
+    //             .size = @sizeOf(Uniforms),
+    //         }),
+    //         std.mem.zeroInit(c.WGPUBindGroupEntry, .{
+    //             .binding = 1,
+    //             .textureView = image_texture_view,
+    //         }),
+    //     },
+    // });
     // TODO Store this for later.
     let pipeline_layout = unsafe {
         wgpu_native::device::wgpuDeviceCreatePipelineLayout(
@@ -430,29 +448,30 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
                     frontFace: native::WGPUFrontFace_CCW,
                     cullMode: native::WGPUCullMode_None,
                 },
-                depthStencil: &native::WGPUDepthStencilState {
-                    nextInChain: null(),
-                    format: native::WGPUTextureFormat_Depth24Plus,
-                    depthWriteEnabled: true,
-                    depthCompare: native::WGPUCompareFunction_Less,
-                    stencilFront: native::WGPUStencilFaceState {
-                        compare: native::WGPUCompareFunction_Always,
-                        failOp: native::WGPUStencilOperation_Keep,
-                        depthFailOp: native::WGPUStencilOperation_Keep,
-                        passOp: native::WGPUStencilOperation_Keep,
-                    },
-                    stencilBack: native::WGPUStencilFaceState {
-                        compare: native::WGPUCompareFunction_Always,
-                        failOp: native::WGPUStencilOperation_Keep,
-                        depthFailOp: native::WGPUStencilOperation_Keep,
-                        passOp: native::WGPUStencilOperation_Keep,
-                    },
-                    stencilReadMask: 0,
-                    stencilWriteMask: 0,
-                    depthBias: 0,
-                    depthBiasSlopeScale: 0.0,
-                    depthBiasClamp: 0.0,
-                },
+                depthStencil: null(),
+                // depthStencil: &native::WGPUDepthStencilState {
+                //     nextInChain: null(),
+                //     format: native::WGPUTextureFormat_Depth24Plus,
+                //     depthWriteEnabled: true,
+                //     depthCompare: native::WGPUCompareFunction_Less,
+                //     stencilFront: native::WGPUStencilFaceState {
+                //         compare: native::WGPUCompareFunction_Always,
+                //         failOp: native::WGPUStencilOperation_Keep,
+                //         depthFailOp: native::WGPUStencilOperation_Keep,
+                //         passOp: native::WGPUStencilOperation_Keep,
+                //     },
+                //     stencilBack: native::WGPUStencilFaceState {
+                //         compare: native::WGPUCompareFunction_Always,
+                //         failOp: native::WGPUStencilOperation_Keep,
+                //         depthFailOp: native::WGPUStencilOperation_Keep,
+                //         passOp: native::WGPUStencilOperation_Keep,
+                //     },
+                //     stencilReadMask: 0,
+                //     stencilWriteMask: 0,
+                //     depthBias: 0,
+                //     depthBiasSlopeScale: 0.0,
+                //     depthBiasClamp: 0.0,
+                // },
                 multisample: native::WGPUMultisampleState {
                     nextInChain: null(),
                     count: 1,
@@ -478,52 +497,116 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
 fn taca_gpu_ensure_render_pass(system: &mut System) {
     taca_gpu_ensure_pipeline(system);
     if system.gpu.texture_view.0.is_null() {
-        system.gpu.texture_view.0 = unsafe {
-            wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0)
-        };
+        system.gpu.texture_view.0 =
+            unsafe { wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0) };
     }
     wgpu_device_ensure_command_encoder_simple(system);
-    // const render_pass = c.wgpuCommandEncoderBeginRenderPass(
-    //     encoder,
-    //     &c.WGPURenderPassDescriptor{
-    //         .nextInChain = null,
-    //         .label = null,
-    //         .colorAttachmentCount = 1,
-    //         .colorAttachments = &c.WGPURenderPassColorAttachment{
-    //             .view = view,
-    //             .resolveTarget = null,
-    //             .loadOp = c.WGPULoadOp_Clear,
-    //             .storeOp = c.WGPUStoreOp_Store,
-    //             .clearValue = .{
-    //                 .r = 0.05,
-    //                 .g = 0.05,
-    //                 .b = 0.05,
-    //                 .a = 1.0,
-    //             },
-    //         },
-    //         .depthStencilAttachment = &c.WGPURenderPassDepthStencilAttachment{
-    //             .view = state.depth_texture_out.depth_texture_view,
-    //             .depthLoadOp = c.WGPULoadOp_Clear,
-    //             .depthStoreOp = c.WGPUStoreOp_Store,
-    //             .depthClearValue = 1,
-    //             .depthReadOnly = false,
-    //             .stencilLoadOp = c.WGPULoadOp_Clear,
-    //             .stencilStoreOp = c.WGPUStoreOp_Store,
-    //             .stencilClearValue = 0,
-    //             .stencilReadOnly = true,
-    //         },
-    //         .occlusionQuerySet = null,
-    //         .timestampWriteCount = 0,
-    //         .timestampWrites = null,
-    //     },
-    // ) orelse unreachable;
-    // c.wgpuRenderPassEncoderSetPipeline(render_pass, state.pipeline);
+    if system.render_pass.0.is_null() {
+        let color_attachment = native::WGPURenderPassColorAttachment {
+            view: system.texture_views[0].0,
+            resolveTarget: std::ptr::null_mut(),
+            loadOp: native::WGPULoadOp_Clear,
+            storeOp: native::WGPUStoreOp_Store,
+            clearValue: native::WGPUColor {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            },
+        };
+        // let depth_stencil_attachment = native::WGPURenderPassDepthStencilAttachment {
+        //     view: system.texture_views[depth_stencil_attachment.view as usize - 1].0,
+        //     depthLoadOp: depth_stencil_attachment.depth_load_op,
+        //     depthStoreOp: depth_stencil_attachment.depth_store_op,
+        //     depthClearValue: depth_stencil_attachment.depth_clear_value,
+        //     depthReadOnly: depth_stencil_attachment.depth_read_only,
+        //     stencilLoadOp: depth_stencil_attachment.stencil_load_op,
+        //     stencilStoreOp: depth_stencil_attachment.stencil_store_op,
+        //     stencilClearValue: depth_stencil_attachment.stencil_clear_value,
+        //     stencilReadOnly: depth_stencil_attachment.stencil_read_only,
+        // };
+        //         .depthStencilAttachment = &c.WGPURenderPassDepthStencilAttachment{
+        //             .view = state.depth_texture_out.depth_texture_view,
+        //             .depthLoadOp = c.WGPULoadOp_Clear,
+        //             .depthStoreOp = c.WGPUStoreOp_Store,
+        //             .depthClearValue = 1,
+        //             .depthReadOnly = false,
+        //             .stencilLoadOp = c.WGPULoadOp_Clear,
+        //             .stencilStoreOp = c.WGPUStoreOp_Store,
+        //             .stencilClearValue = 0,
+        //             .stencilReadOnly = true,
+        //         },
+        system.render_pass.0 = unsafe {
+            wgpu_native::command::wgpuCommandEncoderBeginRenderPass(
+                system.encoder.0,
+                Some(&native::WGPURenderPassDescriptor {
+                    nextInChain: std::ptr::null(),
+                    label: null(),
+                    colorAttachmentCount: 1,
+                    colorAttachments: &color_attachment,
+                    depthStencilAttachment: null(),
+                    // depthStencilAttachment: &depth_stencil_attachment,
+                    occlusionQuerySet: std::ptr::null_mut(),
+                    timestampWriteCount: 0,
+                    timestampWrites: std::ptr::null(),
+                }),
+            )
+        };
+    }
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderSetPipeline(
+            system.render_pass.0,
+            system.gpu.pipeline.0,
+        );
+    }
+}
+
+pub fn gpu_draw_set_buffer(system: &System, buffer: &GpuBuffer) {
+    match &buffer.detail {
+        GpuBufferDetail::Index { format, vertex } => {
+            let vertex = vertex.lock().unwrap();
+            gpu_draw_set_buffer(system, &vertex);
+            unsafe {
+                wgpu_native::command::wgpuRenderPassEncoderSetIndexBuffer(
+                    system.render_pass.0,
+                    buffer.buffer.0,
+                    *format,
+                    0,
+                    buffer.size as u64,
+                );
+            }
+        }
+        GpuBufferDetail::Uniform => {}
+        GpuBufferDetail::Vertex { .. } => {
+            unsafe {
+                wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
+                    system.render_pass.0,
+                    0, // TODO What for slot?
+                    buffer.buffer.0,
+                    0,
+                    buffer.size as u64,
+                );
+            }
+        }
+    }
 }
 
 // taca_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
 pub fn taca_gpu_draw(mut env: FunctionEnvMut<System>, buffer: u32) {
-    let (mut system, mut store) = env.data_and_store_mut();
-    // TODO Ensure device.
+    let system = env.data_mut();
+    update_buffers(system, false);
+    let buffer = system.gpu.buffers[buffer as usize].lock().unwrap();
+    gpu_draw_set_buffer(system, &buffer);
+    // unsafe {
+    //     wgpu_native::command::wgpuRenderPassEncoderSetBindGroup(
+    //         system.render_pass.0,
+    //         0,
+    //         system.gpu.,
+    //         0,
+    //         null(),
+    //     );
+    // }
+    // TODO Draw
 }
 
 pub fn taca_gpu_index_buffer_create(
@@ -557,7 +640,10 @@ pub fn taca_gpu_index_buffer_create(
 pub fn taca_gpu_present(mut env: FunctionEnvMut<System>) {
     let system = env.data_mut();
     taca_gpu_ensure_render_pass(system);
-    // TODO Render pass end.
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderEnd(system.render_pass.0);
+    }
+    system.render_pass.0 = null_mut();
     if !system.gpu.texture_view.0.is_null() {
         unsafe {
             wgpu_native::device::wgpuTextureViewDrop(system.gpu.texture_view.0);

@@ -8,6 +8,7 @@ typedef struct taca_gpu_BufferImpl* taca_gpu_Buffer;
 struct taca_gpu_ShaderImpl;
 typedef struct taca_gpu_ShaderImpl* taca_gpu_Shader;
 
+// TODO Need different pipelines for different shaders or entry points.
 taca_EXPORT taca_gpu_Shader taca_gpu_shaderCreate(const char* wgsl);
 
 taca_EXPORT taca_gpu_Buffer taca_gpu_indexBufferCreate(size_t size, const void* data, WGPUIndexFormat format, taca_gpu_Buffer vertex);
