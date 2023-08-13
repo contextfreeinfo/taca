@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    system::{System, WGPUBuffer, WGPURenderPipeline, WGPUTextureView},
+    system::{System, WGPUBindGroup, WGPUBuffer, WGPURenderPipeline, WGPUTextureView},
     webgpu::{
         read_cstring, wgpu_adapter_ensure_device_simple, wgpu_adapter_get_limits_simple,
         wgpu_device_create_shader_module_simple, wgpu_device_ensure_command_encoder_simple,
@@ -27,6 +27,7 @@ pub struct GpuBuffer {
     data: Vec<u8>,
     detail: GpuBufferDetail,
     size: usize,
+    written: bool,
 }
 
 pub enum GpuBufferDetail {
@@ -48,29 +49,24 @@ pub struct WgpuVertexBufferLayout {
 
 #[derive(Default)]
 pub struct SimpleGpu {
+    bind_group: WGPUBindGroup,
     buffers: Vec<Arc<Mutex<GpuBuffer>>>,
     pipeline: WGPURenderPipeline,
     shaders: Vec<CString>,
     texture_view: WGPUTextureView,
 }
 
-// taca_EXPORT void taca_gpuBufferWrite(taca_GpuBuffer buffer, const void* data);
+/// taca_gpu_bufferWrite
 pub fn taca_gpu_buffer_write(mut env: FunctionEnvMut<System>, buffer: u32, data: u32) {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
-    let mut buffer = system.gpu.buffers[buffer as usize].lock().unwrap();
-    let data = WasmPtr::<u8>::new(data)
+    let mut buffer = system.gpu.buffers[buffer as usize - 1].lock().unwrap();
+    buffer.written = false;
+    WasmPtr::<u8>::new(data)
         .slice(&view, buffer.data.len() as u32)
         .unwrap()
-        .read_to_vec()
+        .read_slice(buffer.data.as_mut_slice())
         .unwrap();
-    if !buffer.buffer.0.is_null() {
-        unsafe {
-            wgpuBufferDrop(buffer.buffer.0);
-        }
-    }
-    buffer.buffer.0 = null_mut();
-    buffer.data = data;
 }
 
 // From https://stackoverflow.com/a/68027744/2748187
@@ -205,32 +201,34 @@ fn update_buffers(system: &mut System, need_all: bool) {
         let mut buffer = buffer.lock().unwrap();
         // TODO If previous size non-zero and less than current, reserve extra?
         // TODO Does the full buffer size get seen no matter the latest write?
-        let needed = need_all || buffer.size == 0 || buffer.data.len() > buffer.size;
+        let needed =
+            need_all || buffer.size == 0 || buffer.data.len() > buffer.size || !buffer.written;
         if !needed {
             continue;
         }
-        if !buffer.buffer.0.is_null() {
+        if !buffer.buffer.0.is_null() && buffer.size != buffer.data.len() {
             unsafe { wgpuBufferDrop(buffer.buffer.0) };
             buffer.buffer.0 = null_mut();
-            buffer.size = 0;
         }
         buffer.size = buffer.data.len();
         unsafe {
-            buffer.buffer.0 = wgpu_native::device::wgpuDeviceCreateBuffer(
-                system.device.0,
-                Some(&native::WGPUBufferDescriptor {
-                    nextInChain: null(),
-                    label: null(),
-                    usage: native::WGPUBufferUsage_CopyDst
-                        | match buffer.detail {
-                            GpuBufferDetail::Index { .. } => native::WGPUBufferUsage_Index,
-                            GpuBufferDetail::Uniform => native::WGPUBufferUsage_Uniform,
-                            GpuBufferDetail::Vertex { .. } => native::WGPUBufferUsage_Vertex,
-                        },
-                    size: buffer.size as u64,
-                    mappedAtCreation: false,
-                }),
-            );
+            if buffer.buffer.0.is_null() {
+                buffer.buffer.0 = wgpu_native::device::wgpuDeviceCreateBuffer(
+                    system.device.0,
+                    Some(&native::WGPUBufferDescriptor {
+                        nextInChain: null(),
+                        label: null(),
+                        usage: native::WGPUBufferUsage_CopyDst
+                            | match buffer.detail {
+                                GpuBufferDetail::Index { .. } => native::WGPUBufferUsage_Index,
+                                GpuBufferDetail::Uniform => native::WGPUBufferUsage_Uniform,
+                                GpuBufferDetail::Vertex { .. } => native::WGPUBufferUsage_Vertex,
+                            },
+                        size: buffer.size as u64,
+                        mappedAtCreation: false,
+                    }),
+                );
+            }
             wgpu_native::device::wgpuQueueWriteBuffer(
                 system.queue.0,
                 buffer.buffer.0,
@@ -238,6 +236,7 @@ fn update_buffers(system: &mut System, need_all: bool) {
                 buffer.data.as_ptr(),
                 buffer.data.len(),
             );
+            buffer.written = true;
         }
     }
 }
@@ -309,13 +308,15 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
         }
         system.gpu.pipeline.0 = null_mut();
     }
-    let mut entries = Vec::<native::WGPUBindGroupLayoutEntry>::new();
+    let mut bind_group_layout_entries = Vec::<native::WGPUBindGroupLayoutEntry>::new();
+    let mut bind_group_entries = Vec::<native::WGPUBindGroupEntry>::new();
+    let mut binding = 0u32;
     for buffer in &system.gpu.buffers {
         let buffer = buffer.lock().unwrap();
-        let entry = match buffer.detail {
+        let bind_group_layout_entry = match buffer.detail {
             GpuBufferDetail::Uniform => native::WGPUBindGroupLayoutEntry {
                 nextInChain: null(),
-                binding: 0,
+                binding,
                 visibility: native::WGPUShaderStage_Vertex | native::WGPUShaderStage_Fragment,
                 buffer: native::WGPUBufferBindingLayout {
                     nextInChain: null(),
@@ -340,22 +341,40 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
                     viewDimension: native::WGPUTextureViewDimension_Undefined,
                 },
             },
+            //         std.mem.zeroInit(c.WGPUBindGroupLayoutEntry, .{
+            //             .binding = 1,
+            //             .visibility = c.WGPUShaderStage_Fragment,
+            //             .sampler = std.mem.zeroInit(c.WGPUSamplerBindingLayout, .{
+            //                 .type = c.WGPUSamplerBindingType_NonFiltering,
+            //             }),
+            //             .texture = std.mem.zeroInit(c.WGPUTextureBindingLayout, .{
+            //                 .sampleType = c.WGPUTextureSampleType_Float,
+            //                 .viewDimension = c.WGPUTextureViewDimension_2D,
+            //             }),
+            //         }),
+            //     },
             _ => continue,
         };
-        entries.push(entry);
+        let bind_group_entry = match buffer.detail {
+            GpuBufferDetail::Uniform => native::WGPUBindGroupEntry {
+                nextInChain: null(),
+                binding,
+                buffer: buffer.buffer.0,
+                offset: 0,
+                size: buffer.size as u64,
+                sampler: null_mut(),
+                textureView: null_mut(),
+            },
+            //         std.mem.zeroInit(c.WGPUBindGroupEntry, .{
+            //             .binding = 1,
+            //             .textureView = image_texture_view,
+            //         }),
+            _ => panic!(),
+        };
+        bind_group_layout_entries.push(bind_group_layout_entry);
+        bind_group_entries.push(bind_group_entry);
+        binding += 1;
     }
-    //         std.mem.zeroInit(c.WGPUBindGroupLayoutEntry, .{
-    //             .binding = 1,
-    //             .visibility = c.WGPUShaderStage_Fragment,
-    //             .sampler = std.mem.zeroInit(c.WGPUSamplerBindingLayout, .{
-    //                 .type = c.WGPUSamplerBindingType_NonFiltering,
-    //             }),
-    //             .texture = std.mem.zeroInit(c.WGPUTextureBindingLayout, .{
-    //                 .sampleType = c.WGPUTextureSampleType_Float,
-    //                 .viewDimension = c.WGPUTextureViewDimension_2D,
-    //             }),
-    //         }),
-    //     },
     // TODO Store this for later.
     let layout = unsafe {
         wgpu_native::device::wgpuDeviceCreateBindGroupLayout(
@@ -363,28 +382,23 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
             Some(&native::WGPUBindGroupLayoutDescriptor {
                 nextInChain: null(),
                 label: null(),
-                entryCount: entries.len() as u32,
-                entries: entries.as_ptr(),
+                entryCount: bind_group_layout_entries.len() as u32,
+                entries: bind_group_layout_entries.as_ptr(),
             }),
         )
     };
-    // const bind_group = c.wgpuDeviceCreateBindGroup(device, &c.WGPUBindGroupDescriptor{
-    //     .nextInChain = null,
-    //     .label = null,
-    //     .layout = bind_group_layout,
-    //     .entryCount = 2,
-    //     .entries = &[_]c.WGPUBindGroupEntry{
-    //         std.mem.zeroInit(c.WGPUBindGroupEntry, .{
-    //             .binding = 0,
-    //             .buffer = uniform_buffer,
-    //             .size = @sizeOf(Uniforms),
-    //         }),
-    //         std.mem.zeroInit(c.WGPUBindGroupEntry, .{
-    //             .binding = 1,
-    //             .textureView = image_texture_view,
-    //         }),
-    //     },
-    // });
+    system.gpu.bind_group.0 = unsafe {
+        wgpu_native::device::wgpuDeviceCreateBindGroup(
+            system.device.0,
+            Some(&native::WGPUBindGroupDescriptor {
+                nextInChain: null(),
+                label: null(),
+                layout,
+                entryCount: bind_group_entries.len() as u32,
+                entries: bind_group_entries.as_ptr(),
+            }),
+        )
+    };
     // TODO Store this for later.
     let pipeline_layout = unsafe {
         wgpu_native::device::wgpuDeviceCreatePipelineLayout(
@@ -503,7 +517,7 @@ fn taca_gpu_ensure_render_pass(system: &mut System) {
     wgpu_device_ensure_command_encoder_simple(system);
     if system.render_pass.0.is_null() {
         let color_attachment = native::WGPURenderPassColorAttachment {
-            view: system.texture_views[0].0,
+            view: system.gpu.texture_view.0,
             resolveTarget: std::ptr::null_mut(),
             loadOp: native::WGPULoadOp_Clear,
             storeOp: native::WGPUStoreOp_Store,
@@ -591,24 +605,57 @@ pub fn gpu_draw_set_buffer(system: &System, buffer: &GpuBuffer) {
     }
 }
 
-// taca_EXPORT void taca_gpuDraw(taca_GpuBuffer buffer);
 pub fn taca_gpu_draw(mut env: FunctionEnvMut<System>, buffer: u32) {
     let system = env.data_mut();
+    taca_gpu_ensure_render_pass(system);
     update_buffers(system, false);
-    let buffer = system.gpu.buffers[buffer as usize].lock().unwrap();
+    let buffer = system.gpu.buffers[buffer as usize - 1].lock().unwrap();
     gpu_draw_set_buffer(system, &buffer);
-    // unsafe {
-    //     wgpu_native::command::wgpuRenderPassEncoderSetBindGroup(
-    //         system.render_pass.0,
-    //         0,
-    //         system.gpu.,
-    //         0,
-    //         null(),
-    //     );
-    // }
-    // TODO Draw
+    unsafe {
+        wgpu_native::command::wgpuRenderPassEncoderSetBindGroup(
+            system.render_pass.0,
+            0,
+            system.gpu.bind_group.0,
+            0,
+            null(),
+        );
+    }
+    match &buffer.detail {
+        GpuBufferDetail::Index { format, vertex } => {
+            let vertex = vertex.lock().unwrap();
+            gpu_draw_set_buffer(system, &vertex);
+            unsafe {
+                wgpu_native::command::wgpuRenderPassEncoderDrawIndexed(
+                    system.render_pass.0,
+                    buffer.size as u32
+                        / match *format {
+                            native::WGPUIndexFormat_Uint16 => 2,
+                            native::WGPUIndexFormat_Uint32 => 4,
+                            _ => panic!(),
+                        },
+                    1,
+                    0,
+                    0,
+                    0,
+                );
+            }
+        }
+        GpuBufferDetail::Uniform => {}
+        GpuBufferDetail::Vertex { .. } => {
+            // unsafe {
+            //     wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
+            //         system.render_pass.0,
+            //         0, // TODO What for slot?
+            //         buffer.buffer.0,
+            //         0,
+            //         buffer.size as u64,
+            //     );
+            // }
+        }
+    }
 }
 
+/// taca_gpu_indexBufferCreate
 pub fn taca_gpu_index_buffer_create(
     mut env: FunctionEnvMut<System>,
     size: u32,
@@ -618,7 +665,7 @@ pub fn taca_gpu_index_buffer_create(
 ) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
-    let vertex = system.gpu.buffers[vertex as usize].clone();
+    let vertex = system.gpu.buffers[vertex as usize - 1].clone();
     assert!(matches!(
         vertex.lock().unwrap().detail,
         GpuBufferDetail::Vertex { .. },
@@ -632,8 +679,9 @@ pub fn taca_gpu_index_buffer_create(
             .unwrap(),
         detail: GpuBufferDetail::Index { format, vertex },
         size: 0,
+        written: false,
     })));
-    system.buffers.len() as u32
+    system.gpu.buffers.len() as u32
 }
 
 // taca_EXPORT void taca_gpuPresent(void);
@@ -674,8 +722,9 @@ pub fn taca_gpu_uniform_buffer_create(mut env: FunctionEnvMut<System>, size: u32
         data: vec![0; size as usize],
         detail: GpuBufferDetail::Uniform,
         size: 0,
+        written: false,
     })));
-    system.buffers.len() as u32
+    system.gpu.buffers.len() as u32
 }
 
 // taca_EXPORT taca_gpu_Buffer taca_gpu_vertexBufferCreate(size_t size, const void* data, const WGPUVertexBufferLayout* layout);
@@ -707,6 +756,7 @@ pub fn taca_gpu_vertex_buffer_create(
         data,
         detail: GpuBufferDetail::Vertex { layout },
         size: 0,
+        written: false,
     })));
-    system.buffers.len() as u32
+    system.gpu.buffers.len() as u32
 }

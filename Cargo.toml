@@ -18,3 +18,8 @@ wasmer-types = "4.0.0"
 # wgpu = "0.16.0"
 wgpu-native = { git = "https://github.com/gfx-rs/wgpu-native.git", tag = "v0.16.0.1" }
 winit = "0.28.3"
+
+[profile.release]
+# Got smaller with s than z in a quick check.
+opt-level = "s"
+strip = true
