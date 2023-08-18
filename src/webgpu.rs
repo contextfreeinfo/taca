@@ -1549,9 +1549,7 @@ pub fn wgpu_surface_get_preferred_format(
         .unwrap()
 }
 
-pub fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
-    println!("wgpuSwapChainDrop({swap_chain})");
-    let system = env.data_mut();
+pub fn wgpu_swap_chain_drop_simple(system: &mut System) {
     // For good measure, ensure null view also.
     system.texture_views[0].0 = null_mut();
     if !system.swap_chain.0.is_null() {
@@ -1560,6 +1558,12 @@ pub fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
         }
         system.swap_chain.0 = null_mut();
     }
+}
+
+pub fn wgpu_swap_chain_drop(mut env: FunctionEnvMut<System>, swap_chain: u32) {
+    println!("wgpuSwapChainDrop({swap_chain})");
+    let system = env.data_mut();
+    wgpu_swap_chain_drop_simple(system);
 }
 
 pub fn wgpu_swap_chain_get_current_texture_view(

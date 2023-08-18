@@ -1,3 +1,4 @@
+const std = @import("std");
 const a = @import("./zalgebra/main.zig");
 const c = @cImport({
     @cInclude("taca.h");
@@ -44,6 +45,7 @@ pub fn main() void {
         .projection = buildPerspective(c.taca_windowInnerSize()),
         .time = 0,
         .uniform_buffer = c.taca_gpu_uniformBufferCreate(@sizeOf(Uniforms)),
+        .velocity = a.Vec3.zero(),
         // TODO Include linear algebra and perspective library? Too slow?
         .view = a.Mat4.identity()
             .translate(a.Vec3.new(0, 0, -2))
@@ -57,7 +59,7 @@ export fn windowListen(event_type: c.taca_WindowEventType, userdata: ?*anyopaque
     const state = @ptrCast(*State, @alignCast(@alignOf(State), userdata));
     switch (event_type) {
         // c.taca_WindowEventType_Close => windowClose(state),
-        // c.taca_WindowEventType_Key => keyPress(state),
+        c.taca_WindowEventType_Key => keyPress(state),
         c.taca_WindowEventType_Redraw => windowRedraw(state),
         c.taca_WindowEventType_Resize => windowResize(state),
         // else => unreachable,
@@ -65,7 +67,35 @@ export fn windowListen(event_type: c.taca_WindowEventType, userdata: ?*anyopaque
     }
 }
 
+fn keyPress(state: *State) void {
+    const event = c.taca_keyEvent();
+    const speed: f32 = if (event.pressed) 0.02 else 0;
+    switch (event.code) {
+        c.taca_KeyCode_Undefined => {},
+        c.taca_KeyCode_Left => {
+            updateSpeed(&state.velocity, 0, -1, speed);
+        },
+        c.taca_KeyCode_Up => {
+            updateSpeed(&state.velocity, 1, 1, speed);
+        },
+        c.taca_KeyCode_Right => {
+            updateSpeed(&state.velocity, 0, 1, speed);
+        },
+        c.taca_KeyCode_Down => {
+            updateSpeed(&state.velocity, 1, -1, speed);
+        },
+        else => unreachable,
+    }
+}
+
+fn updateSpeed(vec: *a.Vec3, index: usize, direction: f32, speed: f32) void {
+    if (std.math.sign(vec.data[index]) == direction or speed != 0) {
+        vec.data[index] = direction * speed;
+    }
+}
+
 fn windowRedraw(state: *State) void {
+    state.position = state.position.add(state.velocity);
     state.time += 1.0 / 60.0;
     const uniforms = Uniforms{
         .projection = state.projection,
@@ -91,6 +121,7 @@ const State = struct {
     projection: a.Mat4,
     time: f32,
     uniform_buffer: c.taca_gpu_Buffer,
+    velocity: a.Vec3,
     view: a.Mat4,
 };
 

@@ -3,27 +3,25 @@ pub fn run_loop(event_loop: EventLoop<()>, mut store: Store, env: FunctionEnv<Sy
     // let window = system.window.as_ref().unwrap();
     let mut modifiers: ModifiersState = ModifiersState::empty();
     event_loop.run(move |event, _, control_flow| {
-        let mut system = env.as_mut(&mut store);
+        let mut system = env.clone().as_mut(&mut store);
         let window = system.window.as_ref().unwrap();
         let window_listen = system.window_listen.as_ref().unwrap().clone();
         let window_listen_userdata = system.window_listen_userdata;
-        fn send_event(
-            store: &mut Store,
-            function: &Function,
-            event_type: WindowEventType,
-            userdata: u32,
-        ) {
-            function
-                .call(
-                    store,
-                    &[
-                        // TODO How to put u32 into here? How to just let it wrap?
-                        Value::I32((event_type as u32).try_into().unwrap()),
-                        Value::I32(userdata.try_into().unwrap()),
-                    ],
-                )
-                .unwrap();
-        }
+        let send_event =
+            |store: &mut Store, function: &Function, event_type: WindowEventType, userdata: u32| {
+                let mut system = env.as_mut(store);
+                gpu_window_listen(&mut system, event_type);
+                function
+                    .call(
+                        store,
+                        &[
+                            // TODO How to put u32 into here? How to just let it wrap?
+                            Value::I32((event_type as u32).try_into().unwrap()),
+                            Value::I32(userdata.try_into().unwrap()),
+                        ],
+                    )
+                    .unwrap();
+            };
         match event {
             Event::WindowEvent {
                 ref event,
@@ -225,7 +223,7 @@ pub fn taca_window_set_title(mut env: FunctionEnvMut<System>, title: u32) {
     window.set_title(title.as_str());
 }
 
-use crate::system::*;
+use crate::{gpu::gpu_window_listen, system::*};
 use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Value, ValueType, WasmPtr, WasmRef};
 use winit::{
     event::*,

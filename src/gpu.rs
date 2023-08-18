@@ -13,8 +13,9 @@ use crate::{
         wgpu_ensure_command_encoder_finish_simple, wgpu_ensure_instance_simple,
         wgpu_ensure_queue_submit_simple, wgpu_instance_ensure_adapter_simple,
         wgpu_instance_ensure_surface_simple, wgpu_surface_get_preferred_format_simple,
-        WasmWGPUVertexBufferLayout,
+        wgpu_swap_chain_drop_simple, WasmWGPUVertexBufferLayout,
     },
+    window::WindowEventType,
 };
 use wasmer::{FunctionEnvMut, WasmPtr};
 use wgpu_native::{
@@ -54,6 +55,16 @@ pub struct SimpleGpu {
     pipeline: WGPURenderPipeline,
     shaders: Vec<CString>,
     texture_view: WGPUTextureView,
+}
+
+pub fn gpu_window_listen(system: &mut System, event_type: WindowEventType) {
+    if event_type == WindowEventType::Resize {
+        if !system.swap_chain.0.is_null() {
+            wgpu_swap_chain_drop_simple(system);
+            ensure_swap_chain(system);
+        }
+        // TODO depth stencil
+    }
 }
 
 /// taca_gpu_bufferWrite
@@ -296,6 +307,7 @@ fn taca_gpu_ensure_device(system: &mut System) -> bool {
 }
 
 fn taca_gpu_ensure_pipeline(system: &mut System) {
+    //
     let had_pipeline = !system.gpu.pipeline.0.is_null();
     let any_change = taca_gpu_ensure_device(system) || !had_pipeline;
     if !any_change {

@@ -23,3 +23,10 @@ winit = "0.28.3"
 # Got smaller with s than z in a quick check.
 opt-level = "s"
 strip = true
+
+[profile.release-lto]
+# Shrink more per https://github.com/johnthagen/min-sized-rust
+codegen-units = 1
+inherits = "release"
+lto = true
+panic = "abort"
