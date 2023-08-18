@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    system::{System, WGPUBindGroup, WGPUBuffer, WGPURenderPipeline, WGPUTextureView},
+    system::{System, WGPUBindGroup, WGPUBuffer, WGPURenderPipeline, WGPUTexture, WGPUTextureView},
     webgpu::{
         read_cstring, wgpu_adapter_ensure_device_simple, wgpu_adapter_get_limits_simple,
         wgpu_device_create_shader_module_simple, wgpu_device_ensure_command_encoder_simple,
@@ -52,6 +52,8 @@ pub struct WgpuVertexBufferLayout {
 pub struct SimpleGpu {
     bind_group: WGPUBindGroup,
     buffers: Vec<Arc<Mutex<GpuBuffer>>>,
+    depth_texture: WGPUTexture,
+    depth_texture_view: WGPUTextureView,
     pipeline: WGPURenderPipeline,
     shaders: Vec<CString>,
     texture_view: WGPUTextureView,
@@ -62,8 +64,8 @@ pub fn gpu_window_listen(system: &mut System, event_type: WindowEventType) {
         if !system.swap_chain.0.is_null() {
             wgpu_swap_chain_drop_simple(system);
             ensure_swap_chain(system);
+            reset_depth_texture(system);
         }
-        // TODO depth stencil
     }
 }
 
@@ -255,6 +257,9 @@ fn update_buffers(system: &mut System, need_all: bool) {
 fn ensure_swap_chain(system: &mut System) -> bool {
     if !system.swap_chain.0.is_null() {
         return false;
+    }
+    if system.gpu.depth_texture.0.is_null() {
+        reset_depth_texture(system);
     }
     let format = wgpu_surface_get_preferred_format_simple(system);
     let size = system.window.as_ref().unwrap().inner_size();
@@ -474,30 +479,29 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
                     frontFace: native::WGPUFrontFace_CCW,
                     cullMode: native::WGPUCullMode_None,
                 },
-                depthStencil: null(),
-                // depthStencil: &native::WGPUDepthStencilState {
-                //     nextInChain: null(),
-                //     format: native::WGPUTextureFormat_Depth24Plus,
-                //     depthWriteEnabled: true,
-                //     depthCompare: native::WGPUCompareFunction_Less,
-                //     stencilFront: native::WGPUStencilFaceState {
-                //         compare: native::WGPUCompareFunction_Always,
-                //         failOp: native::WGPUStencilOperation_Keep,
-                //         depthFailOp: native::WGPUStencilOperation_Keep,
-                //         passOp: native::WGPUStencilOperation_Keep,
-                //     },
-                //     stencilBack: native::WGPUStencilFaceState {
-                //         compare: native::WGPUCompareFunction_Always,
-                //         failOp: native::WGPUStencilOperation_Keep,
-                //         depthFailOp: native::WGPUStencilOperation_Keep,
-                //         passOp: native::WGPUStencilOperation_Keep,
-                //     },
-                //     stencilReadMask: 0,
-                //     stencilWriteMask: 0,
-                //     depthBias: 0,
-                //     depthBiasSlopeScale: 0.0,
-                //     depthBiasClamp: 0.0,
-                // },
+                depthStencil: &native::WGPUDepthStencilState {
+                    nextInChain: null(),
+                    format: native::WGPUTextureFormat_Depth24Plus,
+                    depthWriteEnabled: true,
+                    depthCompare: native::WGPUCompareFunction_Less,
+                    stencilFront: native::WGPUStencilFaceState {
+                        compare: native::WGPUCompareFunction_Always,
+                        failOp: native::WGPUStencilOperation_Keep,
+                        depthFailOp: native::WGPUStencilOperation_Keep,
+                        passOp: native::WGPUStencilOperation_Keep,
+                    },
+                    stencilBack: native::WGPUStencilFaceState {
+                        compare: native::WGPUCompareFunction_Always,
+                        failOp: native::WGPUStencilOperation_Keep,
+                        depthFailOp: native::WGPUStencilOperation_Keep,
+                        passOp: native::WGPUStencilOperation_Keep,
+                    },
+                    stencilReadMask: 0,
+                    stencilWriteMask: 0,
+                    depthBias: 0,
+                    depthBiasSlopeScale: 0.0,
+                    depthBiasClamp: 0.0,
+                },
                 multisample: native::WGPUMultisampleState {
                     nextInChain: null(),
                     count: 1,
@@ -520,6 +524,60 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
     system.gpu.pipeline.0 = pipeline;
 }
 
+fn reset_depth_texture(system: &mut System) {
+    // Out with the old.
+    if !system.gpu.depth_texture_view.0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuTextureViewDrop(system.gpu.depth_texture_view.0);
+        }
+    }
+    if !system.gpu.depth_texture.0.is_null() {
+        unsafe {
+            wgpu_native::device::wgpuTextureDrop(system.gpu.depth_texture.0);
+        }
+    }
+    // In with the new.
+    let depth_texture_format = native::WGPUTextureFormat_Depth24Plus;
+    let size = system.window.as_ref().unwrap().inner_size();
+    system.gpu.depth_texture.0 = unsafe {
+        wgpu_native::device::wgpuDeviceCreateTexture(
+            system.device.0,
+            Some(&native::WGPUTextureDescriptor {
+                nextInChain: null(),
+                label: null(),
+                usage: native::WGPUTextureUsage_RenderAttachment,
+                dimension: native::WGPUTextureDimension_2D,
+                size: native::WGPUExtent3D {
+                    width: size.width,
+                    height: size.height,
+                    depthOrArrayLayers: 1,
+                },
+                format: depth_texture_format,
+                mipLevelCount: 1,
+                sampleCount: 1,
+                viewFormatCount: 1,
+                viewFormats: &depth_texture_format,
+            }),
+        )
+    };
+    system.gpu.depth_texture_view.0 = unsafe {
+        wgpu_native::device::wgpuTextureCreateView(
+            system.gpu.depth_texture.0,
+            Some(&native::WGPUTextureViewDescriptor {
+                nextInChain: null(),
+                label: null(),
+                format: depth_texture_format,
+                dimension: native::WGPUTextureViewDimension_2D,
+                baseMipLevel: 0,
+                mipLevelCount: 1,
+                baseArrayLayer: 0,
+                arrayLayerCount: 1,
+                aspect: native::WGPUTextureAspect_DepthOnly,
+            }),
+        )
+    };
+}
+
 fn taca_gpu_ensure_render_pass(system: &mut System) {
     taca_gpu_ensure_pipeline(system);
     if system.gpu.texture_view.0.is_null() {
@@ -540,28 +598,17 @@ fn taca_gpu_ensure_render_pass(system: &mut System) {
                 a: 0.0,
             },
         };
-        // let depth_stencil_attachment = native::WGPURenderPassDepthStencilAttachment {
-        //     view: system.texture_views[depth_stencil_attachment.view as usize - 1].0,
-        //     depthLoadOp: depth_stencil_attachment.depth_load_op,
-        //     depthStoreOp: depth_stencil_attachment.depth_store_op,
-        //     depthClearValue: depth_stencil_attachment.depth_clear_value,
-        //     depthReadOnly: depth_stencil_attachment.depth_read_only,
-        //     stencilLoadOp: depth_stencil_attachment.stencil_load_op,
-        //     stencilStoreOp: depth_stencil_attachment.stencil_store_op,
-        //     stencilClearValue: depth_stencil_attachment.stencil_clear_value,
-        //     stencilReadOnly: depth_stencil_attachment.stencil_read_only,
-        // };
-        //         .depthStencilAttachment = &c.WGPURenderPassDepthStencilAttachment{
-        //             .view = state.depth_texture_out.depth_texture_view,
-        //             .depthLoadOp = c.WGPULoadOp_Clear,
-        //             .depthStoreOp = c.WGPUStoreOp_Store,
-        //             .depthClearValue = 1,
-        //             .depthReadOnly = false,
-        //             .stencilLoadOp = c.WGPULoadOp_Clear,
-        //             .stencilStoreOp = c.WGPUStoreOp_Store,
-        //             .stencilClearValue = 0,
-        //             .stencilReadOnly = true,
-        //         },
+        let depth_stencil_attachment = native::WGPURenderPassDepthStencilAttachment {
+            view: system.gpu.depth_texture_view.0,
+            depthLoadOp: native::WGPULoadOp_Clear,
+            depthStoreOp: native::WGPUStoreOp_Store,
+            depthClearValue: 1.0,
+            depthReadOnly: false,
+            stencilLoadOp: native::WGPULoadOp_Clear,
+            stencilStoreOp: native::WGPUStoreOp_Store,
+            stencilClearValue: 0,
+            stencilReadOnly: true,
+        };
         system.render_pass.0 = unsafe {
             wgpu_native::command::wgpuCommandEncoderBeginRenderPass(
                 system.encoder.0,
@@ -570,8 +617,7 @@ fn taca_gpu_ensure_render_pass(system: &mut System) {
                     label: null(),
                     colorAttachmentCount: 1,
                     colorAttachments: &color_attachment,
-                    depthStencilAttachment: null(),
-                    // depthStencilAttachment: &depth_stencil_attachment,
+                    depthStencilAttachment: &depth_stencil_attachment,
                     occlusionQuerySet: std::ptr::null_mut(),
                     timestampWriteCount: 0,
                     timestampWrites: std::ptr::null(),
