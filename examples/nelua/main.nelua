@@ -1,18 +1,15 @@
-##[[
-  cflags "-Oz"
-  ldflags "-Wl,--export-dynamic"
-]]
+-- require "allocators.gc"
+-- gc:init(nilptr)
+require "support"
 
-global function taca_windowListen(callback: int32, userdata: uint32): void <cimport,cattribute'import_name("taca_windowListen")'> end
+local wgsl = #[aster.String{readAll("shader.wgsl")}]#;
 
-require 'allocators.gc'
-
--- print 'Hi!'
+print(wgsl)
 taca_windowListen(0, 0)
 
 local function windowListen(eventType: int32, userdata: int32): void <cexport,codename'windowListen'>
   -- Comment from code in wasm4:
   -- We must always manually call garbage collection in the end of every frame.
   -- This is the only safe point to do so, because in WASM we cannot scan the function stack.
-  gc:step()
+  -- gc:step()
 end

@@ -1,0 +1,15 @@
+##[[
+  cflags "-Oz"
+  ldflags "-Wl,--export-dynamic"
+
+  require "io"
+
+  function readAll(file)
+    local f = assert(io.open(file, "rb"))
+    local content = f:read("*all")
+    f:close()
+    return content
+  end
+]]
+
+global function taca_windowListen(callback: int32, userdata: uint32): void <cimport,cattribute'import_name("taca_windowListen")'> end
