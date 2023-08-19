@@ -2,9 +2,19 @@
 -- gc:init(nilptr)
 require "support"
 
+local vertexData: []float32 = {
+  -1, -1,
+  1, -1,
+  -1, 1,
+  1, -1,
+  1, 1,
+  -1, 1,
+}
+
 local wgsl = #[aster.String{readAll("shader.wgsl")}]#;
 
-print(wgsl)
+local shader = taca_gpu_shaderCreate(wgsl)
+-- local vertexBuffer = taca_gpu_vertexBufferCreate(#vertexData * 4, (@pointer)(&vertexData), 0)
 taca_windowListen(0, 0)
 
 local function windowListen(eventType: int32, userdata: int32): void <cexport,codename'windowListen'>
