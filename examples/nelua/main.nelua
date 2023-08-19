@@ -1,1 +1,17 @@
+##[[
+    ldflags "-Wl,--export-dynamic"
+]]
+
+global function taca_windowListen(callback: int32, userdata: uint32): void <cimport,cattribute'import_name("taca_windowListen")'> end
+
 print 'Hi!'
+taca_windowListen(0, 0)
+
+local function windowListen(eventType: int32, userdata: int32): void <cexport,codename'windowListen'>
+-- #[update]#()
+-- ## if not pragmas.nogc then
+-- -- We must always manually call garbage collection in the end of every frame.
+-- -- This is the only safe point to do so, because in WASM we cannot scan the function stack.
+-- gc:step()
+-- ## end
+end
