@@ -1,4 +1,5 @@
 ##[[
+    cflags "-Oz"
     ldflags "-Wl,--export-dynamic"
 ]]
 
