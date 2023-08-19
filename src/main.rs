@@ -105,8 +105,13 @@ fn run_app(args: &RunArgs) -> Result<()> {
         },
         // TODO Combine ours with wasmer_wasix::WasiEnv???
         "wasi_snapshot_preview1" => {
-            "fd_write" => Function::new_typed_with_env(&mut store, &env, fd_write),
-            "proc_exit" => Function::new_typed(&mut store, proc_exit),
+            "args_get" => Function::new_typed_with_env(&mut store, &env, wasi_args_get),
+            "args_sizes_get" => Function::new_typed_with_env(&mut store, &env, wasi_args_sizes_get),
+            "fd_close" => Function::new_typed_with_env(&mut store, &env, wasi_fd_close),
+            "fd_fdstat_get" => Function::new_typed_with_env(&mut store, &env, wasi_fd_fdstat_get),
+            "fd_seek" => Function::new_typed_with_env(&mut store, &env, wasi_fd_seek),
+            "fd_write" => Function::new_typed_with_env(&mut store, &env, wasi_fd_write),
+            "proc_exit" => Function::new_typed(&mut store, wasi_proc_exit),
         },
     };
     let instance = Instance::new(&mut store, &module, &import_object)?;
@@ -129,11 +134,13 @@ fn run_app(args: &RunArgs) -> Result<()> {
 
     match _start.call(&mut store, &[]) {
         Ok(_) => {
-            println!("Non error termination");
+            // println!("Non error termination");
         }
         Err(err) => match err.downcast::<ExitCode>() {
             Ok(exit_code) => {
-                println!("Exit code: {exit_code}");
+                if exit_code.0 != 0 {
+                    bail!("Exit code: {exit_code}");
+                }
             }
             Err(err) => {
                 bail!("Unexpected error {err}");
@@ -158,7 +165,84 @@ struct WasmIOVec {
     size: u32,
 }
 
-fn fd_write(mut env: FunctionEnvMut<System>, fd: u32, iovec: u32, len: u32, nwritten: u32) -> u32 {
+fn wasi_args_get(_env: FunctionEnvMut<System>, _argv: u32, _argv_buf: u32) -> u32 {
+    0
+}
+
+fn wasi_args_sizes_get(mut env: FunctionEnvMut<System>, argv_size: u32, argv_buf_size: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    view.write(argv_size as u64, &[0]).unwrap();
+    view.write(argv_buf_size as u64, &[0]).unwrap();
+    0
+}
+
+fn wasi_fd_close(_env: FunctionEnvMut<System>, _fd: u32) -> u32 {
+    0
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasiFdStat {
+    file_type: u8,
+    _fill1: u8,
+    flags: u16,
+    _fill2: u32,
+    rights_base: u64,
+    rights_inheriting: u64,
+}
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
+#[repr(u8)]
+enum WasiFileType {
+    Unknown = 0,
+    BlockDevice,
+    CharacterDevice,
+    Directory,
+    RegularFile,
+    SocketDgram,
+    SocketStream,
+    SymbolicLink,
+}
+
+fn wasi_fd_fdstat_get(mut env: FunctionEnvMut<System>, _fd: u32, fdstat: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let fdstat = WasmRef::<WasiFdStat>::new(&view, fdstat as u64);
+    fdstat
+        .write(WasiFdStat {
+            file_type: WasiFileType::CharacterDevice as u8,
+            _fill1: 0,
+            flags: 0,
+            _fill2: 0,
+            rights_base: 0,
+            rights_inheriting: 0,
+        })
+        .unwrap();
+    0
+}
+
+fn wasi_fd_seek(
+    mut env: FunctionEnvMut<System>,
+    _fd: u32,
+    _filedelta: u64,
+    _whence: u32,
+    new_offset: u32,
+) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    view.write(new_offset as u64, &[0]).unwrap();
+    1
+}
+
+fn wasi_fd_write(
+    mut env: FunctionEnvMut<System>,
+    fd: u32,
+    iovec: u32,
+    len: u32,
+    nwritten: u32,
+) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let mut count = 0u32;
@@ -193,7 +277,7 @@ impl fmt::Display for ExitCode {
 
 impl std::error::Error for ExitCode {}
 
-fn proc_exit(code: u32) -> std::result::Result<(), ExitCode> {
+fn wasi_proc_exit(code: u32) -> std::result::Result<(), ExitCode> {
     println!("proc_exit({code})");
     Err(ExitCode(code))
 }
