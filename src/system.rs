@@ -26,6 +26,7 @@ impl Default for WGPUBindGroupLayout {
     }
 }
 
+#[derive(Debug)]
 pub struct WGPUBuffer(pub native::WGPUBuffer);
 unsafe impl Send for WGPUBuffer {}
 impl Default for WGPUBuffer {

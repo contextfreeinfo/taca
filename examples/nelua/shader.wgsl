@@ -9,11 +9,12 @@ struct VertexOutput {
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.position = vec4f(in.position, 0.2, 1.0);
+    out.position = vec4f(in.position, 0.0, 1.0);
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    return vec4f(0.0, 0.5, 0.5, 1.0);
+    let color = vec3f(abs(in.position.xy) * 1e-3, 0.5);
+    return vec4f(pow(color, vec3f(2.2)), 1.0);
 }

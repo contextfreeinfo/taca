@@ -23,6 +23,7 @@ use wgpu_native::{
     native,
 };
 
+#[derive(Debug)]
 pub struct GpuBuffer {
     buffer: WGPUBuffer,
     data: Vec<u8>,
@@ -31,6 +32,7 @@ pub struct GpuBuffer {
     written: bool,
 }
 
+#[derive(Debug)]
 pub enum GpuBufferDetail {
     Index {
         format: native::WGPUIndexFormat,
@@ -42,6 +44,7 @@ pub enum GpuBufferDetail {
     },
 }
 
+#[derive(Debug)]
 pub struct WgpuVertexBufferLayout {
     pub array_stride: u64,
     pub step_mode: native::WGPUVertexStepMode,
@@ -242,6 +245,9 @@ fn update_buffers(system: &mut System, need_all: bool) {
                     }),
                 );
             }
+            // if let GpuBufferDetail::Vertex { .. } = buffer.detail {
+            //     dbg!(&buffer);
+            // }
             wgpu_native::device::wgpuQueueWriteBuffer(
                 system.queue.0,
                 buffer.buffer.0,
@@ -648,11 +654,18 @@ pub fn gpu_draw_set_buffer(system: &System, buffer: &GpuBuffer) {
             }
         }
         GpuBufferDetail::Uniform => {}
-        GpuBufferDetail::Vertex { .. } => {
+        GpuBufferDetail::Vertex { layout } => {
+            // TODO Is this slot correct? Is this slow?
+            let slot = layout
+                .attributes
+                .iter()
+                .map(|it| it.shaderLocation)
+                .min()
+                .unwrap();
             unsafe {
                 wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
                     system.render_pass.0,
-                    0, // TODO What for slot?
+                    slot,
                     buffer.buffer.0,
                     0,
                     buffer.size as u64,
@@ -698,17 +711,15 @@ pub fn taca_gpu_draw(mut env: FunctionEnvMut<System>, buffer: u32) {
             }
         }
         GpuBufferDetail::Uniform => {}
-        GpuBufferDetail::Vertex { .. } => {
-            // unsafe {
-            //     wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
-            //         system.render_pass.0,
-            //         0, // TODO What for slot?
-            //         buffer.buffer.0,
-            //         0,
-            //         buffer.size as u64,
-            //     );
-            // }
-        }
+        GpuBufferDetail::Vertex { layout } => unsafe {
+            wgpu_native::command::wgpuRenderPassEncoderDraw(
+                system.render_pass.0,
+                (buffer.size / layout.array_stride as usize) as u32,
+                1,
+                0,
+                0,
+            );
+        },
     }
 }
 
