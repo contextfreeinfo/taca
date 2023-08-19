@@ -30,14 +30,14 @@ local shader = taca_gpu_shaderCreate(wgsl)
 local vertexBuffer = taca_gpu_vertexBufferCreate(
   #vertexData * 4, &vertexData, &vertexBufferLayout
 )
-taca_windowListen(0, 0)
+taca_windowListen(nilptr, nilptr)
 
 local function draw(): void
   taca_gpu_draw(vertexBuffer)
   taca_gpu_present()
 end
 
-local function windowListen(eventType: int32, userdata: int32): void
+local function windowListen(eventType: int32, userdata: pointer): void
   <cexport, codename "windowListen">
   switch eventType do
   case taca_WindowEventType.Redraw then

@@ -86,11 +86,16 @@ global function taca_gpu_shaderCreate(wgsl: cstring): pointer
 end
 
 global function taca_gpu_vertexBufferCreate(
-  size: csize, data: pointer, layout: *WGPUVertexBufferLayout
+  size: csize,
+  data: pointer,
+  layout: *WGPUVertexBufferLayout
 ): pointer
   <cimport, cattribute 'import_name("taca_gpu_vertexBufferCreate")'>
 end
 
-global function taca_windowListen(callback: int32, userdata: uint32): void
+global function taca_windowListen(
+  callback: function(eventType: int32, userdata: pointer),
+  userdata: pointer
+): void
   <cimport, cattribute 'import_name("taca_windowListen")'>
 end
