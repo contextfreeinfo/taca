@@ -17,7 +17,8 @@ local shader = taca_gpu_shaderCreate(wgsl)
 -- local vertexBuffer = taca_gpu_vertexBufferCreate(#vertexData * 4, (@pointer)(&vertexData), 0)
 taca_windowListen(0, 0)
 
-local function windowListen(eventType: int32, userdata: int32): void <cexport,codename'windowListen'>
+local function windowListen(eventType: int32, userdata: int32): void
+  <cexport, codename "windowListen">
   -- Comment from code in wasm4:
   -- We must always manually call garbage collection in the end of every frame.
   -- This is the only safe point to do so, because in WASM we cannot scan the function stack.

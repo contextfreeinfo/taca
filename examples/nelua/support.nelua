@@ -13,13 +13,13 @@
 ]]
 
 global function taca_gpu_shaderCreate(wgsl: cstring): pointer
-  <cimport, cattribute'import_name("taca_gpu_shaderCreate")'>
+  <cimport, cattribute 'import_name("taca_gpu_shaderCreate")'>
 end
 
 global function taca_gpu_vertexBufferCreate(size: csize, data: pointer, layout: pointer): pointer
-  <cimport, cattribute'import_name("taca_gpu_vertexBufferCreate")'>
+  <cimport, cattribute 'import_name("taca_gpu_vertexBufferCreate")'>
 end
 
 global function taca_windowListen(callback: int32, userdata: uint32): void
-  <cimport, cattribute'import_name("taca_windowListen")'>
+  <cimport, cattribute 'import_name("taca_windowListen")'>
 end
