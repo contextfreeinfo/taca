@@ -312,7 +312,6 @@ fn taca_gpu_ensure_device(system: &mut System) -> bool {
 }
 
 fn taca_gpu_ensure_pipeline(system: &mut System) {
-    //
     let had_pipeline = !system.gpu.pipeline.0.is_null();
     let any_change = taca_gpu_ensure_device(system) || !had_pipeline;
     if !any_change {
@@ -792,6 +791,8 @@ pub fn taca_gpu_vertex_buffer_create(
     data: u32,
     layout: u32,
 ) -> u32 {
+    assert_ne!(data, 0);
+    assert_ne!(layout, 0);
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     // TODO How to avoid this extra copy?

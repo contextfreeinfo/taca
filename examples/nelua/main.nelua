@@ -10,15 +10,39 @@ local vertexData: []float32 = {
   1, 1,
   -1, 1,
 }
+local vertexAttributes: []WGPUVertexAttribute = {
+  {
+    format = WGPUVertexFormat.Float32x2,
+    offset = 0,
+    shaderLocation = 0,
+  },
+}
+local vertexBufferLayout: WGPUVertexBufferLayout = {
+  arrayStride = 2 * 4,
+  stepMode = WGPUVertexStepMode.Vertex,
+  attributeCount = #vertexAttributes,
+  attributes = &vertexAttributes,
+}
 
-local wgsl = #[aster.String{readAll("shader.wgsl")}]#;
+local wgsl = #[readAll("shader.wgsl")]#;
 
 local shader = taca_gpu_shaderCreate(wgsl)
--- local vertexBuffer = taca_gpu_vertexBufferCreate(#vertexData * 4, (@pointer)(&vertexData), 0)
+local vertexBuffer = taca_gpu_vertexBufferCreate(
+  #vertexData * 4, &vertexData, &vertexBufferLayout
+)
 taca_windowListen(0, 0)
+
+local function draw(): void
+  taca_gpu_draw(vertexBuffer)
+  taca_gpu_present()
+end
 
 local function windowListen(eventType: int32, userdata: int32): void
   <cexport, codename "windowListen">
+  switch eventType do
+  case taca_WindowEventType.Redraw then
+    draw()
+  end
   -- Comment from code in wasm4:
   -- We must always manually call garbage collection in the end of every frame.
   -- This is the only safe point to do so, because in WASM we cannot scan the function stack.

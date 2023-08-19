@@ -12,11 +12,82 @@
   end
 ]]
 
+global WGPUVertexFormat = @enum{
+  Undefined = 0x00000000,
+  Uint8x2 = 0x00000001,
+  Uint8x4 = 0x00000002,
+  Sint8x2 = 0x00000003,
+  Sint8x4 = 0x00000004,
+  Unorm8x2 = 0x00000005,
+  Unorm8x4 = 0x00000006,
+  Snorm8x2 = 0x00000007,
+  Snorm8x4 = 0x00000008,
+  Uint16x2 = 0x00000009,
+  Uint16x4 = 0x0000000A,
+  Sint16x2 = 0x0000000B,
+  Sint16x4 = 0x0000000C,
+  Unorm16x2 = 0x0000000D,
+  Unorm16x4 = 0x0000000E,
+  Snorm16x2 = 0x0000000F,
+  Snorm16x4 = 0x00000010,
+  Float16x2 = 0x00000011,
+  Float16x4 = 0x00000012,
+  Float32 = 0x00000013,
+  Float32x2 = 0x00000014,
+  Float32x3 = 0x00000015,
+  Float32x4 = 0x00000016,
+  Uint32 = 0x00000017,
+  Uint32x2 = 0x00000018,
+  Uint32x3 = 0x00000019,
+  Uint32x4 = 0x0000001A,
+  Sint32 = 0x0000001B,
+  Sint32x2 = 0x0000001C,
+  Sint32x3 = 0x0000001D,
+  Sint32x4 = 0x0000001E,
+}
+
+global WGPUVertexStepMode = @enum{
+  Vertex = 0x00000000,
+  Instance = 0x00000001,
+  VertexBufferNotUsed = 0x00000002,
+}
+
+global WGPUVertexAttribute = @record{
+  format: WGPUVertexFormat, -- WGPUVertexFormat
+  offset: uint64,
+  shaderLocation: uint32,
+}
+
+global WGPUVertexBufferLayout = @record{
+  arrayStride: uint64,
+  stepMode: uint32, -- WGPUVertexStepMode
+  attributeCount: uint32,
+  attributes: *[0]WGPUVertexAttribute,
+}
+
+global taca_WindowEventType = @enum{
+    Close = 1,
+    Key = 2,
+    Redraw = 3,
+    Resize = 4,
+    Force32 = 0x7FFFFFFF
+}
+
+global function taca_gpu_draw(buffer: pointer): void
+  <cimport, cattribute 'import_name("taca_gpu_draw")'>
+end
+
+global function taca_gpu_present(): void
+  <cimport, cattribute 'import_name("taca_gpu_present")'>
+end
+
 global function taca_gpu_shaderCreate(wgsl: cstring): pointer
   <cimport, cattribute 'import_name("taca_gpu_shaderCreate")'>
 end
 
-global function taca_gpu_vertexBufferCreate(size: csize, data: pointer, layout: pointer): pointer
+global function taca_gpu_vertexBufferCreate(
+  size: csize, data: pointer, layout: *WGPUVertexBufferLayout
+): pointer
   <cimport, cattribute 'import_name("taca_gpu_vertexBufferCreate")'>
 end
 
