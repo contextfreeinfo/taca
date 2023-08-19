@@ -18,7 +18,7 @@ local vertexAttributes: []WGPUVertexAttribute = {
   },
 }
 local vertexBufferLayout: WGPUVertexBufferLayout = {
-  arrayStride = 2 * 4,
+  arrayStride = 2 * #float32,
   stepMode = WGPUVertexStepMode.Vertex,
   attributeCount = #vertexAttributes,
   attributes = &vertexAttributes,
@@ -28,7 +28,7 @@ local wgsl = #[readAll("shader.opt.wgsl")]#;
 
 local shader = taca_gpu_shaderCreate(wgsl)
 local vertexBuffer = taca_gpu_vertexBufferCreate(
-  #vertexData * 4, &vertexData, &vertexBufferLayout
+  #vertexData * #float32, &vertexData, &vertexBufferLayout
 )
 taca_windowListen(nilptr, nilptr)
 
