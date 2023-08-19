@@ -1,5 +1,6 @@
 CC=$WASI_SDK_PATH/bin/clang
-nelua --cc="$CC" --release main.nelua --output main.wasm && \
+node minify.js && \
+    nelua --cc="$CC" --release main.nelua --output main.wasm && \
     wasm2wat --generate-names main.wasm -o main.wat && \
     ls -l && \
     time ../../target/release/taca run main.wasm

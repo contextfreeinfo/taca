@@ -24,7 +24,7 @@ local vertexBufferLayout: WGPUVertexBufferLayout = {
   attributes = &vertexAttributes,
 }
 
-local wgsl = #[readAll("shader.wgsl")]#;
+local wgsl = #[readAll("shader.opt.wgsl")]#;
 
 local shader = taca_gpu_shaderCreate(wgsl)
 local vertexBuffer = taca_gpu_vertexBufferCreate(

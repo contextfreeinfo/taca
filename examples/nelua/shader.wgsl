@@ -15,6 +15,6 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    let color = vec3f(abs(in.position.xy) * 1e-3, 0.5);
+    let color = vec3f(abs(in.position.xy) * 0.001, 0.5);
     return vec4f(pow(color, vec3f(2.2)), 1.0);
 }
