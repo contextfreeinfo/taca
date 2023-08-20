@@ -12,7 +12,7 @@
   end
 ]]
 
-global WGPUVertexFormat = @enum{
+global WGPUVertexFormat = @enum(uint32) {
   Undefined = 0x00000000,
   Uint8x2 = 0x00000001,
   Uint8x4 = 0x00000002,
@@ -46,31 +46,30 @@ global WGPUVertexFormat = @enum{
   Sint32x4 = 0x0000001E,
 }
 
-global WGPUVertexStepMode = @enum{
+global WGPUVertexStepMode = @enum(uint32) {
   Vertex = 0x00000000,
   Instance = 0x00000001,
   VertexBufferNotUsed = 0x00000002,
 }
 
 global WGPUVertexAttribute = @record{
-  format: WGPUVertexFormat, -- WGPUVertexFormat
+  format: WGPUVertexFormat,
   offset: uint64,
   shaderLocation: uint32,
 }
 
 global WGPUVertexBufferLayout = @record{
   arrayStride: uint64,
-  stepMode: uint32, -- WGPUVertexStepMode
+  stepMode: WGPUVertexStepMode,
   attributeCount: uint32,
   attributes: *[0]WGPUVertexAttribute,
 }
 
-global taca_WindowEventType = @enum{
+global taca_WindowEventType = @enum(uint32) {
     Close = 1,
     Key = 2,
     Redraw = 3,
     Resize = 4,
-    Force32 = 0x7FFFFFFF
 }
 
 global function taca_gpu_draw(buffer: pointer): void
@@ -94,7 +93,7 @@ global function taca_gpu_vertexBufferCreate(
 end
 
 global function taca_windowListen(
-  callback: function(eventType: int32, userdata: pointer),
+  callback: function(eventType: taca_WindowEventType, userdata: pointer),
   userdata: pointer
 ): void
   <cimport, cattribute 'import_name("taca_windowListen")'>
