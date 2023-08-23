@@ -16,6 +16,10 @@ const BLACK_HOLE_CORE_RADIUS = 0.2;
 const BLACK_HOLE_THRESHOLD = 0.9995;
 const BLACK_HOLE_DISTORTION = 0.03;
 
+// TODO Uniforms!
+const iResolution = vec2f(1920.0, 1080.0);
+const iTime = 0.0;
+
 // // http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl
 // vec3 hsv2rgb(vec3 c) {
 //     vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
@@ -23,51 +27,56 @@ const BLACK_HOLE_DISTORTION = 0.03;
 //     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 // }
 
-// // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
-// float rand(vec2 co){
-//     return fract(sin(dot(co.xy ,vec2(12.9898, 78.233))) * 43758.5453);
-// }
+// https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+fn rand(co: vec2f) -> f32 {
+    return fract(sin(dot(co.xy, vec2f(12.9898, 78.233))) * 43758.5453);
+}
 
-// vec3 getRayDirection(vec2 fragCoord, vec3 cameraDirection) {
-//     vec2 uv = fragCoord.xy / iResolution.xy;
+fn getRayDirection(frag_coord: vec2f, cameraDirection: vec3f) -> vec3f {
+    let uv = frag_coord.xy / iResolution.xy;
 
-//     const float screenWidth = 1.0;
-//     float originToScreen = screenWidth / 2.0 / tan(FIELD_OF_VIEW / 2.0);
+    let screenWidth = 1.0;
+    let originToScreen = screenWidth / 2.0 / tan(FIELD_OF_VIEW / 2.0);
 
-//     vec3 screenCenter = originToScreen * cameraDirection;
-//     vec3 baseX = normalize(cross(screenCenter, vec3(0, -1.0, 0)));
-//     vec3 baseY = normalize(cross(screenCenter, baseX));
+    let screenCenter = originToScreen * cameraDirection;
+    let baseX = normalize(cross(screenCenter, vec3f(0.0, -1.0, 0.0)));
+    let baseY = normalize(cross(screenCenter, baseX));
 
-//     return normalize(screenCenter + (uv.x - 0.5) * baseX + (uv.y - 0.5) * iResolution.y / iResolution.x * baseY);
-// }
+    return normalize(screenCenter + (uv.x - 0.5) * baseX + (uv.y - 0.5) * iResolution.y / iResolution.x * baseY);
+}
 
-// float getDistance(ivec3 chunkPath, vec3 localStart, vec3 localPosition) {
-//     return length(vec3(chunkPath) + localPosition - localStart);
-// }
+fn getDistance(chunkPath: vec3i, localStart: vec3f, localPosition: vec3f) -> f32 {
+    return length(vec3f(chunkPath) + localPosition - localStart);
+}
 
-// void move(inout vec3 localPosition, vec3 rayDirection, vec3 directionBound) {
-//     vec3 directionSign = sign(rayDirection);
-// 	vec3 amountVector = (directionBound - directionSign * localPosition) / abs(rayDirection);
+fn movePos(localPosition: ptr<function, vec3f>, rayDirection: vec3f, directionBound: vec3f) {
+    let directionSign = sign(rayDirection);
+    let amountVector = (directionBound - directionSign * *localPosition) / abs(rayDirection);
 
-//     float amount = min(amountVector.x, min(amountVector.y, amountVector.z));
+    let amount = min(amountVector.x, min(amountVector.y, amountVector.z));
 
-//     localPosition += amount * rayDirection;
-// }
+    (*localPosition) += amount * rayDirection;
+}
 
-// // Makes sure that each component of localPosition is >= 0 and <= 1
-// void moveInsideBox(inout vec3 localPosition, inout ivec3 chunk, vec3 directionSign, vec3 direcctionBound) {
-//     const float eps = 0.0000001;
-//     if (localPosition.x * directionSign.x >= direcctionBound.x - eps) {
-//         localPosition.x -= directionSign.x;
-//         chunk.x += int(directionSign.x);
-//     } else if (localPosition.y * directionSign.y >= direcctionBound.y - eps) {
-//         localPosition.y -= directionSign.y;
-//         chunk.y += int(directionSign.y);
-//     } else if (localPosition.z * directionSign.z >= direcctionBound.z - eps) {
-//         localPosition.z -= directionSign.z;
-//         chunk.z += int(directionSign.z);
-//     }
-// }
+// Makes sure that each component of localPosition is >= 0 and <= 1
+fn moveInsideBox(
+    localPosition: ptr<function, vec3f>,
+    chunk: ptr<function, vec3i>,
+    directionSign: vec3f,
+    direcctionBound: vec3f,
+) {
+    let eps = 0.0000001;
+    if ((*localPosition).x * directionSign.x >= direcctionBound.x - eps) {
+        (*localPosition).x -= directionSign.x;
+        (*chunk).x += i32(directionSign.x);
+    } else if ((*localPosition).y * directionSign.y >= direcctionBound.y - eps) {
+        (*localPosition).y -= directionSign.y;
+        (*chunk).y += i32(directionSign.y);
+    } else if ((*localPosition).z * directionSign.z >= direcctionBound.z - eps) {
+        (*localPosition).z -= directionSign.z;
+        (*chunk).z += i32(directionSign.z);
+    }
+}
 
 fn noise(a: vec2f) -> f32 {
     return perlinNoise3(vec3f(a, 0.0));
@@ -87,18 +96,18 @@ fn has_star(chunk: vec3i) -> bool {
 // }
 
 // vec3 getStarToRayVector(vec3 rayBase, vec3 rayDirection, vec3 starPosition) {
-// 	float r = (dot(rayDirection, starPosition) - dot(rayDirection, rayBase)) / dot(rayDirection, rayDirection);
+//     float r = (dot(rayDirection, starPosition) - dot(rayDirection, rayBase)) / dot(rayDirection, rayDirection);
 //     vec3 pointOnRay = rayBase + r * rayDirection;
 //     return pointOnRay - starPosition;
 // }
 
-// vec3 getStarPosition(ivec3 chunk, float starSize) {
-//     vec3 position = abs(vec3(rand(vec2(float(chunk.x) / float(chunk.y) + 0.24, float(chunk.y) / float(chunk.z) + 0.66)),
-//                              rand(vec2(float(chunk.x) / float(chunk.z) + 0.73, float(chunk.z) / float(chunk.y) + 0.45)),
-//                              rand(vec2(float(chunk.y) / float(chunk.x) + 0.12, float(chunk.y) / float(chunk.z) + 0.76))));
+fn getStarPosition(chunk: vec3i, starSize: f32) -> vec3f {
+    let position = abs(vec3(rand(vec2f(f32(chunk.x) / f32(chunk.y) + 0.24, f32(chunk.y) / f32(chunk.z) + 0.66)),
+                            rand(vec2f(f32(chunk.x) / f32(chunk.z) + 0.73, f32(chunk.z) / f32(chunk.y) + 0.45)),
+                            rand(vec2f(f32(chunk.y) / f32(chunk.x) + 0.12, f32(chunk.y) / f32(chunk.z) + 0.76))));
 
-//     return starSize * vec3(1.0) + (1.0 - 2.0 * starSize) * position;
-// }
+    return starSize * vec3(1.0) + (1.0 - 2.0 * starSize) * position;
+}
 
 // vec4 getNebulaColor(vec3 globalPosition, vec3 rayDirection) {
 //     vec3 color = vec3(0.0);
@@ -109,8 +118,8 @@ fn has_star(chunk: vec3i) -> bool {
 
 //     const int steps = 4;
 //     for (int i = 0; i <= steps; i++) {
-//     	vec3 noiseeval = globalPosition + rayDirection * ((1.0 - fract(globalPosition.z / layerDistance) + float(i)) * layerDistance / rayDirection.z);
-//     	noiseeval.xy += noiseeval.z;
+//         vec3 noiseeval = globalPosition + rayDirection * ((1.0 - fract(globalPosition.z / layerDistance) + float(i)) * layerDistance / rayDirection.z);
+//         noiseeval.xy += noiseeval.z;
 
 
 //         float value = 0.06 * texture(iChannel0, fract(noiseeval.xy / 60.0)).r;
@@ -138,7 +147,7 @@ fn has_star(chunk: vec3i) -> bool {
 //     if (value.x > 0.0) {
 //         return atan(value.y / value.x);
 //     } else if (value.x == 0.0) {
-//     	return 3.14592 * 0.5 * sign(value.y);
+//         return 3.14592 * 0.5 * sign(value.y);
 //     } else if (value.y >= 0.0) {
 //         return atan(value.y / value.x) + 3.141592;
 //     } else {
@@ -151,7 +160,7 @@ fn has_star(chunk: vec3i) -> bool {
 //     const float DISTANCE_NEAR = 15.0;
 
 //     if (viewDistance > DISTANCE_FAR) {
-//     	return vec3(1.0);
+//         return vec3(1.0);
 //     }
 
 //     float fadeToWhite = max(0.0, (viewDistance - DISTANCE_NEAR) / (DISTANCE_FAR - DISTANCE_NEAR));
@@ -164,82 +173,85 @@ fn has_star(chunk: vec3i) -> bool {
 // }
 
 // vec4 blendColors(vec4 front, vec4 back) {
-//   	return vec4(mix(back.rgb, front.rgb, front.a / (front.a + back.a)), front.a + back.a - front.a * back.a);
+//       return vec4(mix(back.rgb, front.rgb, front.a / (front.a + back.a)), front.a + back.a - front.a * back.a);
 // }
 
-// void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-//     vec3 movementDirection = normalize(vec3(0.01, 0.0, 1.0));
+// fn mainImage(frag_coord: vec4f) -> @location(0) vec4f {
+fn mainImage(frag_coord: vec4f) -> vec4f {
+    let movementDirection = normalize(vec3f(0.01, 0.0, 1.0));
 
-//     vec3 rayDirection = getRayDirection(fragCoord, movementDirection);
-//     vec3 directionSign = sign(rayDirection);
-//     vec3 directionBound = vec3(0.5) + 0.5 * directionSign;
+    let rayDirection = getRayDirection(frag_coord.xy, movementDirection);
+    let directionSign = sign(rayDirection);
+    let directionBound = vec3f(0.5) + 0.5 * directionSign;
 
-//     vec3 globalPosition = vec3(3.14159, 3.14159, 0.0) + (iTime + 1000.0) * FLIGHT_SPEED * movementDirection;
-//     ivec3 chunk = ivec3(globalPosition);
-//     vec3 localPosition = mod(globalPosition, 1.0);
-//     moveInsideBox(localPosition, chunk, directionSign, directionBound);
+    let globalPosition = vec3f(3.14159, 3.14159, 0.0) + (iTime + 1000.0) * FLIGHT_SPEED * movementDirection;
+    var chunk = vec3i(globalPosition);
+    var localPosition = globalPosition % 1.0;
+    moveInsideBox(&localPosition, &chunk, directionSign, directionBound);
 
-//     ivec3 startChunk = chunk;
-//     vec3 localStart = localPosition;
+    let startChunk = chunk;
+    let localStart = localPosition;
 
-//     fragColor = vec4(0.0);
+    var frag_color = vec4f(0.0);
 
-//     for (int i = 0; i < 200; i++) {
-//         move(localPosition, rayDirection, directionBound);
-//         moveInsideBox(localPosition, chunk, directionSign, directionBound);
+    for (var i = 0; i < 200; i += 1) {
+        movePos(&localPosition, rayDirection, directionBound);
+        moveInsideBox(&localPosition, &chunk, directionSign, directionBound);
 
-//         if (hasStar(chunk)) {
-//             vec3 starPosition = getStarPosition(chunk, 0.5 * STAR_SIZE);
-// 			float currentDistance = getDistance(chunk - startChunk, localStart, starPosition);
-//             if (currentDistance > DRAW_DISTANCE && false) {
-//                 break;
-//             }
+        if (has_star(chunk)) {
+            let starPosition = getStarPosition(chunk, 0.5 * STAR_SIZE);
+            let currentDistance = getDistance(chunk - startChunk, localStart, starPosition);
+            if (currentDistance > DRAW_DISTANCE && false) {
+                break;
+            }
 
-//             // This vector points from the center of the star to the closest point on the ray (orthogonal to the ray)
-//             vec3 starToRayVector = getStarToRayVector(localPosition, rayDirection, starPosition);
-//             // Distance between ray and star
-//             float distanceToStar = length(starToRayVector);
-//             distanceToStar *= 2.0;
+    //         // This vector points from the center of the star to the closest point on the ray (orthogonal to the ray)
+    //         vec3 starToRayVector = getStarToRayVector(localPosition, rayDirection, starPosition);
+    //         // Distance between ray and star
+    //         float distanceToStar = length(starToRayVector);
+    //         distanceToStar *= 2.0;
 
-//             if (distanceToStar < STAR_SIZE) {
-//                 float starMaxBrightness = clamp((DRAW_DISTANCE - currentDistance) / FADEOUT_DISTANCE, 0.001, 1.0);
+    //         if (distanceToStar < STAR_SIZE) {
+    //             float starMaxBrightness = clamp((DRAW_DISTANCE - currentDistance) / FADEOUT_DISTANCE, 0.001, 1.0);
 
-//                 float starColorSeed = (float(chunk.x) + 13.0 * float(chunk.y) + 7.0 * float(chunk.z)) * 0.00453;
-//                 if (distanceToStar < STAR_SIZE * STAR_CORE_SIZE) {
-//                     // This vector points from the center of the star to the point of the star sphere surface that this ray hits
-//             		vec3 starSurfaceVector = normalize(starToRayVector + rayDirection * sqrt(pow(STAR_CORE_SIZE * STAR_SIZE, 2.0) - pow(distanceToStar, 2.0)));
+    //             float starColorSeed = (float(chunk.x) + 13.0 * float(chunk.y) + 7.0 * float(chunk.z)) * 0.00453;
+    //             if (distanceToStar < STAR_SIZE * STAR_CORE_SIZE) {
+    //                 // This vector points from the center of the star to the point of the star sphere surface that this ray hits
+    //                 vec3 starSurfaceVector = normalize(starToRayVector + rayDirection * sqrt(pow(STAR_CORE_SIZE * STAR_SIZE, 2.0) - pow(distanceToStar, 2.0)));
 
-//                     fragColor = blendColors(fragColor, vec4(getStarColor(starSurfaceVector, starColorSeed, currentDistance), starMaxBrightness));
-//                     break;
-//                 } else {
-//                     float localStarDistance = ((distanceToStar / STAR_SIZE) - STAR_CORE_SIZE) / (1.0 - STAR_CORE_SIZE);
-//                     vec4 glowColor = getStarGlowColor(localStarDistance, atan2(starToRayVector.xy), starColorSeed);
-//                     glowColor.a *= starMaxBrightness;
-//                 	fragColor = blendColors(fragColor, glowColor);
-//                 }
-//             }
-//         } else if (hasBlackHole(chunk)) {
-//             const vec3 blackHolePosition = vec3(0.5);
-// 			float currentDistance = getDistance(chunk - startChunk, localStart, blackHolePosition);
-//             float fadeout = min(1.0, (DRAW_DISTANCE - currentDistance) / FADEOUT_DISTANCE);
+    //                 frag_color = blendColors(frag_color, vec4(getStarColor(starSurfaceVector, starColorSeed, currentDistance), starMaxBrightness));
+    //                 break;
+    //             } else {
+    //                 float localStarDistance = ((distanceToStar / STAR_SIZE) - STAR_CORE_SIZE) / (1.0 - STAR_CORE_SIZE);
+    //                 vec4 glowColor = getStarGlowColor(localStarDistance, atan2(starToRayVector.xy), starColorSeed);
+    //                 glowColor.a *= starMaxBrightness;
+    //                 frag_color = blendColors(frag_color, glowColor);
+    //             }
+    //         }
+        }
+    //     } else if (hasBlackHole(chunk)) {
+    //         const vec3 blackHolePosition = vec3(0.5);
+    //         float currentDistance = getDistance(chunk - startChunk, localStart, blackHolePosition);
+    //         float fadeout = min(1.0, (DRAW_DISTANCE - currentDistance) / FADEOUT_DISTANCE);
 
-//             // This vector points from the center of the black hole to the closest point on the ray (orthogonal to the ray)
-//             vec3 coreToRayVector = getStarToRayVector(localPosition, rayDirection, blackHolePosition);
-//             float distanceToCore = length(coreToRayVector);
-//             if (distanceToCore < BLACK_HOLE_CORE_RADIUS * 0.5) {
-//                 fragColor = blendColors(fragColor, vec4(vec3(0.0), fadeout));
-//                 break;
-//             } else if (distanceToCore < 0.5) {
-//             	rayDirection = normalize(rayDirection - fadeout * (BLACK_HOLE_DISTORTION / distanceToCore - BLACK_HOLE_DISTORTION / 0.5) * coreToRayVector / distanceToCore);
-//             }
-//         }
+    //         // This vector points from the center of the black hole to the closest point on the ray (orthogonal to the ray)
+    //         vec3 coreToRayVector = getStarToRayVector(localPosition, rayDirection, blackHolePosition);
+    //         float distanceToCore = length(coreToRayVector);
+    //         if (distanceToCore < BLACK_HOLE_CORE_RADIUS * 0.5) {
+    //             frag_color = blendColors(frag_color, vec4(vec3(0.0), fadeout));
+    //             break;
+    //         } else if (distanceToCore < 0.5) {
+    //             rayDirection = normalize(rayDirection - fadeout * (BLACK_HOLE_DISTORTION / distanceToCore - BLACK_HOLE_DISTORTION / 0.5) * coreToRayVector / distanceToCore);
+    //         }
+    //     }
 
-//         if (length(vec3(chunk - startChunk)) > DRAW_DISTANCE) {
-//             break;
-//         }
-//     }
+    //     if (length(vec3(chunk - startChunk)) > DRAW_DISTANCE) {
+    //         break;
+    //     }
+    }
 
-//     if (fragColor.a < 1.0) {
-//     	fragColor = blendColors(fragColor, getNebulaColor(globalPosition, rayDirection));
-//     }
-// }
+    if (frag_color.a < 1.0) {
+        // frag_color = blendColors(frag_color, getNebulaColor(globalPosition, rayDirection));
+    }
+    return frag_color;
+}
