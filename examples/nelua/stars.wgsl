@@ -95,11 +95,11 @@ fn has_star(chunk: vec3i) -> bool {
 //     return rand(0.0001 * vec2(chunk.xy) + 0.002 * vec2(chunk.yz)) > BLACK_HOLE_THRESHOLD;
 // }
 
-// vec3 getStarToRayVector(vec3 rayBase, vec3 rayDirection, vec3 starPosition) {
-//     float r = (dot(rayDirection, starPosition) - dot(rayDirection, rayBase)) / dot(rayDirection, rayDirection);
-//     vec3 pointOnRay = rayBase + r * rayDirection;
-//     return pointOnRay - starPosition;
-// }
+fn getStarToRayVector(rayBase: vec3f, rayDirection: vec3f, starPosition: vec3f) -> vec3f {
+    let r = (dot(rayDirection, starPosition) - dot(rayDirection, rayBase)) / dot(rayDirection, rayDirection);
+    let pointOnRay = rayBase + r * rayDirection;
+    return pointOnRay - starPosition;
+}
 
 fn getStarPosition(chunk: vec3i, starSize: f32) -> vec3f {
     let position = abs(vec3(rand(vec2f(f32(chunk.x) / f32(chunk.y) + 0.24, f32(chunk.y) / f32(chunk.z) + 0.66)),
@@ -143,41 +143,41 @@ fn getStarPosition(chunk: vec3i, starSize: f32) -> vec3f {
 //     return vec4(hsv2rgb(vec3(hue, 0.3, 1.0)), 0.4 * pow(progress, 2.0) * mix(pow(abs(sin(angle * 2.5)), 8.0), 1.0, progress));
 // }
 
-// float atan2(vec2 value) {
-//     if (value.x > 0.0) {
-//         return atan(value.y / value.x);
-//     } else if (value.x == 0.0) {
-//         return 3.14592 * 0.5 * sign(value.y);
-//     } else if (value.y >= 0.0) {
-//         return atan(value.y / value.x) + 3.141592;
-//     } else {
-//         return atan(value.y / value.x) - 3.141592;
-//     }
-// }
+fn atan2f(value: vec2f) -> f32 {
+    // if (value.x > 0.0) {
+    //     return atan(value.y / value.x);
+    // } else if (value.x == 0.0) {
+    //     return 3.14592 * 0.5 * sign(value.y);
+    // } else if (value.y >= 0.0) {
+    //     return atan(value.y / value.x) + 3.141592;
+    // } else {
+    //     return atan(value.y / value.x) - 3.141592;
+    // }
+    return atan2(value.y, value.x);
+}
 
-// vec3 getStarColor(vec3 starSurfaceLocation, float seed, float viewDistance) {
-//     const float DISTANCE_FAR = 20.0;
-//     const float DISTANCE_NEAR = 15.0;
+fn getStarColor(starSurfaceLocation: vec3f, seed: f32, viewDistance: f32) -> vec3f {
+    let DISTANCE_FAR = 20.0;
+    let DISTANCE_NEAR = 15.0;
 
-//     if (viewDistance > DISTANCE_FAR) {
-//         return vec3(1.0);
-//     }
+    if (viewDistance > DISTANCE_FAR) {
+        return vec3f(1.0);
+    }
 
-//     float fadeToWhite = max(0.0, (viewDistance - DISTANCE_NEAR) / (DISTANCE_FAR - DISTANCE_NEAR));
+    let fadeToWhite = max(0.0, (viewDistance - DISTANCE_NEAR) / (DISTANCE_FAR - DISTANCE_NEAR));
 
-//     vec3 coordinate = vec3(acos(starSurfaceLocation.y), atan2(starSurfaceLocation.xz), seed);
+    let coordinate = vec3f(acos(starSurfaceLocation.y), atan2f(starSurfaceLocation.xz), seed);
 
-//     float progress = pow(texture(iChannel0, fract(0.3 * coordinate.xy + seed * vec2(1.1))).r, 4.0);
+    let progress = pow(noise(fract(0.3 * coordinate.xy + seed * vec2f(1.1))), 4.0);
 
-//     return mix(mix(vec3(1.0, 0.98, 0.9), vec3(1.0, 0.627, 0.01), progress), vec3(1.0), fadeToWhite);
-// }
+    return mix(mix(vec3f(1.0, 0.98, 0.9), vec3f(1.0, 0.627, 0.01), progress), vec3f(1.0), fadeToWhite);
+}
 
-// vec4 blendColors(vec4 front, vec4 back) {
-//       return vec4(mix(back.rgb, front.rgb, front.a / (front.a + back.a)), front.a + back.a - front.a * back.a);
-// }
+fn blendColors(front: vec4f, back: vec4f) -> vec4f {
+      return vec4f(mix(back.rgb, front.rgb, front.a / (front.a + back.a)), front.a + back.a - front.a * back.a);
+}
 
-// fn mainImage(frag_coord: vec4f) -> @location(0) vec4f {
-fn mainImage(frag_coord: vec4f) -> vec4f {
+fn starfield(frag_coord: vec4f) -> vec4f {
     let movementDirection = normalize(vec3f(0.01, 0.0, 1.0));
 
     let rayDirection = getRayDirection(frag_coord.xy, movementDirection);
@@ -205,29 +205,29 @@ fn mainImage(frag_coord: vec4f) -> vec4f {
                 break;
             }
 
-    //         // This vector points from the center of the star to the closest point on the ray (orthogonal to the ray)
-    //         vec3 starToRayVector = getStarToRayVector(localPosition, rayDirection, starPosition);
-    //         // Distance between ray and star
-    //         float distanceToStar = length(starToRayVector);
-    //         distanceToStar *= 2.0;
+            // This vector points from the center of the star to the closest point on the ray (orthogonal to the ray)
+            let starToRayVector = getStarToRayVector(localPosition, rayDirection, starPosition);
+            // Distance between ray and star
+            var distanceToStar = length(starToRayVector);
+            distanceToStar *= 2.0;
 
-    //         if (distanceToStar < STAR_SIZE) {
-    //             float starMaxBrightness = clamp((DRAW_DISTANCE - currentDistance) / FADEOUT_DISTANCE, 0.001, 1.0);
+            if (distanceToStar < STAR_SIZE) {
+                let starMaxBrightness = clamp((DRAW_DISTANCE - currentDistance) / FADEOUT_DISTANCE, 0.001, 1.0);
 
-    //             float starColorSeed = (float(chunk.x) + 13.0 * float(chunk.y) + 7.0 * float(chunk.z)) * 0.00453;
-    //             if (distanceToStar < STAR_SIZE * STAR_CORE_SIZE) {
-    //                 // This vector points from the center of the star to the point of the star sphere surface that this ray hits
-    //                 vec3 starSurfaceVector = normalize(starToRayVector + rayDirection * sqrt(pow(STAR_CORE_SIZE * STAR_SIZE, 2.0) - pow(distanceToStar, 2.0)));
+                let starColorSeed = (f32(chunk.x) + 13.0 * f32(chunk.y) + 7.0 * f32(chunk.z)) * 0.00453;
+                if (distanceToStar < STAR_SIZE * STAR_CORE_SIZE) {
+                    // This vector points from the center of the star to the point of the star sphere surface that this ray hits
+                    let starSurfaceVector = normalize(starToRayVector + rayDirection * sqrt(pow(STAR_CORE_SIZE * STAR_SIZE, 2.0) - pow(distanceToStar, 2.0)));
 
-    //                 frag_color = blendColors(frag_color, vec4(getStarColor(starSurfaceVector, starColorSeed, currentDistance), starMaxBrightness));
-    //                 break;
-    //             } else {
-    //                 float localStarDistance = ((distanceToStar / STAR_SIZE) - STAR_CORE_SIZE) / (1.0 - STAR_CORE_SIZE);
-    //                 vec4 glowColor = getStarGlowColor(localStarDistance, atan2(starToRayVector.xy), starColorSeed);
-    //                 glowColor.a *= starMaxBrightness;
-    //                 frag_color = blendColors(frag_color, glowColor);
-    //             }
-    //         }
+                    frag_color = blendColors(frag_color, vec4f(getStarColor(starSurfaceVector, starColorSeed, currentDistance), starMaxBrightness));
+                    break;
+                } else {
+                    let localStarDistance = ((distanceToStar / STAR_SIZE) - STAR_CORE_SIZE) / (1.0 - STAR_CORE_SIZE);
+                    // let glowColor = getStarGlowColor(localStarDistance, atan2(starToRayVector.xy), starColorSeed);
+                    // glowColor.a *= starMaxBrightness;
+                    // frag_color = blendColors(frag_color, glowColor);
+                }
+            }
         }
     //     } else if (hasBlackHole(chunk)) {
     //         const vec3 blackHolePosition = vec3(0.5);
@@ -245,9 +245,9 @@ fn mainImage(frag_coord: vec4f) -> vec4f {
     //         }
     //     }
 
-    //     if (length(vec3(chunk - startChunk)) > DRAW_DISTANCE) {
-    //         break;
-    //     }
+        if (length(vec3f(chunk - startChunk)) > DRAW_DISTANCE) {
+            break;
+        }
     }
 
     if (frag_color.a < 1.0) {

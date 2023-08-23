@@ -20,6 +20,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     return vec4f(pow(color, vec3f(2.2)), 1.0);
 }
 
+fn perlin3_plus(x: vec3f) -> f32 {
+    // TODO Use rotations like here? https://www.shadertoy.com/view/XsX3zB
+    return 0.0
+        + 0.3 * perlinNoise3(1.0 * x)
+        + 0.7 * perlinNoise3(2.0 * x);
+        // + 0.2 * perlinNoise3(4.0 * x)
+        // + 0.1 * perlinNoise3(8.0 * x);
+}
+
 // Perlin Nose.
 // MIT License. © Stefan Gustavson, Munrocket
 //

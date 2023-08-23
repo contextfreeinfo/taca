@@ -26,7 +26,8 @@ local vertexBufferLayout: WGPUVertexBufferLayout = {
 
 local wgsl = #[
   readAll("shader.wgsl") ..
-  readAll("stars.wgsl")
+  readAll("stars.wgsl") ..
+  ""
 ]#;
 
 local shader = taca_gpu_shaderCreate(wgsl)
