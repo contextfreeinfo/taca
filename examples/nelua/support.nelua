@@ -65,6 +65,19 @@ global WGPUVertexBufferLayout = @record{
   attributes: *[0]WGPUVertexAttribute,
 }
 
+global taca_KeyCode = @enum(uint32) {
+    Undefined = 0,
+    Left = 1,
+    Up = 2,
+    Right = 3,
+    Down = 4,
+}
+
+global taca_KeyEvent = @record{
+    code: taca_KeyCode,
+    pressed: boolean,
+}
+
 global taca_WindowEventType = @enum(uint32) {
     Close = 1,
     Key = 2,
@@ -72,16 +85,24 @@ global taca_WindowEventType = @enum(uint32) {
     Resize = 4,
 }
 
-global function taca_gpu_draw(buffer: pointer): void
+global function taca_gpu_bufferWrite(buffer: pointer, data: pointer)
+  <cimport, cattribute 'import_name("taca_gpu_bufferWrite")'>
+end
+
+global function taca_gpu_draw(buffer: pointer)
   <cimport, cattribute 'import_name("taca_gpu_draw")'>
 end
 
-global function taca_gpu_present(): void
+global function taca_gpu_present()
   <cimport, cattribute 'import_name("taca_gpu_present")'>
 end
 
 global function taca_gpu_shaderCreate(wgsl: cstring): pointer
   <cimport, cattribute 'import_name("taca_gpu_shaderCreate")'>
+end
+
+global function taca_gpu_uniformBufferCreate(size: csize): pointer
+  <cimport, cattribute 'import_name("taca_gpu_uniformBufferCreate")'>
 end
 
 global function taca_gpu_vertexBufferCreate(
@@ -92,9 +113,13 @@ global function taca_gpu_vertexBufferCreate(
   <cimport, cattribute 'import_name("taca_gpu_vertexBufferCreate")'>
 end
 
+global function taca_keyEvent(): taca_KeyEvent
+  <cimport, cattribute 'import_name("taca_keyEvent")'>
+end
+
 global function taca_windowListen(
   callback: function(eventType: taca_WindowEventType, userdata: pointer),
   userdata: pointer
-): void
+)
   <cimport, cattribute 'import_name("taca_windowListen")'>
 end

@@ -2,6 +2,13 @@
 -- gc:init(nilptr)
 require "support"
 
+local Uniforms = @record{
+  position: [3]float32,
+  pad: byte,
+}
+local uniforms: Uniforms
+local uniformBuffer = taca_gpu_uniformBufferCreate(#Uniforms)
+
 local vertexData: []float32 = {
   -1, -1,
   1, -1,
@@ -36,7 +43,27 @@ local vertexBuffer = taca_gpu_vertexBufferCreate(
 )
 taca_windowListen(nilptr, nilptr)
 
-local function draw()
+local State = @record{
+  velocity: [3]float32,
+}
+local state: State
+
+local function control()
+  local event = taca_keyEvent()
+  local speed = event.pressed and 10.0 or 0.0
+  switch event.code do
+    case taca_KeyCode.Left then state.velocity[0] = -speed
+    case taca_KeyCode.Right then state.velocity[0] = speed
+    case taca_KeyCode.Up then state.velocity[1] = -speed
+    case taca_KeyCode.Down then state.velocity[1] = speed
+  end
+end
+
+local function update()
+  for i = 0,<3 do
+    uniforms.position[i] = uniforms.position[i] + state.velocity[i]
+  end
+  taca_gpu_bufferWrite(uniformBuffer, &uniforms)
   taca_gpu_draw(vertexBuffer)
   taca_gpu_present()
 end
@@ -47,8 +74,8 @@ local function windowListen(
 )
   <cexport, codename "windowListen">
   switch eventType do
-  case taca_WindowEventType.Redraw then
-    draw()
+    case taca_WindowEventType.Key then control()
+    case taca_WindowEventType.Redraw then update()
   end
   -- Comment from code in wasm4:
   -- We must always manually call garbage collection in the end of every frame.

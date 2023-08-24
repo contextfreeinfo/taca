@@ -1,3 +1,9 @@
+struct Uniforms {
+    position: vec3f,
+}
+
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
 struct VertexInput {
     @location(0) position: vec2f,
 };
@@ -15,8 +21,17 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    let noise = pow(perlinNoise3((vec3f(in.position.xy, 0.0) - 1900.0) * 0.01), 10.0);
+    let noise = pow(
+        perlinNoise3(
+            0.01 * (
+                vec3f(in.position.xy, 0.0) +
+                uniforms.position.xzy * vec3f(1.0, 1.0, 0.1)
+            ),
+        ),
+        10.0,
+    );
     let color = vec3f(abs(in.position.xy) * 0.001, 0.5) * noise;
+    // let color = starfield(in.position).rgb;
     return vec4f(pow(color, vec3f(2.2)), 1.0);
 }
 
