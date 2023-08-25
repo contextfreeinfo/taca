@@ -12,6 +12,15 @@ struct VertexOutput {
     @builtin(position) position: vec4f,
 };
 
+fn noise3_plus(x: vec3f) -> f32 {
+    // TODO Use rotations like here? https://www.shadertoy.com/view/XsX3zB
+    return 0.0
+        + 0.5 * snoise(1.0 * x)
+        + 0.3 * snoise(2.0 * x)
+        + 0.2 * snoise(4.0 * x);
+        // + 0.1 * snoise(8.0 * x);
+}
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -38,13 +47,4 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     // let color = vec3f(rg, 1.0 - min(rg.r + rg.g, 1.0)) * noise;
     // let color = starfield(in.position).rgb;
     return vec4f(pow(color, vec3f(2.2)), 1.0);
-}
-
-fn noise3_plus(x: vec3f) -> f32 {
-    // TODO Use rotations like here? https://www.shadertoy.com/view/XsX3zB
-    return 0.0
-        + 0.5 * snoise(1.0 * x)
-        + 0.3 * snoise(2.0 * x)
-        + 0.2 * snoise(4.0 * x);
-        // + 0.1 * snoise(8.0 * x);
 }

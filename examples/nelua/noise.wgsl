@@ -77,8 +77,8 @@ fn snoise(v: vec3f) -> f32 {
 
   //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
   //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
-  let s0 = floor(b0)*2.0 + 1.0;
-  let s1 = floor(b1)*2.0 + 1.0;
+  let s0 = floor(b0) * 2.0 + 1.0;
+  let s1 = floor(b1) * 2.0 + 1.0;
   let sh = -step(h, vec4(0.0));
 
   let a0 = b0.xzyw + s0.xzyw*sh.xxyy;

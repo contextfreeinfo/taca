@@ -32,6 +32,7 @@ local vertexBufferLayout: WGPUVertexBufferLayout = {
 }
 
 local wgsl = #[
+  -- readAll("shader.opt.wgsl") ..
   readAll("shader.wgsl") ..
   readAll("noise.wgsl") ..
   ""

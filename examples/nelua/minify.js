@@ -1,7 +1,10 @@
 const fs = require("fs");
 const shaderkit = require("shaderkit");
-function minify(name) {
-    const code = fs.readFileSync(`${name}.wgsl`, "utf8");
+/** @param {Array<string>} names */
+function minify(names) {
+    const code = names.map(
+        (name) => fs.readFileSync(`${name}.wgsl`, "utf8")
+    ).join("\n");
     const shrunk = shaderkit.minify(code, {
         mangle: true,
         mangleExternals: true,
@@ -10,6 +13,7 @@ function minify(name) {
             vs_main: "vs_main",
         })),
     });
-    fs.writeFileSync(`${name}.opt.wgsl`, shrunk);
+    const repaired = shrunk.replace(/([\d\w])-(\d)/g, "$1 - $2");
+    fs.writeFileSync(`${names.at(-1)}.opt.wgsl`, repaired);
 }
-minify("shader");
+minify(["noise", "shader"]);
