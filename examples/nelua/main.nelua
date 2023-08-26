@@ -61,7 +61,7 @@ local function control()
 end
 
 local function update()
-  for i = 0,<3 do
+  for i = 0, < #uniforms.position do
     uniforms.position[i] = uniforms.position[i] + state.velocity[i]
   end
   taca_gpu_bufferWrite(uniformBuffer, &uniforms)

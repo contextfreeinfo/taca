@@ -46,9 +46,10 @@ pub enum GpuBufferDetail {
 
 #[derive(Debug)]
 pub struct WgpuVertexBufferLayout {
-    pub array_stride: u64,
-    pub step_mode: native::WGPUVertexStepMode,
-    pub attributes: Vec<native::WGPUVertexAttribute>,
+    array_stride: u64,
+    step_mode: native::WGPUVertexStepMode,
+    attributes: Vec<native::WGPUVertexAttribute>,
+    slot: u32,
 }
 
 #[derive(Default)]
@@ -442,10 +443,12 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
         .clone()
         .iter()
         .filter(|it| matches!(it.lock().unwrap().detail, GpuBufferDetail::Vertex { .. }))
-        .map(|it| {
-            let buffer = it.lock().unwrap();
+        .enumerate()
+        .map(|(slot, buffer)| {
+            let buffer = &mut buffer.lock().unwrap();
             let layout =
-                extract_enum_value!(&buffer.detail, GpuBufferDetail::Vertex { layout } => layout);
+                extract_enum_value!(&mut buffer.detail, GpuBufferDetail::Vertex { layout } => layout);
+            layout.slot = slot as u32;
             native::WGPUVertexBufferLayout {
                 arrayStride: layout.array_stride,
                 stepMode: layout.step_mode,
@@ -656,16 +659,17 @@ pub fn gpu_draw_set_buffer(system: &System, buffer: &GpuBuffer) {
         GpuBufferDetail::Uniform => {}
         GpuBufferDetail::Vertex { layout } => {
             // TODO Is this slot correct? Is this slow?
-            let slot = layout
-                .attributes
-                .iter()
-                .map(|it| it.shaderLocation)
-                .min()
-                .unwrap();
+            // See:
+            // https://docs.rs/wgpu/latest/wgpu/struct.RenderPass.html#method.set_vertex_buffer
+            // https://docs.rs/wgpu/latest/wgpu/struct.VertexState.html#structfield.buffers
+            // https://gpuweb.github.io/gpuweb/#dictdef-gpuvertexstate
+            // https://gpuweb.github.io/gpuweb/#dictdef-gpurenderpipelinedescriptor
+            // https://www.w3.org/TR/webgpu/#dom-gpurendercommandsmixin-setvertexbuffer-slot-buffer-offset-size-slot
+            // https://www.w3.org/TR/webgpu/#dom-gpurendercommandsmixin-vertex_buffers-slot
             unsafe {
                 wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
                     system.render_pass.0,
-                    slot,
+                    layout.slot,
                     buffer.buffer.0,
                     0,
                     buffer.size as u64,
@@ -820,6 +824,7 @@ pub fn taca_gpu_vertex_buffer_create(
         array_stride: layout.array_stride,
         step_mode: layout.step_mode,
         attributes: layout.attributes_vec(&view),
+        slot: 0,
     };
     system.gpu.buffers.push(Arc::new(Mutex::new(GpuBuffer {
         buffer: Default::default(),
