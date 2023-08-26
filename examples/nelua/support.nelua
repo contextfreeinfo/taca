@@ -101,7 +101,7 @@ global function taca_gpu_shaderCreate(wgsl: cstring): pointer
   <cimport, cattribute 'import_name("taca_gpu_shaderCreate")'>
 end
 
-global function taca_gpu_uniformBufferCreate(size: csize): pointer
+global function taca_gpu_uniformBufferCreate(size: csize, binding: uint32): pointer
   <cimport, cattribute 'import_name("taca_gpu_uniformBufferCreate")'>
 end
 

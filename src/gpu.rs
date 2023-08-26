@@ -38,7 +38,9 @@ pub enum GpuBufferDetail {
         format: native::WGPUIndexFormat,
         vertex: Arc<Mutex<GpuBuffer>>,
     },
-    Uniform,
+    Uniform {
+        binding: u32,
+    },
     Vertex {
         layout: WgpuVertexBufferLayout,
     },
@@ -49,6 +51,13 @@ pub struct WgpuVertexBufferLayout {
     array_stride: u64,
     step_mode: native::WGPUVertexStepMode,
     attributes: Vec<native::WGPUVertexAttribute>,
+    // On slot:
+    // https://docs.rs/wgpu/latest/wgpu/struct.RenderPass.html#method.set_vertex_buffer
+    // https://docs.rs/wgpu/latest/wgpu/struct.VertexState.html#structfield.buffers
+    // https://gpuweb.github.io/gpuweb/#dictdef-gpuvertexstate
+    // https://gpuweb.github.io/gpuweb/#dictdef-gpurenderpipelinedescriptor
+    // https://www.w3.org/TR/webgpu/#dom-gpurendercommandsmixin-setvertexbuffer-slot-buffer-offset-size-slot
+    // https://www.w3.org/TR/webgpu/#dom-gpurendercommandsmixin-vertex_buffers-slot
     slot: u32,
 }
 
@@ -109,7 +118,7 @@ fn check_limits(system: &mut System) -> bool {
         .gpu
         .buffers
         .iter()
-        .filter(|it| matches!(it.lock().unwrap().detail, GpuBufferDetail::Uniform));
+        .filter(|it| matches!(it.lock().unwrap().detail, GpuBufferDetail::Uniform { .. }));
     let uniform_buffer_count = uniform_buffers.clone().count();
     let max_uniform_buffer_binding_size: usize = uniform_buffers
         .clone()
@@ -238,7 +247,7 @@ fn update_buffers(system: &mut System, need_all: bool) {
                         usage: native::WGPUBufferUsage_CopyDst
                             | match buffer.detail {
                                 GpuBufferDetail::Index { .. } => native::WGPUBufferUsage_Index,
-                                GpuBufferDetail::Uniform => native::WGPUBufferUsage_Uniform,
+                                GpuBufferDetail::Uniform { .. } => native::WGPUBufferUsage_Uniform,
                                 GpuBufferDetail::Vertex { .. } => native::WGPUBufferUsage_Vertex,
                             },
                         size: buffer.size as u64,
@@ -333,11 +342,10 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
     }
     let mut bind_group_layout_entries = Vec::<native::WGPUBindGroupLayoutEntry>::new();
     let mut bind_group_entries = Vec::<native::WGPUBindGroupEntry>::new();
-    let mut binding = 0u32;
     for buffer in &system.gpu.buffers {
         let buffer = buffer.lock().unwrap();
         let bind_group_layout_entry = match buffer.detail {
-            GpuBufferDetail::Uniform => native::WGPUBindGroupLayoutEntry {
+            GpuBufferDetail::Uniform { binding } => native::WGPUBindGroupLayoutEntry {
                 nextInChain: null(),
                 binding,
                 visibility: native::WGPUShaderStage_Vertex | native::WGPUShaderStage_Fragment,
@@ -379,7 +387,7 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
             _ => continue,
         };
         let bind_group_entry = match buffer.detail {
-            GpuBufferDetail::Uniform => native::WGPUBindGroupEntry {
+            GpuBufferDetail::Uniform { binding } => native::WGPUBindGroupEntry {
                 nextInChain: null(),
                 binding,
                 buffer: buffer.buffer.0,
@@ -396,7 +404,6 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
         };
         bind_group_layout_entries.push(bind_group_layout_entry);
         bind_group_entries.push(bind_group_entry);
-        binding += 1;
     }
     // TODO Store this for later.
     let layout = unsafe {
@@ -656,26 +663,16 @@ pub fn gpu_draw_set_buffer(system: &System, buffer: &GpuBuffer) {
                 );
             }
         }
-        GpuBufferDetail::Uniform => {}
-        GpuBufferDetail::Vertex { layout } => {
-            // TODO Is this slot correct? Is this slow?
-            // See:
-            // https://docs.rs/wgpu/latest/wgpu/struct.RenderPass.html#method.set_vertex_buffer
-            // https://docs.rs/wgpu/latest/wgpu/struct.VertexState.html#structfield.buffers
-            // https://gpuweb.github.io/gpuweb/#dictdef-gpuvertexstate
-            // https://gpuweb.github.io/gpuweb/#dictdef-gpurenderpipelinedescriptor
-            // https://www.w3.org/TR/webgpu/#dom-gpurendercommandsmixin-setvertexbuffer-slot-buffer-offset-size-slot
-            // https://www.w3.org/TR/webgpu/#dom-gpurendercommandsmixin-vertex_buffers-slot
-            unsafe {
-                wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
-                    system.render_pass.0,
-                    layout.slot,
-                    buffer.buffer.0,
-                    0,
-                    buffer.size as u64,
-                );
-            }
-        }
+        GpuBufferDetail::Vertex { layout } => unsafe {
+            wgpu_native::command::wgpuRenderPassEncoderSetVertexBuffer(
+                system.render_pass.0,
+                layout.slot,
+                buffer.buffer.0,
+                0,
+                buffer.size as u64,
+            );
+        },
+        _ => {}
     }
 }
 
@@ -714,7 +711,6 @@ pub fn taca_gpu_draw(mut env: FunctionEnvMut<System>, buffer: u32) {
                 );
             }
         }
-        GpuBufferDetail::Uniform => {}
         GpuBufferDetail::Vertex { layout } => unsafe {
             wgpu_native::command::wgpuRenderPassEncoderDraw(
                 system.render_pass.0,
@@ -724,6 +720,7 @@ pub fn taca_gpu_draw(mut env: FunctionEnvMut<System>, buffer: u32) {
                 0,
             );
         },
+        _ => {}
     }
 }
 
@@ -787,12 +784,16 @@ pub fn taca_gpu_shader_create(mut env: FunctionEnvMut<System>, wgsl: u32) -> u32
 }
 
 // taca_EXPORT taca_GpuBuffer taca_gpuUniformBufferCreate(size_t size);
-pub fn taca_gpu_uniform_buffer_create(mut env: FunctionEnvMut<System>, size: u32) -> u32 {
+pub fn taca_gpu_uniform_buffer_create(
+    mut env: FunctionEnvMut<System>,
+    size: u32,
+    binding: u32,
+) -> u32 {
     let system = env.data_mut();
     system.gpu.buffers.push(Arc::new(Mutex::new(GpuBuffer {
         buffer: Default::default(),
         data: vec![0; size as usize],
-        detail: GpuBufferDetail::Uniform,
+        detail: GpuBufferDetail::Uniform { binding },
         size: 0,
         written: false,
     })));

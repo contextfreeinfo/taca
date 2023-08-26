@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <webgpu.h>
 
 struct taca_gpu_BufferImpl;
@@ -12,7 +13,7 @@ typedef struct taca_gpu_ShaderImpl* taca_gpu_Shader;
 taca_EXPORT taca_gpu_Shader taca_gpu_shaderCreate(const char* wgsl);
 
 taca_EXPORT taca_gpu_Buffer taca_gpu_indexBufferCreate(size_t size, const void* data, WGPUIndexFormat format, taca_gpu_Buffer vertex);
-taca_EXPORT taca_gpu_Buffer taca_gpu_uniformBufferCreate(size_t size);
+taca_EXPORT taca_gpu_Buffer taca_gpu_uniformBufferCreate(size_t size, uint32_t binding);
 taca_EXPORT taca_gpu_Buffer taca_gpu_vertexBufferCreate(size_t size, const void* data, const WGPUVertexBufferLayout* layout);
 
 // Presume full refill of same buffer size by default.

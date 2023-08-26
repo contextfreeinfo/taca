@@ -44,7 +44,7 @@ pub fn main() void {
         .position = a.Vec3.zero(),
         .projection = buildPerspective(c.taca_windowInnerSize()),
         .time = 0,
-        .uniform_buffer = c.taca_gpu_uniformBufferCreate(@sizeOf(Uniforms)),
+        .uniform_buffer = c.taca_gpu_uniformBufferCreate(@sizeOf(Uniforms), 0),
         .velocity = a.Vec3.zero(),
         // TODO Include linear algebra and perspective library? Too slow?
         .view = a.Mat4.identity()

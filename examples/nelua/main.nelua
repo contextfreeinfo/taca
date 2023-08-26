@@ -7,7 +7,7 @@ local Uniforms = @record{
   pad: byte,
 }
 local uniforms: Uniforms
-local uniformBuffer = taca_gpu_uniformBufferCreate(#Uniforms)
+local uniformBuffer = taca_gpu_uniformBufferCreate(#Uniforms, 0)
 
 local vertexData: []float32 = {
   -1, -1,
