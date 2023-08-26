@@ -17,7 +17,7 @@ use crate::{
     },
     window::WindowEventType,
 };
-use wasmer::{FunctionEnvMut, WasmPtr};
+use wasmer::{FunctionEnvMut, ValueType, WasmPtr};
 use wgpu_native::{
     device::{wgpuBufferDrop, wgpuDeviceDrop, wgpuRenderPipelineDrop},
     native,
@@ -46,6 +46,25 @@ pub enum GpuBufferDetail {
     },
 }
 
+pub struct WGPUTextureDescriptor(pub native::WGPUTextureDescriptor);
+unsafe impl Send for WGPUTextureDescriptor {}
+
+struct GpuTexture {
+    binding: u32,
+    data: Vec<u8>,
+    descriptor: WGPUTextureDescriptor,
+    texture_view: Option<WGPUTextureView>,
+}
+
+#[derive(Copy, Clone, Debug, ValueType)]
+#[repr(C)]
+struct WasmGpuTextureInfo {
+    format: native::WGPUTextureFormat,
+    binding: u32,
+    width: u32,
+    height: u32,
+}
+
 #[derive(Debug)]
 pub struct WgpuVertexBufferLayout {
     array_stride: u64,
@@ -68,8 +87,9 @@ pub struct SimpleGpu {
     depth_texture: WGPUTexture,
     depth_texture_view: WGPUTextureView,
     pipeline: WGPURenderPipeline,
+    render_texture_view: WGPUTextureView,
     shaders: Vec<CString>,
-    texture_view: WGPUTextureView,
+    textures: Vec<GpuTexture>,
 }
 
 pub fn gpu_window_listen(system: &mut System, event_type: WindowEventType) {
@@ -270,6 +290,64 @@ fn update_buffers(system: &mut System, need_all: bool) {
     }
 }
 
+fn update_textures(system: &mut System, need_all: bool) {
+    for texture in &mut system.gpu.textures {
+        let needed = need_all || texture.texture_view.is_none();
+        if !needed {
+            continue;
+        }
+        if let Some(texture_view) = &texture.texture_view {
+            // TODO Dispose.
+            // TODO Need the original texture for disposing that also?
+            let _ = texture_view;
+        }
+        let descriptor = &texture.descriptor.0;
+        let device_texture = unsafe {
+            wgpu_native::device::wgpuDeviceCreateTexture(system.device.0, Some(descriptor))
+        };
+        let size = descriptor.size;
+        let format = descriptor.format;
+        unsafe {
+            wgpu_native::device::wgpuQueueWriteTexture(
+                system.queue.0,
+                Some(&native::WGPUImageCopyTexture {
+                    nextInChain: null(),
+                    texture: device_texture,
+                    mipLevel: 0,
+                    origin: native::WGPUOrigin3D { x: 0, y: 0, z: 0 },
+                    aspect: 0,
+                }),
+                texture.data.as_ptr(),
+                texture.data.len(),
+                Some(&native::WGPUTextureDataLayout {
+                    nextInChain: null(),
+                    offset: 0,
+                    bytesPerRow: bytes_per_pixel(format) * size.width,
+                    rowsPerImage: size.height,
+                }),
+                Some(&size),
+            );
+        }
+        let texture_view = unsafe {
+            wgpu_native::device::wgpuTextureCreateView(
+                device_texture,
+                Some(&native::WGPUTextureViewDescriptor {
+                    nextInChain: null(),
+                    label: null(),
+                    format,
+                    dimension: texture_to_view_dimension(descriptor.dimension),
+                    baseMipLevel: 0,
+                    mipLevelCount: 1,
+                    baseArrayLayer: 0,
+                    arrayLayerCount: 1,
+                    aspect: native::WGPUTextureAspect_All,
+                }),
+            )
+        };
+        texture.texture_view = Some(WGPUTextureView(texture_view));
+    }
+}
+
 fn ensure_swap_chain(system: &mut System) -> bool {
     if !system.swap_chain.0.is_null() {
         return false;
@@ -323,6 +401,7 @@ fn taca_gpu_ensure_device(system: &mut System) -> bool {
     }
     // Buffers.
     update_buffers(system, any_change);
+    update_textures(system, any_change);
     any_change |= ensure_swap_chain(system);
     any_change
 }
@@ -372,18 +451,6 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
                     viewDimension: native::WGPUTextureViewDimension_Undefined,
                 },
             },
-            //         std.mem.zeroInit(c.WGPUBindGroupLayoutEntry, .{
-            //             .binding = 1,
-            //             .visibility = c.WGPUShaderStage_Fragment,
-            //             .sampler = std.mem.zeroInit(c.WGPUSamplerBindingLayout, .{
-            //                 .type = c.WGPUSamplerBindingType_NonFiltering,
-            //             }),
-            //             .texture = std.mem.zeroInit(c.WGPUTextureBindingLayout, .{
-            //                 .sampleType = c.WGPUTextureSampleType_Float,
-            //                 .viewDimension = c.WGPUTextureViewDimension_2D,
-            //             }),
-            //         }),
-            //     },
             _ => continue,
         };
         let bind_group_entry = match buffer.detail {
@@ -396,11 +463,47 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
                 sampler: null_mut(),
                 textureView: null_mut(),
             },
-            //         std.mem.zeroInit(c.WGPUBindGroupEntry, .{
-            //             .binding = 1,
-            //             .textureView = image_texture_view,
-            //         }),
             _ => panic!(),
+        };
+        bind_group_layout_entries.push(bind_group_layout_entry);
+        bind_group_entries.push(bind_group_entry);
+    }
+    for texture in &system.gpu.textures {
+        let bind_group_layout_entry = native::WGPUBindGroupLayoutEntry {
+            nextInChain: null(),
+            binding: texture.binding,
+            visibility: native::WGPUShaderStage_Fragment,
+            buffer: native::WGPUBufferBindingLayout {
+                nextInChain: null(),
+                type_: native::WGPUBufferBindingType_Undefined,
+                hasDynamicOffset: false,
+                minBindingSize: 0,
+            },
+            sampler: native::WGPUSamplerBindingLayout {
+                nextInChain: null(),
+                type_: native::WGPUSamplerBindingType_NonFiltering,
+            },
+            texture: native::WGPUTextureBindingLayout {
+                nextInChain: null(),
+                sampleType: native::WGPUTextureSampleType_Float,
+                viewDimension: texture_to_view_dimension(texture.descriptor.0.dimension),
+                multisampled: false,
+            },
+            storageTexture: native::WGPUStorageTextureBindingLayout {
+                nextInChain: null(),
+                access: native::WGPUStorageTextureAccess_Undefined,
+                format: native::WGPUTextureFormat_Undefined,
+                viewDimension: native::WGPUTextureViewDimension_Undefined,
+            },
+        };
+        let bind_group_entry = native::WGPUBindGroupEntry {
+            nextInChain: null(),
+            binding: texture.binding,
+            buffer: null_mut(),
+            offset: 0,
+            size: 0,
+            sampler: null_mut(),
+            textureView: texture.texture_view.as_ref().unwrap().0,
         };
         bind_group_layout_entries.push(bind_group_layout_entry);
         bind_group_entries.push(bind_group_entry);
@@ -539,6 +642,15 @@ fn taca_gpu_ensure_pipeline(system: &mut System) {
     system.gpu.pipeline.0 = pipeline;
 }
 
+fn texture_to_view_dimension(dimension: u32) -> u32 {
+    match dimension {
+        native::WGPUTextureDimension_1D => native::WGPUTextureViewDimension_1D,
+        native::WGPUTextureDimension_2D => native::WGPUTextureViewDimension_2D,
+        native::WGPUTextureDimension_3D => native::WGPUTextureViewDimension_3D,
+        _ => panic!(),
+    }
+}
+
 fn reset_depth_texture(system: &mut System) {
     // Out with the old.
     if !system.gpu.depth_texture_view.0.is_null() {
@@ -595,14 +707,14 @@ fn reset_depth_texture(system: &mut System) {
 
 fn taca_gpu_ensure_render_pass(system: &mut System) {
     taca_gpu_ensure_pipeline(system);
-    if system.gpu.texture_view.0.is_null() {
-        system.gpu.texture_view.0 =
+    if system.gpu.render_texture_view.0.is_null() {
+        system.gpu.render_texture_view.0 =
             unsafe { wgpu_native::device::wgpuSwapChainGetCurrentTextureView(system.swap_chain.0) };
     }
     wgpu_device_ensure_command_encoder_simple(system);
     if system.render_pass.0.is_null() {
         let color_attachment = native::WGPURenderPassColorAttachment {
-            view: system.gpu.texture_view.0,
+            view: system.gpu.render_texture_view.0,
             resolveTarget: std::ptr::null_mut(),
             loadOp: native::WGPULoadOp_Clear,
             storeOp: native::WGPUStoreOp_Store,
@@ -761,10 +873,10 @@ pub fn taca_gpu_present(mut env: FunctionEnvMut<System>) {
         wgpu_native::command::wgpuRenderPassEncoderEnd(system.render_pass.0);
     }
     system.render_pass.0 = null_mut();
-    if !system.gpu.texture_view.0.is_null() {
+    if !system.gpu.render_texture_view.0.is_null() {
         unsafe {
-            wgpu_native::device::wgpuTextureViewDrop(system.gpu.texture_view.0);
-            system.gpu.texture_view.0 = null_mut();
+            wgpu_native::device::wgpuTextureViewDrop(system.gpu.render_texture_view.0);
+            system.gpu.render_texture_view.0 = null_mut();
         }
     }
     wgpu_ensure_command_encoder_finish_simple(system);
@@ -798,6 +910,50 @@ pub fn taca_gpu_uniform_buffer_create(
         written: false,
     })));
     system.gpu.buffers.len() as u32
+}
+
+pub fn taca_gpu_texture_create(mut env: FunctionEnvMut<System>, data: u32, info: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let info = WasmPtr::<WasmGpuTextureInfo>::new(info)
+        .read(&view)
+        .unwrap();
+    let descriptor = native::WGPUTextureDescriptor {
+        nextInChain: null(),
+        label: null(),
+        usage: native::WGPUTextureUsage_CopyDst | native::WGPUTextureUsage_TextureBinding,
+        dimension: native::WGPUTextureDimension_2D,
+        size: native::WGPUExtent3D {
+            width: info.width,
+            height: info.height,
+            depthOrArrayLayers: 1,
+        },
+        format: info.format,
+        mipLevelCount: 1,
+        sampleCount: 1,
+        viewFormatCount: 0,
+        viewFormats: null(),
+    };
+    let size = info.width * info.height * bytes_per_pixel(info.format);
+    let data = WasmPtr::<u8>::new(data)
+        .slice(&view, size)
+        .unwrap()
+        .read_to_vec()
+        .unwrap();
+    system.gpu.textures.push(GpuTexture {
+        binding: info.binding,
+        data,
+        descriptor: WGPUTextureDescriptor(descriptor),
+        texture_view: None,
+    });
+    system.gpu.textures.len() as u32
+}
+
+fn bytes_per_pixel(format: native::WGPUTextureFormat) -> u32 {
+    match format {
+        native::WGPUTextureFormat_RGBA8Unorm => 4,
+        _ => todo!(),
+    }
 }
 
 // taca_EXPORT taca_gpu_Buffer taca_gpu_vertexBufferCreate(size_t size, const void* data, const WGPUVertexBufferLayout* layout);

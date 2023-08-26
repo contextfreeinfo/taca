@@ -58,6 +58,7 @@ fn run_app(args: &RunArgs) -> Result<()> {
             "taca_gpu_present" => Function::new_typed_with_env(&mut store, &env, taca_gpu_present),
             "taca_gpu_shaderCreate" => Function::new_typed_with_env(&mut store, &env, taca_gpu_shader_create),
             "taca_gpu_uniformBufferCreate" => Function::new_typed_with_env(&mut store, &env, taca_gpu_uniform_buffer_create),
+            "taca_gpu_textureCreate" => Function::new_typed_with_env(&mut store, &env, taca_gpu_texture_create),
             "taca_gpu_vertexBufferCreate" => Function::new_typed_with_env(&mut store, &env, taca_gpu_vertex_buffer_create),
             "taca_keyEvent" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
             "taca_windowInnerSize" => Function::new_typed_with_env(&mut store, &env, taca_window_inner_size),

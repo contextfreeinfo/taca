@@ -1,3 +1,6 @@
+// Based largely on:
+// https://github.com/eliemichel/LearnWebGPU-Code/blob/step033/main.cpp
+
 const std = @import("std");
 const a = @import("./zalgebra/main.zig");
 const c = @cImport({
@@ -7,6 +10,8 @@ const d = @import("./data.zig");
 
 pub fn main() void {
     c.taca_windowSetTitle("Taca-Simplified WebGPU");
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = general_purpose_allocator.allocator();
     const vertex_attributes = [_]c.WGPUVertexAttribute{
         .{
             .format = c.WGPUVertexFormat_Float32x3,
@@ -24,7 +29,7 @@ pub fn main() void {
             .shaderLocation = 2,
         },
     };
-    _ = c.taca_gpu_shaderCreate(@embedFile("./shader-no-texture.opt.wgsl"));
+    _ = c.taca_gpu_shaderCreate(@embedFile("./shader.opt.wgsl"));
     global_state = .{
         .index_buffer = c.taca_gpu_indexBufferCreate(
             @sizeOf(@TypeOf(d.index_data)),
@@ -52,6 +57,7 @@ pub fn main() void {
             .rotate(135, a.Vec3.new(1, 0, 0))
             .transpose(),
     };
+    createTexture(allocator);
     c.taca_windowListen(null, &global_state);
 }
 
@@ -65,6 +71,29 @@ export fn windowListen(event_type: c.taca_WindowEventType, userdata: ?*anyopaque
         // else => unreachable,
         else => {},
     }
+}
+
+fn createTexture(allocator: std.mem.Allocator) void {
+    const info = c.taca_gpu_TextureInfo{
+        .format = c.WGPUTextureFormat_RGBA8Unorm,
+        .binding = 1,
+        .width = 256,
+        .height = 256,
+    };
+    const image_texture_data = allocator.alloc(
+        u8,
+        4 * info.width * info.height,
+    ) catch unreachable;
+    for (0..info.width) |j| {
+        for (0..info.height) |i| {
+            const n = 4 * (i * info.width + j);
+            image_texture_data[n + 0] = if ((i / 16) % 2 == (j / 16) % 2) 255 else 0;
+            image_texture_data[n + 1] = if (((i - j) / 16) % 2 == 0) 255 else 0;
+            image_texture_data[n + 2] = if (((i + j) / 16) % 2 == 0) 255 else 0;
+            image_texture_data[n + 3] = 255;
+        }
+    }
+    _ = c.taca_gpu_textureCreate(image_texture_data.ptr, &info);
 }
 
 fn keyPress(state: *State) void {

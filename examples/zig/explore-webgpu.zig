@@ -165,7 +165,6 @@ pub fn main() void {
         .viewFormatCount = 0,
         .viewFormats = null,
     });
-    const image_texture = c.wgpuDeviceCreateTexture(device, &image_texture_desc);
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = general_purpose_allocator.allocator();
     const image_texture_data = allocator.alloc(
@@ -181,6 +180,7 @@ pub fn main() void {
             image_texture_data[n + 3] = 255;
         }
     }
+    const image_texture = c.wgpuDeviceCreateTexture(device, &image_texture_desc);
     c.wgpuQueueWriteTexture(
         queue,
         &std.mem.zeroInit(c.WGPUImageCopyTexture, .{ .texture = image_texture }),
