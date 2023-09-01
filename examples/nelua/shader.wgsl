@@ -35,7 +35,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
         noise3_plus(
             0.01 * (
                 vec3f(in.position.xy, 0.0) +
-                uniforms.position.xzy * vec3f(1.0, 1.0, 0.05)
+                uniforms.position * vec3f(1.0, 1.0, 0.05)
             ),
         ),
         2.0,

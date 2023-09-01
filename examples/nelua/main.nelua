@@ -57,6 +57,8 @@ local function control()
     case taca_KeyCode.Right then state.velocity[0] = speed
     case taca_KeyCode.Up then state.velocity[1] = -speed
     case taca_KeyCode.Down then state.velocity[1] = speed
+    case taca_KeyCode.PageUp then state.velocity[2] = -speed
+    case taca_KeyCode.PageDown then state.velocity[2] = speed
   end
 end
 

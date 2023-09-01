@@ -139,6 +139,8 @@ pub enum KeyCode {
     Up = 2,
     Right = 3,
     Down = 4,
+    PageUp = 5,
+    PageDown = 6,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -149,10 +151,12 @@ pub struct KeyEvent {
 
 fn convert_key(wkey: VirtualKeyCode) -> KeyCode {
     match wkey {
-        VirtualKeyCode::Left => KeyCode::Left,
-        VirtualKeyCode::Up => KeyCode::Up,
-        VirtualKeyCode::Right => KeyCode::Right,
         VirtualKeyCode::Down => KeyCode::Down,
+        VirtualKeyCode::Left => KeyCode::Left,
+        VirtualKeyCode::PageDown => KeyCode::PageDown,
+        VirtualKeyCode::PageUp => KeyCode::PageUp,
+        VirtualKeyCode::Right => KeyCode::Right,
+        VirtualKeyCode::Up => KeyCode::Up,
         _ => KeyCode::Undefined,
     }
 }

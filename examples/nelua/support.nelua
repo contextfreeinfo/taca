@@ -71,6 +71,8 @@ global taca_KeyCode = @enum(uint32) {
     Up = 2,
     Right = 3,
     Down = 4,
+    PageUp = 5,
+    PageDown = 6,
 }
 
 global taca_KeyEvent = @record{

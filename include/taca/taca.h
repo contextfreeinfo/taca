@@ -31,6 +31,8 @@ typedef enum taca_KeyCode {
     taca_KeyCode_Up = 2,
     taca_KeyCode_Right = 3,
     taca_KeyCode_Down = 4,
+    taca_KeyCode_PageUp = 5,
+    taca_KeyCode_PageDown = 6,
     taca_KeyCode_Force32 = 0x7FFFFFFF
 } taca_KeyCode;
 
