@@ -14,3 +14,8 @@ pollster = "0.3.0"
 wasmtime = "15.0.1"
 wgpu = "0.18.0"
 winit = "0.28.7"
+
+[profile.release]
+# Got smaller with s than z in a quick check.
+opt-level = "s"
+strip = true

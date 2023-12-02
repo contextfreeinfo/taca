@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::iter;
+use wasmtime::*;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -155,7 +156,42 @@ impl State {
     }
 }
 
+fn init_wasm() -> Result<()> {
+    let engine = Engine::default();
+    let module = Module::new(&engine, r#"
+        (module
+            (func $hello (import "" "hello"))
+            (func (export "run") (call $hello))
+        )
+    "#)?;
+    struct MyState {
+        name: String,
+        count: usize,
+    }
+    let mut store = Store::new(
+        &engine,
+        MyState {
+            name: "Hi!".to_string(),
+            count: 0,
+        },
+    );
+    let hello_func = Func::wrap(&mut store, |mut caller: Caller<'_, MyState>| {
+        println!("Calling back...");
+        println!("> {}", caller.data().name);
+        caller.data_mut().count += 1;
+    });
+    let imports = [hello_func.into()];
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run = instance.get_typed_func::<(), ()>(&mut store, "run")?;
+    run.call(&mut store, ())?;
+    Ok(())
+}
+
 pub async fn run() -> Result<()> {
+    env_logger::init();
+
+    init_wasm()?;
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
