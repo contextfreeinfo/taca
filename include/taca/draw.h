@@ -34,15 +34,9 @@ typedef struct taca_Rgba {
 
 typedef void* taca_Attribute;
 
-typedef struct taca_AttributeLayout {
-    // We infer the size of each attribute when going to GPU.
-    taca_Attribute* items;
-    size_t count;
-} taca_AttributeLayout;
-
 typedef struct taca_ShaderInput {
     void* uniforms;
-    taca_AttributeLayout attributes;
+    taca_Attribute* attributes;
 } taca_Pipeline;
 
 typedef void (*taca_FragmentShader)(
@@ -55,9 +49,15 @@ typedef void (*taca_VertexShader)(
     void* output
 );
 
+typedef struct taca_AttributeLayout {
+    taca_Attribute start;
+    size_t stride;
+} taca_AttributeLayout;
+
 typedef struct taca_PipelineData {
     void* uniforms;
-    taca_AttributeLayout attributes;
+    taca_AttributeLayout* attributes;
+    size_t attributeCount;
     size_t vertexCount;
 } taca_Pipeline;
 
