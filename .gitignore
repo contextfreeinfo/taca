@@ -3,7 +3,7 @@ notes
 SDL2.dll
 shader.spv
 shader-out.wgsl
-/simple/taca
+old/simple/taca
 taca.exe
 taca.pdb
 tacana
@@ -22,3 +22,10 @@ zig-cache
 # Added by cargo
 
 /target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
