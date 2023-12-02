@@ -22,6 +22,8 @@
 
 // TODO Some taca/math.h for vec & matrix ops.
 
+// TODO We need to enforce layouts for all these structs.
+
 typedef struct taca_Vec4 {
     float x, y, z, w;
 } taca_Vec4;
@@ -40,7 +42,7 @@ typedef struct taca_AttributeLayout {
 
 typedef struct taca_ShaderInput {
     void* uniforms;
-    taca_AttributeLayout* attributes;
+    taca_AttributeLayout attributes;
 } taca_Pipeline;
 
 typedef void (*taca_FragmentShader)(
