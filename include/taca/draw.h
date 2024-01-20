@@ -37,7 +37,7 @@ typedef void* taca_Attribute;
 typedef struct taca_ShaderInput {
     void* uniforms;
     taca_Attribute* attributes;
-} taca_Pipeline;
+} taca_ShaderInput;
 
 typedef void (*taca_FragmentShader)(
     taca_ShaderInput* input,
