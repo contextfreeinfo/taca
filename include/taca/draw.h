@@ -59,7 +59,7 @@ typedef struct taca_PipelineData {
     taca_AttributeLayout* attributes;
     size_t attributeCount;
     size_t vertexCount;
-} taca_Pipeline;
+} taca_PipelineData;
 
 typedef struct taca_Pipeline {
     // TODO Error handling here also?
