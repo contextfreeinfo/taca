@@ -11,6 +11,7 @@ tacana.exe
 tacana.pdb
 vendor
 zig-cache
+zig-out
 *.asm.js
 *.o
 *.opt.*
