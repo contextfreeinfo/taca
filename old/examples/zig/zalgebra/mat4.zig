@@ -16,6 +16,7 @@ const Quat = quat.Quat;
 pub const Mat4 = Mat4x4(f32);
 pub const Mat4_f64 = Mat4x4(f64);
 pub const perspective = Mat4.perspective;
+pub const perspectiveReversedZ = Mat4.perspectiveReversedZ;
 pub const orthographic = Mat4.orthographic;
 pub const lookAt = Mat4.lookAt;
 
@@ -93,7 +94,7 @@ pub fn Mat4x4(comptime T: type) type {
 
         /// Return a pointer to the inner data of the matrix.
         pub fn getData(self: *const Self) *const T {
-            return @ptrCast(*const T, &self.data);
+            return @ptrCast(&self.data);
         }
 
         /// Return true if two matrices are equals.
@@ -205,12 +206,12 @@ pub fn Mat4x4(comptime T: type) type {
         pub fn extractEulerAngles(self: Self) Vector3 {
             const m = self.orthoNormalize();
 
-            const theta_x = math.atan2(T, m.data[1][2], m.data[2][2]);
+            const theta_x = math.atan2(m.data[1][2], m.data[2][2]);
             const c2 = @sqrt(math.pow(T, m.data[0][0], 2) + math.pow(T, m.data[0][1], 2));
-            const theta_y = math.atan2(T, -m.data[0][2], @sqrt(c2));
+            const theta_y = math.atan2(-m.data[0][2], @sqrt(c2));
             const s1 = @sin(theta_x);
             const c1 = @cos(theta_x);
-            const theta_z = math.atan2(T, s1 * m.data[2][0] - c1 * m.data[1][0], c1 * m.data[1][1] - s1 * m.data[2][1]);
+            const theta_z = math.atan2(s1 * m.data[2][0] - c1 * m.data[1][0], c1 * m.data[1][1] - s1 * m.data[2][1]);
 
             return Vector3.new(root.toDegrees(theta_x), root.toDegrees(theta_y), root.toDegrees(theta_z));
         }
@@ -251,6 +252,25 @@ pub fn Mat4x4(comptime T: type) type {
             result.data[2][2] = (z_near + z_far) / (z_near - z_far);
             result.data[2][3] = -1;
             result.data[3][2] = 2 * z_far * z_near / (z_near - z_far);
+            result.data[3][3] = 0;
+
+            return result;
+        }
+
+        /// Construct a perspective 4x4 matrix with reverse Z and infinite far plane.
+        /// Note: Field of view is given in degrees.
+        /// Also for more details https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml.
+        /// For Reversed-Z details https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
+        pub fn perspectiveReversedZ(fovy_in_degrees: T, aspect_ratio: T, z_near: T) Self {
+            var result = Self.identity();
+
+            const f = 1 / @tan(root.toRadians(fovy_in_degrees) * 0.5);
+
+            result.data[0][0] = f / aspect_ratio;
+            result.data[1][1] = f;
+            result.data[2][2] = 0;
+            result.data[2][3] = -1;
+            result.data[3][2] = z_near;
             result.data[3][3] = 0;
 
             return result;
@@ -320,66 +340,59 @@ pub fn Mat4x4(comptime T: type) type {
             return result;
         }
 
+        fn detsubs(self: Self) [12]T {
+            return .{
+                self.data[0][0] * self.data[1][1] - self.data[1][0] * self.data[0][1],
+                self.data[0][0] * self.data[1][2] - self.data[1][0] * self.data[0][2],
+                self.data[0][0] * self.data[1][3] - self.data[1][0] * self.data[0][3],
+                self.data[0][1] * self.data[1][2] - self.data[1][1] * self.data[0][2],
+                self.data[0][1] * self.data[1][3] - self.data[1][1] * self.data[0][3],
+                self.data[0][2] * self.data[1][3] - self.data[1][2] * self.data[0][3],
+
+                self.data[2][0] * self.data[3][1] - self.data[3][0] * self.data[2][1],
+                self.data[2][0] * self.data[3][2] - self.data[3][0] * self.data[2][2],
+                self.data[2][0] * self.data[3][3] - self.data[3][0] * self.data[2][3],
+                self.data[2][1] * self.data[3][2] - self.data[3][1] * self.data[2][2],
+                self.data[2][1] * self.data[3][3] - self.data[3][1] * self.data[2][3],
+                self.data[2][2] * self.data[3][3] - self.data[3][2] * self.data[2][3],
+            };
+        }
+
+        /// Calculate determinant of the given 4x4 matrix.
+        pub fn det(self: Self) T {
+            const s = detsubs(self);
+            return s[0] * s[11] - s[1] * s[10] + s[2] * s[9] + s[3] * s[8] - s[4] * s[7] + s[5] * s[6];
+        }
+
         /// Construct inverse 4x4 from given matrix.
         /// Note: This is not the most efficient way to do this.
         /// TODO: Make it more efficient.
         pub fn inv(self: Self) Self {
             var inv_mat: Self = undefined;
 
-            var s: [6]T = undefined;
-            var c: [6]T = undefined;
+            const s = detsubs(self);
 
-            s[0] = self.data[0][0] * self.data[1][1] - self.data[1][0] * self.data[0][1];
-            s[1] = self.data[0][0] * self.data[1][2] - self.data[1][0] * self.data[0][2];
-            s[2] = self.data[0][0] * self.data[1][3] - self.data[1][0] * self.data[0][3];
-            s[3] = self.data[0][1] * self.data[1][2] - self.data[1][1] * self.data[0][2];
-            s[4] = self.data[0][1] * self.data[1][3] - self.data[1][1] * self.data[0][3];
-            s[5] = self.data[0][2] * self.data[1][3] - self.data[1][2] * self.data[0][3];
+            const determ = 1 / (s[0] * s[11] - s[1] * s[10] + s[2] * s[9] + s[3] * s[8] - s[4] * s[7] + s[5] * s[6]);
 
-            c[0] = self.data[2][0] * self.data[3][1] - self.data[3][0] * self.data[2][1];
-            c[1] = self.data[2][0] * self.data[3][2] - self.data[3][0] * self.data[2][2];
-            c[2] = self.data[2][0] * self.data[3][3] - self.data[3][0] * self.data[2][3];
-            c[3] = self.data[2][1] * self.data[3][2] - self.data[3][1] * self.data[2][2];
-            c[4] = self.data[2][1] * self.data[3][3] - self.data[3][1] * self.data[2][3];
-            c[5] = self.data[2][2] * self.data[3][3] - self.data[3][2] * self.data[2][3];
+            inv_mat.data[0][0] = determ * (self.data[1][1] * s[11] - self.data[1][2] * s[10] + self.data[1][3] * s[9]);
+            inv_mat.data[0][1] = determ * -(self.data[0][1] * s[11] - self.data[0][2] * s[10] + self.data[0][3] * s[9]);
+            inv_mat.data[0][2] = determ * (self.data[3][1] * s[5] - self.data[3][2] * s[4] + self.data[3][3] * s[3]);
+            inv_mat.data[0][3] = determ * -(self.data[2][1] * s[5] - self.data[2][2] * s[4] + self.data[2][3] * s[3]);
 
-            const determ = 1 / (s[0] * c[5] - s[1] * c[4] + s[2] * c[3] + s[3] * c[2] - s[4] * c[1] + s[5] * c[0]);
+            inv_mat.data[1][0] = determ * -(self.data[1][0] * s[11] - self.data[1][2] * s[8] + self.data[1][3] * s[7]);
+            inv_mat.data[1][1] = determ * (self.data[0][0] * s[11] - self.data[0][2] * s[8] + self.data[0][3] * s[7]);
+            inv_mat.data[1][2] = determ * -(self.data[3][0] * s[5] - self.data[3][2] * s[2] + self.data[3][3] * s[1]);
+            inv_mat.data[1][3] = determ * (self.data[2][0] * s[5] - self.data[2][2] * s[2] + self.data[2][3] * s[1]);
 
-            inv_mat.data[0][0] =
-                (self.data[1][1] * c[5] - self.data[1][2] * c[4] + self.data[1][3] * c[3]) * determ;
-            inv_mat.data[0][1] =
-                (-self.data[0][1] * c[5] + self.data[0][2] * c[4] - self.data[0][3] * c[3]) * determ;
-            inv_mat.data[0][2] =
-                (self.data[3][1] * s[5] - self.data[3][2] * s[4] + self.data[3][3] * s[3]) * determ;
-            inv_mat.data[0][3] =
-                (-self.data[2][1] * s[5] + self.data[2][2] * s[4] - self.data[2][3] * s[3]) * determ;
+            inv_mat.data[2][0] = determ * (self.data[1][0] * s[10] - self.data[1][1] * s[8] + self.data[1][3] * s[6]);
+            inv_mat.data[2][1] = determ * -(self.data[0][0] * s[10] - self.data[0][1] * s[8] + self.data[0][3] * s[6]);
+            inv_mat.data[2][2] = determ * (self.data[3][0] * s[4] - self.data[3][1] * s[2] + self.data[3][3] * s[0]);
+            inv_mat.data[2][3] = determ * -(self.data[2][0] * s[4] - self.data[2][1] * s[2] + self.data[2][3] * s[0]);
 
-            inv_mat.data[1][0] =
-                (-self.data[1][0] * c[5] + self.data[1][2] * c[2] - self.data[1][3] * c[1]) * determ;
-            inv_mat.data[1][1] =
-                (self.data[0][0] * c[5] - self.data[0][2] * c[2] + self.data[0][3] * c[1]) * determ;
-            inv_mat.data[1][2] =
-                (-self.data[3][0] * s[5] + self.data[3][2] * s[2] - self.data[3][3] * s[1]) * determ;
-            inv_mat.data[1][3] =
-                (self.data[2][0] * s[5] - self.data[2][2] * s[2] + self.data[2][3] * s[1]) * determ;
-
-            inv_mat.data[2][0] =
-                (self.data[1][0] * c[4] - self.data[1][1] * c[2] + self.data[1][3] * c[0]) * determ;
-            inv_mat.data[2][1] =
-                (-self.data[0][0] * c[4] + self.data[0][1] * c[2] - self.data[0][3] * c[0]) * determ;
-            inv_mat.data[2][2] =
-                (self.data[3][0] * s[4] - self.data[3][1] * s[2] + self.data[3][3] * s[0]) * determ;
-            inv_mat.data[2][3] =
-                (-self.data[2][0] * s[4] + self.data[2][1] * s[2] - self.data[2][3] * s[0]) * determ;
-
-            inv_mat.data[3][0] =
-                (-self.data[1][0] * c[3] + self.data[1][1] * c[1] - self.data[1][2] * c[0]) * determ;
-            inv_mat.data[3][1] =
-                (self.data[0][0] * c[3] - self.data[0][1] * c[1] + self.data[0][2] * c[0]) * determ;
-            inv_mat.data[3][2] =
-                (-self.data[3][0] * s[3] + self.data[3][1] * s[1] - self.data[3][2] * s[0]) * determ;
-            inv_mat.data[3][3] =
-                (self.data[2][0] * s[3] - self.data[2][1] * s[1] + self.data[2][2] * s[0]) * determ;
+            inv_mat.data[3][0] = determ * -(self.data[1][0] * s[9] - self.data[1][1] * s[7] + self.data[1][2] * s[6]);
+            inv_mat.data[3][1] = determ * (self.data[0][0] * s[9] - self.data[0][1] * s[7] + self.data[0][2] * s[6]);
+            inv_mat.data[3][2] = determ * -(self.data[3][0] * s[3] - self.data[3][1] * s[1] + self.data[3][2] * s[0]);
+            inv_mat.data[3][3] = determ * (self.data[2][0] * s[3] - self.data[2][1] * s[1] + self.data[2][2] * s[0]);
 
             return inv_mat;
         }
@@ -388,16 +401,27 @@ pub fn Mat4x4(comptime T: type) type {
         /// The final order is T * R * S.
         /// Note: `rotation` could be `Vec3` (Euler angles) or a `quat`.
         pub fn recompose(translation: Vector3, rotation: anytype, scalar: Vector3) Self {
-            const t = Self.fromTranslate(translation);
-            const s = Self.fromScale(scalar);
-
-            const r = switch (@TypeOf(rotation)) {
+            var r = switch (@TypeOf(rotation)) {
                 Quaternion(T) => Quaternion(T).toMat4(rotation),
                 Vector3 => Self.fromEulerAngles(rotation),
                 else => @compileError("Recompose not implemented for " ++ @typeName(@TypeOf(rotation))),
             };
 
-            return t.mul(r.mul(s));
+            r.data[0][0] *= scalar.x();
+            r.data[0][1] *= scalar.x();
+            r.data[0][2] *= scalar.x();
+            r.data[1][0] *= scalar.y();
+            r.data[1][1] *= scalar.y();
+            r.data[1][2] *= scalar.y();
+            r.data[2][0] *= scalar.z();
+            r.data[2][1] *= scalar.z();
+            r.data[2][2] *= scalar.z();
+
+            r.data[3][0] = translation.x();
+            r.data[3][1] = translation.y();
+            r.data[3][2] = translation.z();
+
+            return r;
         }
 
         /// Return `translation`, `rotation` and `scale` components from given matrix.
@@ -450,7 +474,7 @@ pub fn Mat4x4(comptime T: type) type {
         }
 
         /// Cast a type to another type.
-        /// It's like builtins: @intCast, @floatCast, @intToFloat, @floatToInt.
+        /// It's like builtins: @intCast, @floatCast, @floatFromInt, @intFromFloat.
         pub fn cast(self: Self, comptime dest_type: type) Mat4x4(dest_type) {
             const dest_info = @typeInfo(dest_type);
 
@@ -461,7 +485,7 @@ pub fn Mat4x4(comptime T: type) type {
             var result: Mat4x4(dest_type) = undefined;
             for (0..result.data.len) |column| {
                 for (0..result.data[column].len) |row| {
-                    result.data[column][row] = @floatCast(dest_type, self.data[column][row]);
+                    result.data[column][row] = @floatCast(self.data[column][row]);
                 }
             }
             return result;
@@ -593,6 +617,19 @@ test "zalgebra.Mat4.scale" {
             .{ 0, 0, 0, 1 },
         },
     });
+}
+
+test "zalgebra.Mat4.det" {
+    const a: Mat4 = .{
+        .data = .{
+            .{ 2, 0, 0, 4 },
+            .{ 0, 2, 0, 0 },
+            .{ 0, 0, 2, 0 },
+            .{ 4, 0, 0, 2 },
+        },
+    };
+
+    try expectEqual(a.det(), -48);
 }
 
 test "zalgebra.Mat4.inv" {

@@ -2,6 +2,7 @@ const std = @import("std");
 const root = @import("main.zig");
 const meta = std.meta;
 const generic_vector = @import("generic_vector.zig");
+const mat3 = @import("mat3.zig");
 const mat4 = @import("mat4.zig");
 const math = std.math;
 const eps_value = math.floatEps(f32);
@@ -15,6 +16,7 @@ const GenericVector = generic_vector.GenericVector;
 
 const Vec3 = generic_vector.Vec3;
 const Vec4 = generic_vector.Vec4;
+const Mat3x3 = mat3.Mat3x3;
 const Mat4x4 = mat4.Mat4x4;
 
 pub const Quat = Quaternion(f32);
@@ -142,6 +144,36 @@ pub fn Quaternion(comptime T: type) type {
             return (left.x * right.x) + (left.y * right.y) + (left.z * right.z) + (left.w * right.w);
         }
 
+        /// Convert given quaternion to rotation 3x3 matrix.
+        fn toMat3(self: Self) Mat3x3(T) {
+            var result: Mat3x3(T) = undefined;
+
+            const normalized = self.norm();
+            const xx = normalized.x * normalized.x;
+            const yy = normalized.y * normalized.y;
+            const zz = normalized.z * normalized.z;
+            const xy = normalized.x * normalized.y;
+            const xz = normalized.x * normalized.z;
+            const yz = normalized.y * normalized.z;
+            const wx = normalized.w * normalized.x;
+            const wy = normalized.w * normalized.y;
+            const wz = normalized.w * normalized.z;
+
+            result.data[0][0] = 1 - 2 * (yy + zz);
+            result.data[0][1] = 2 * (xy + wz);
+            result.data[0][2] = 2 * (xz - wy);
+
+            result.data[1][0] = 2 * (xy - wz);
+            result.data[1][1] = 1 - 2 * (xx + zz);
+            result.data[1][2] = 2 * (yz + wx);
+
+            result.data[2][0] = 2 * (xz + wy);
+            result.data[2][1] = 2 * (yz - wx);
+            result.data[2][2] = 1 - 2 * (xx + yy);
+
+            return result;
+        }
+
         /// Convert given quaternion to rotation 4x4 matrix.
         /// Mostly taken from https://github.com/HandmadeMath/Handmade-Math.
         pub fn toMat4(self: Self) Mat4x4(T) {
@@ -242,7 +274,7 @@ pub fn Quaternion(comptime T: type) type {
             const radians = root.toRadians(degrees);
 
             const rot_sin = @sin(radians / 2);
-            const quat_axis = axis.norm().data * @splat(3, rot_sin);
+            const quat_axis = axis.norm().data * @as(@TypeOf(axis.data), @splat(rot_sin));
             const w = @cos(radians / 2);
 
             return Self.fromVec3(w, .{ .data = quat_axis });
@@ -251,7 +283,6 @@ pub fn Quaternion(comptime T: type) type {
         /// Extract euler angles (degrees) from quaternion.
         pub fn extractEulerAngles(self: Self) Vector3 {
             const yaw = math.atan2(
-                T,
                 2 * (self.y * self.z + self.w * self.x),
                 self.w * self.w - self.x * self.x - self.y * self.y + self.z * self.z,
             );
@@ -259,7 +290,6 @@ pub fn Quaternion(comptime T: type) type {
                 -2 * (self.x * self.z - self.w * self.y),
             );
             const roll = math.atan2(
-                T,
                 2 * (self.x * self.y + self.w * self.z),
                 self.w * self.w + self.x * self.x - self.y * self.y - self.z * self.z,
             );
@@ -271,10 +301,10 @@ pub fn Quaternion(comptime T: type) type {
         // Taken from https://github.com/raysan5/raylib/blob/master/src/raymath.h#L1755
         pub fn extractAxisAngle(self: Self) struct { axis: Vector3, angle: T } {
             var copy = self;
-            if (@fabs(copy.w) > 1) copy = copy.norm();
+            if (@abs(copy.w) > 1) copy = copy.norm();
 
             var res_axis = Vector3.zero();
-            var res_angle: T = 2 * math.acos(copy.w);
+            const res_angle: T = 2 * math.acos(copy.w);
             const den: T = @sqrt(1 - copy.w * copy.w);
 
             if (den > 0.0001) {
@@ -326,7 +356,7 @@ pub fn Quaternion(comptime T: type) type {
                 // Use regular old lerp to avoid numerical instability
                 return lerp(left, right1, t);
             } else {
-                var theta = math.acos(math.clamp(cos_theta, -1, 1));
+                const theta = math.acos(math.clamp(cos_theta, -1, 1));
                 const thetap = theta * t;
                 var qperp = right1.sub(left.scale(cos_theta)).norm();
                 return left.scale(@cos(thetap)).add(qperp.scale(@sin(thetap)));
@@ -344,7 +374,7 @@ pub fn Quaternion(comptime T: type) type {
         }
 
         /// Cast a type to another type.
-        /// It's like builtins: @intCast, @floatCast, @intToFloat, @floatToInt.
+        /// It's like builtins: @intCast, @floatCast, @floatFromInt, @intFromFloat.
         pub fn cast(self: Self, comptime dest_type: type) Quaternion(dest_type) {
             const dest_info = @typeInfo(dest_type);
 
@@ -352,10 +382,10 @@ pub fn Quaternion(comptime T: type) type {
                 std.debug.panic("Error, dest type should be float.\n", .{});
             }
 
-            const w = @floatCast(dest_type, self.w);
-            const x = @floatCast(dest_type, self.x);
-            const y = @floatCast(dest_type, self.y);
-            const z = @floatCast(dest_type, self.z);
+            const w: dest_type = @floatCast(self.w);
+            const x: dest_type = @floatCast(self.x);
+            const y: dest_type = @floatCast(self.y);
+            const z: dest_type = @floatCast(self.z);
             return Quaternion(dest_type).new(w, x, y, z);
         }
     };

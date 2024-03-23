@@ -62,7 +62,7 @@ pub fn main() void {
 }
 
 export fn windowListen(event_type: c.taca_WindowEventType, userdata: ?*anyopaque) void {
-    const state = @ptrCast(*State, @alignCast(@alignOf(State), userdata));
+    const state: *State = @ptrCast(@alignCast(userdata));
     switch (event_type) {
         // c.taca_WindowEventType_Close => windowClose(state),
         c.taca_WindowEventType_Key => keyPress(state),
@@ -166,7 +166,7 @@ const Uniforms = extern struct {
 fn buildPerspective(size: c.taca_Vec2) a.Mat4 {
     // The tutorial uses different calculations than zalgebra, and I'm not
     // getting what I want from zalgebra, so go with tutorial.
-    const aspect = @intToFloat(f32, size.x) / @intToFloat(f32, size.y);
+    const aspect = @as(f32, @floatFromInt(size.x)) / @as(f32, @floatFromInt(size.y));
     const focal_length: f32 = 2;
     const near: f32 = 0.01;
     const far: f32 = 100;

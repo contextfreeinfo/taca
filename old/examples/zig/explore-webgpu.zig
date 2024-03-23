@@ -26,7 +26,6 @@ pub fn main() void {
         instance,
         &c.WGPUSurfaceDescriptor{
             .nextInChain = @ptrCast(
-                *const c.WGPUChainedStruct,
                 &c.WGPUSurfaceDescriptorFromCanvasHTMLSelector{
                     .chain = .{
                         .next = null,
@@ -299,7 +298,7 @@ pub fn main() void {
 }
 
 export fn windowListen(event_type: c.taca_WindowEventType, userdata: ?*anyopaque) void {
-    const state = @ptrCast(*State, @alignCast(@alignOf(State), userdata));
+    const state: *State = @ptrCast(@alignCast(userdata));
     switch (event_type) {
         c.taca_WindowEventType_Close => windowClose(state),
         c.taca_WindowEventType_Key => keyPress(state),
@@ -477,7 +476,7 @@ const Uniforms = extern struct {
 fn buildPerspective(size: c.taca_Vec2) a.Mat4 {
     // The tutorial uses different calculations than zalgebra, and I'm not
     // getting what I want from zalgebra, so go with tutorial.
-    const aspect = @intToFloat(f32, size.x) / @intToFloat(f32, size.y);
+    const aspect = @as(f32, @floatFromInt(size.x)) / @as(f32, @floatFromInt(size.y));
     const focal_length: f32 = 2;
     const near: f32 = 0.01;
     const far: f32 = 100;
@@ -512,8 +511,8 @@ fn createDepthTexture(in: CreateDepthTextureIn) CreateDepthTextureOut {
             .usage = c.WGPUTextureUsage_RenderAttachment,
             .dimension = c.WGPUTextureDimension_2D,
             .size = .{
-                .width = @intCast(u32, in.size.x),
-                .height = @intCast(u32, in.size.y),
+                .width = @as(u32, @intCast(in.size.x)),
+                .height = @as(u32, @intCast(in.size.y)),
                 .depthOrArrayLayers = 1,
             },
             .format = depth_texture_format,
@@ -555,8 +554,8 @@ fn createSwapChain(data: CreateSwapChainData) c.WGPUSwapChain {
             .label = null,
             .usage = c.WGPUTextureUsage_RenderAttachment,
             .format = data.format,
-            .width = @intCast(u32, data.size.x),
-            .height = @intCast(u32, data.size.y),
+            .width = @as(u32, @intCast(data.size.x)),
+            .height = @as(u32, @intCast(data.size.y)),
             .presentMode = c.WGPUPresentMode_Fifo,
         },
     ) orelse unreachable;
@@ -579,10 +578,7 @@ fn requestAdapterCallback(
 ) callconv(.C) void {
     assert(status == c.WGPURequestDeviceStatus_Success);
     _ = message;
-    var data = @ptrCast(
-        *RequestAdapterCallbackData,
-        @alignCast(@alignOf(*RequestAdapterCallbackData), userdata),
-    );
+    var data: *RequestAdapterCallbackData = @ptrCast(@alignCast(userdata));
     data.adapter = adapter;
 }
 
@@ -602,10 +598,7 @@ fn requestDeviceCallback(
 ) callconv(.C) void {
     assert(status == c.WGPURequestDeviceStatus_Success);
     _ = message;
-    var data = @ptrCast(
-        *RequestDeviceCallbackData,
-        @alignCast(@alignOf(*RequestDeviceCallbackData), userdata),
-    );
+    var data: *RequestDeviceCallbackData = @ptrCast(@alignCast(userdata));
     data.device = device;
 }
 

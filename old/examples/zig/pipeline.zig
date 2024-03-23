@@ -18,7 +18,6 @@ pub fn buildPipeline(
         device,
         &c.WGPUShaderModuleDescriptor{
             .nextInChain = @ptrCast(
-                *const c.WGPUChainedStruct,
                 &c.WGPUShaderModuleWGSLDescriptor{
                     .chain = .{
                         .next = null,
