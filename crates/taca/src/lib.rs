@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use std::iter;
-use wasmtime::{Caller, Engine, Func, Instance, Module, Store};
+use wasmtime::{Caller, Engine, Linker, Module, Store};
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -157,17 +157,9 @@ impl State {
     }
 }
 
-fn init_wasm() -> Result<()> {
+fn init_wasm(app: &str) -> Result<()> {
     let engine = Engine::default();
-    let module = Module::new(
-        &engine,
-        r#"
-        (module
-            (func $hello (import "" "hello"))
-            (func (export "run") (call $hello))
-        )
-        "#,
-    )?;
+    let module = Module::from_file(&engine, app)?;
     struct MyState {
         name: String,
         count: usize,
@@ -179,14 +171,34 @@ fn init_wasm() -> Result<()> {
             count: 0,
         },
     );
-    let hello_func = Func::wrap(&mut store, |mut caller: Caller<'_, MyState>| {
-        println!("Calling back...");
-        println!("> {}", caller.data().name);
-        caller.data_mut().count += 1;
-    });
-    let imports = [hello_func.into()];
-    let instance = Instance::new(&mut store, &module, &imports)?;
-    let run = instance.get_typed_func::<(), ()>(&mut store, "run")?;
+    // let hello_func = Func::wrap(&mut store, |mut caller: Caller<'_, MyState>| {
+    //     println!("Calling back...");
+    //     println!("> {}", caller.data().name);
+    //     caller.data_mut().count += 1;
+    // });
+    // let imports = [hello_func.into()];
+    let mut linker = Linker::new(&engine);
+    linker.func_wrap(
+        "env",
+        "taca_windowSetTitle",
+        |mut caller: Caller<'_, MyState>, _title: i32| {
+            println!("taca_windowSetTitle...");
+            println!("> {} {}", caller.data().name, caller.data().count);
+            caller.data_mut().count += 1;
+        },
+    )?;
+    linker.func_wrap(
+        "wasi_snapshot_preview1",
+        "proc_exit",
+        |mut caller: Caller<'_, MyState>, _title: i32| {
+            // TODO Need to exit.
+            println!("proc_exit...");
+            println!("> {} {}", caller.data().name, caller.data().count);
+            caller.data_mut().count += 1;
+        },
+    )?;
+    let linking = linker.instantiate(&mut store, &module)?;
+    let run = linking.get_typed_func::<(), ()>(&mut store, "_start")?;
     run.call(&mut store, ())?;
     Ok(())
 }
@@ -219,8 +231,8 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
-pub async fn run_app(_args: &RunArgs) -> Result<()> {
-    init_wasm()?;
+pub async fn run_app(args: &RunArgs) -> Result<()> {
+    init_wasm(&args.app)?;
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
