@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow = "1.0.75"
+clap = { version = "4.5.3", features = ["derive"] }
 env_logger = "0.10.1"
 log = "0.4.20"
 pollster = "0.3.0"

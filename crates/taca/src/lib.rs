@@ -1,8 +1,9 @@
 use anyhow::Result;
+use clap::{Args, Parser, Subcommand};
 use std::iter;
-use wasmtime::*;
+use wasmtime::{Caller, Engine, Func, Instance, Module, Store};
 use winit::{
-    event::*,
+    event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -158,12 +159,15 @@ impl State {
 
 fn init_wasm() -> Result<()> {
     let engine = Engine::default();
-    let module = Module::new(&engine, r#"
+    let module = Module::new(
+        &engine,
+        r#"
         (module
             (func $hello (import "" "hello"))
             (func (export "run") (call $hello))
         )
-    "#)?;
+        "#,
+    )?;
     struct MyState {
         name: String,
         count: usize,
@@ -187,9 +191,35 @@ fn init_wasm() -> Result<()> {
     Ok(())
 }
 
+#[derive(Parser)]
+#[command(about, version, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Run(RunArgs),
+}
+
+#[derive(Args)]
+pub struct RunArgs {
+    app: String,
+}
+
 pub async fn run() -> Result<()> {
     env_logger::init();
+    let cli = Cli::parse();
+    match &cli.command {
+        Commands::Run(args) => {
+            run_app(&args).await?;
+        }
+    }
+    Ok(())
+}
 
+pub async fn run_app(_args: &RunArgs) -> Result<()> {
     init_wasm()?;
 
     let event_loop = EventLoop::new();
