@@ -4,7 +4,7 @@ const c = @cImport({
 const std = @import("std");
 
 pub fn main() !void {
-    c.taca_windowSetTitle("Taca-Simplified WebGPU");
+    c.taca_windowSetTitle("Hi, Taca!");
     const pipeline = c.taca_Pipeline{
         .fragment = fragment,
         .vertex = vertex,
