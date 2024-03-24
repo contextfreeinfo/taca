@@ -9,23 +9,12 @@ pub fn main() !void {
         .fragment = fragment,
         .vertex = vertex,
     };
-    const vertices = [_]Vec2{
-        .{ .x = 0.0, .y = 0.0 },
-        .{ .x = 1.0, .y = 0.0 },
-        .{ .x = 0.0, .y = 1.0 },
-        .{ .x = 0.0, .y = 1.0 },
-        .{ .x = 1.0, .y = 1.0 },
-        .{ .x = 1.0, .y = 0.0 },
-    };
-    const layout = c.taca_AttributeLayout{
-        .start = &vertices,
-        .stride = @sizeOf(Vec2),
-    };
     const pipeline_data = c.taca_PipelineData{
         .uniforms = null,
         .attributes = &layout,
-        .attributeCount = 2, // TODO Really?
-        .vertexCount = 6, // TODO Automate.
+        .attributeCount = 2, // TODO Need more/less info for layout???
+        .vertexCount = vertices.len,
+        .vertexOutSize = @sizeOf(c.taca_Vec4),
     };
     c.taca_draw(&pipeline, &pipeline_data);
 }
@@ -47,6 +36,28 @@ export fn vertex(
     input: [*c]const c.taca_ShaderInput,
     output: ?*anyopaque,
 ) void {
-    _ = input;
-    _ = output;
+    const in_position: *const Vec2 = @ptrCast(
+        @alignCast(input.*.attributes[0]),
+    );
+    const out_position: *c.taca_Vec4 = @ptrCast(@alignCast(output));
+    out_position.* = .{
+        .x = in_position.x,
+        .y = in_position.y,
+        .z = 0.0,
+        .w = 1.0,
+    };
 }
+
+const vertices = [_]Vec2{
+    .{ .x = 0.0, .y = 0.0 },
+    .{ .x = 1.0, .y = 0.0 },
+    .{ .x = 0.0, .y = 1.0 },
+    .{ .x = 0.0, .y = 1.0 },
+    .{ .x = 1.0, .y = 1.0 },
+    .{ .x = 1.0, .y = 0.0 },
+};
+
+const layout = c.taca_AttributeLayout{
+    .start = &vertices,
+    .stride = @sizeOf(Vec2),
+};

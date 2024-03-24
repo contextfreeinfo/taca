@@ -14,7 +14,7 @@ typedef const void* taca_Attribute;
 
 typedef struct taca_ShaderInput {
     void* uniforms;
-    taca_Attribute* attributes;
+    const taca_Attribute* attributes;
 } taca_ShaderInput;
 
 typedef void (*taca_FragmentShader)(
@@ -37,6 +37,7 @@ typedef struct taca_PipelineData {
     const taca_AttributeLayout* attributes;
     size_t attributeCount;
     size_t vertexCount;
+    size_t vertexOutSize;
 } taca_PipelineData;
 
 typedef struct taca_Pipeline {
