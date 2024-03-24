@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
     exe.addIncludePath(.{ .path = "../../../include" });
+    exe.export_table = true;
     b.installArtifact(exe);
     // Set up for testing.
     const lib_unit_tests = b.addTest(.{
