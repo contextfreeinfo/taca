@@ -171,13 +171,16 @@ fn init_wasm(app: &str) -> Result<()> {
             count: 0,
         },
     );
-    // let hello_func = Func::wrap(&mut store, |mut caller: Caller<'_, MyState>| {
-    //     println!("Calling back...");
-    //     println!("> {}", caller.data().name);
-    //     caller.data_mut().count += 1;
-    // });
-    // let imports = [hello_func.into()];
     let mut linker = Linker::new(&engine);
+    linker.func_wrap(
+        "env",
+        "taca_draw",
+        |mut caller: Caller<'_, MyState>, _pipeline: i32, _pipeline_data: i32| {
+            println!("taca_draw...");
+            println!("> {} {}", caller.data().name, caller.data().count);
+            caller.data_mut().count += 1;
+        },
+    )?;
     linker.func_wrap(
         "env",
         "taca_windowSetTitle",
@@ -199,8 +202,30 @@ fn init_wasm(app: &str) -> Result<()> {
     )?;
     let linking = linker.instantiate(&mut store, &module)?;
     let run = linking.get_typed_func::<(), ()>(&mut store, "_start")?;
-    run.call(&mut store, ())?;
+    // TODO Ignore only explicit exit.
+    let _ = run.call(&mut store, ());
     Ok(())
+}
+
+#[repr(C)]
+pub struct Pipeline {
+    pub fragment: extern "C" fn(),
+    pub vertex: extern "C" fn(),
+}
+
+#[repr(C)]
+pub struct AttributeLayout {
+    pub start: *const std::ffi::c_void,
+    pub stride: usize,
+}
+
+#[repr(C)]
+pub struct PipelineData {
+    pub uniforms: *const std::ffi::c_void,
+    pub attributes: *const AttributeLayout,
+    pub attribute_count: usize,
+    pub vertex_count: usize,
+    pub vertex_out_size: usize,
 }
 
 #[derive(Parser)]

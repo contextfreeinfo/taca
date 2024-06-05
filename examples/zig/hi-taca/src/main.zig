@@ -34,13 +34,12 @@ export fn fragment(
 
 export fn vertex(
     input: [*c]const c.taca_ShaderInput,
-    output: ?*anyopaque,
+    output: [*c]c.taca_VertexOutput,
 ) void {
     const in_position: *const Vec2 = @ptrCast(
         @alignCast(input.*.attributes[0]),
     );
-    const out_position: *c.taca_Vec4 = @ptrCast(@alignCast(output));
-    out_position.* = .{
+    output.*.position = .{
         .x = in_position.x,
         .y = in_position.y,
         .z = 0.0,

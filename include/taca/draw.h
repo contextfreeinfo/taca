@@ -12,10 +12,20 @@ typedef struct taca_Rgba {
 
 typedef const void* taca_Attribute;
 
+// See:
+// https://www.w3.org/TR/WGSL/#builtin-inputs-outputs
+
 typedef struct taca_ShaderInput {
     void* uniforms;
     const taca_Attribute* attributes;
 } taca_ShaderInput;
+
+typedef struct taca_VertexOutput {
+    taca_Vec4 position;
+    size_t clipDistancesCount; // Must be compile-time constant.
+    float clipDistances[8];
+    // Additional opaque data might follow.
+} taca_VertexOutput;
 
 typedef void (*taca_FragmentShader)(
     const taca_ShaderInput* input,
@@ -24,7 +34,7 @@ typedef void (*taca_FragmentShader)(
 
 typedef void (*taca_VertexShader)(
     const taca_ShaderInput* input,
-    void* output
+    taca_VertexOutput* output
 );
 
 typedef struct taca_AttributeLayout {
