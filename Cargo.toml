@@ -1,0 +1,18 @@
+[package]
+name = "taca"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+miniquad = "0.4.2"
+
+[profile.release]
+lto = true
+panic = 'abort'
+opt-level = "s"
+overflow-checks = false
+debug-assertions = false
+incremental = false
+rpath = false
+codegen-units = 1
+strip = true
