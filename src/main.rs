@@ -97,6 +97,7 @@ fn main() {
     } else {
         conf::AppleGfxApi::OpenGl
     };
+    conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
 
     miniquad::start(conf, move || Box::new(Stage::new()));
 }
@@ -104,22 +105,28 @@ fn main() {
 mod shader {
     use miniquad::*;
 
-    pub const VERTEX: &str = r#"#version 100
-    attribute vec2 in_pos;
-    attribute vec4 in_color;
-
-    varying lowp vec4 color;
-
+    pub const VERTEX: &str = r#"#version 300 es
+    precision lowp float;
+    
+    in vec2 in_pos;
+    in vec4 in_color;
+    
+    out vec4 color;
+    
     void main() {
-        gl_Position = vec4(in_pos, 0, 1);
+        gl_Position = vec4(in_pos, 0.0, 1.0);
         color = in_color;
     }"#;
 
-    pub const FRAGMENT: &str = r#"#version 100
-    varying lowp vec4 color;
-
+    pub const FRAGMENT: &str = r#"#version 300 es
+    precision lowp float;
+    
+    in vec4 color;
+    
+    out vec4 FragColor;
+    
     void main() {
-        gl_FragColor = color;
+        FragColor = color;
     }"#;
 
     pub const METAL: &str = r#"
