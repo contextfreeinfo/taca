@@ -1,5 +1,3 @@
-## Instructions
+# Taca
 
-Run `./run.sh` or just `cargo build` or such like.
-
-[Video intro here.](https://youtu.be/VhCgep06-I8)
+A runtime for multimedia wasm apps that runs native and in browsers.
