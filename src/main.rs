@@ -1,4 +1,7 @@
+use anyhow::Result;
 use miniquad::*;
+
+mod shaders;
 
 #[repr(C)]
 struct Vertex {
@@ -13,7 +16,7 @@ struct Stage {
 }
 
 impl Stage {
-    pub fn new() -> Stage {
+    pub fn new() -> Result<Stage> {
         let mut ctx: Box<dyn RenderingBackend> = window::new_rendering_backend();
 
         #[rustfmt::skip]
@@ -41,12 +44,13 @@ impl Stage {
             images: vec![],
         };
 
+        let glsl = shaders::shaders()?;
         let shader = ctx
             .new_shader(
                 match ctx.info().backend {
                     Backend::OpenGl => ShaderSource::Glsl {
-                        vertex: shader::VERTEX,
-                        fragment: shader::FRAGMENT,
+                        vertex: &glsl.vertex,
+                        fragment: &glsl.fragment,
                     },
                     Backend::Metal => ShaderSource::Msl {
                         program: shader::METAL,
@@ -59,18 +63,18 @@ impl Stage {
         let pipeline = ctx.new_pipeline(
             &[BufferLayout::default()],
             &[
-                VertexAttribute::new("in_pos", VertexFormat::Float2),
-                VertexAttribute::new("in_color", VertexFormat::Float4),
+                VertexAttribute::new("_p2vs_location0", VertexFormat::Float2),
+                VertexAttribute::new("_p2vs_location1", VertexFormat::Float4),
             ],
             shader,
             PipelineParams::default(),
         );
 
-        Stage {
+        Ok(Stage {
             pipeline,
             bindings,
             ctx,
-        }
+        })
     }
 }
 
@@ -79,17 +83,15 @@ impl EventHandler for Stage {
 
     fn draw(&mut self) {
         self.ctx.begin_default_pass(Default::default());
-
         self.ctx.apply_pipeline(&self.pipeline);
         self.ctx.apply_bindings(&self.bindings);
         self.ctx.draw(0, 3, 1);
         self.ctx.end_render_pass();
-
         self.ctx.commit_frame();
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     let mut conf = conf::Conf::default();
     let metal = std::env::args().nth(1).as_deref() == Some("metal");
     conf.platform.apple_gfx_api = if metal {
@@ -98,37 +100,14 @@ fn main() {
         conf::AppleGfxApi::OpenGl
     };
     conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
-
-    miniquad::start(conf, move || Box::new(Stage::new()));
+    miniquad::start(conf, move || Box::new(Stage::new().expect("Bad init")));
+    Ok(())
 }
 
 mod shader {
     use miniquad::*;
 
-    pub const VERTEX: &str = r#"#version 300 es
-    precision lowp float;
-    
-    in vec2 in_pos;
-    in vec4 in_color;
-    
-    out vec4 color;
-    
-    void main() {
-        gl_Position = vec4(in_pos, 0.0, 1.0);
-        color = in_color;
-    }"#;
-
-    pub const FRAGMENT: &str = r#"#version 300 es
-    precision lowp float;
-    
-    in vec4 color;
-    
-    out vec4 FragColor;
-    
-    void main() {
-        FragColor = color;
-    }"#;
-
+    // TODO Convert this with naga also.
     pub const METAL: &str = r#"
     #include <metal_stdlib>
 
