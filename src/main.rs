@@ -2,6 +2,7 @@ use anyhow::Result;
 use miniquad::*;
 
 mod shaders;
+mod wasmic;
 
 #[repr(C)]
 struct Vertex {
@@ -100,6 +101,7 @@ fn main() -> Result<()> {
         conf::AppleGfxApi::OpenGl
     };
     conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
+    wasmic::wasmish()?;
     miniquad::start(conf, move || Box::new(Stage::new().expect("Bad init")));
     Ok(())
 }
