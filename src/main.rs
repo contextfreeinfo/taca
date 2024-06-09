@@ -1,6 +1,5 @@
 use anyhow::Result;
 use miniquad::*;
-
 mod shaders;
 mod wasmic;
 
