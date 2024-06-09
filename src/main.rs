@@ -46,7 +46,7 @@ impl Stage {
 
         let glsl = shaders::shaders()?;
         let shader = ctx
-            .new_shader(
+            .new_shader( //
                 match ctx.info().backend {
                     Backend::OpenGl => ShaderSource::Glsl {
                         vertex: &glsl.vertex,
@@ -60,7 +60,7 @@ impl Stage {
             )
             .unwrap();
 
-        let pipeline = ctx.new_pipeline(
+        let pipeline = ctx.new_pipeline( //
             &[BufferLayout::default()],
             &[
                 VertexAttribute::new("_p2vs_location0", VertexFormat::Float2),
@@ -82,12 +82,12 @@ impl EventHandler for Stage {
     fn update(&mut self) {}
 
     fn draw(&mut self) {
-        self.ctx.begin_default_pass(Default::default());
-        self.ctx.apply_pipeline(&self.pipeline);
-        self.ctx.apply_bindings(&self.bindings);
-        self.ctx.draw(0, 3, 1);
-        self.ctx.end_render_pass();
-        self.ctx.commit_frame();
+        self.ctx.begin_default_pass(Default::default()); //
+        self.ctx.apply_pipeline(&self.pipeline); //
+        self.ctx.apply_bindings(&self.bindings); //
+        self.ctx.draw(0, 3, 1); //
+        self.ctx.end_render_pass(); //
+        self.ctx.commit_frame(); //
     }
 }
 

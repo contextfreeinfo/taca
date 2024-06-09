@@ -42,3 +42,5 @@ miniquad_add_plugin({
 });
 
 load("../target/wasm32-unknown-unknown/release/taca.wasm");
+// load("../target/wasm32-unknown-unknown/release-lto/taca.wasm");
+// load("../target/wasm32-unknown-unknown/release-lto/taca.opt.wasm");
