@@ -1,16 +1,17 @@
-use wasmer::Value;
+#[cfg(not(target_arch = "wasm32"))]
+use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, Value};
 
 pub fn wasmish() -> anyhow::Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        use wasmer::{imports, Function, Instance, Module, Store};
         let module_wat = include_str!("hi.wat");
 
         let mut store = Store::default();
         let module = Module::new(&store, &module_wat)?;
+        let env = FunctionEnv::new(&mut store, 5);
         let import_object = imports! {
             "" => {
-                 "hi" => Function::new_typed(&mut store, hi),
+                 "hi" => Function::new_typed_with_env(&mut store, &env, hi),
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object)?;
@@ -26,6 +27,17 @@ pub fn wasmish() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn hi() {
+#[cfg(not(target_arch = "wasm32"))]
+fn hi(mut _env: FunctionEnvMut<i32>) {
     println!("Hi!");
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+extern "C" {
+    fn _load_wasm_module();
+}
+
+#[cfg(target_arch = "wasm32")]
+extern "C" {
+    fn _load_wasm_module();
 }
