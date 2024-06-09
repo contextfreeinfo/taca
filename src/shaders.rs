@@ -14,7 +14,7 @@ pub struct GlslShaders {
 }
 
 pub fn shaders() -> Result<GlslShaders> {
-    let source = include_bytes!("shader.spv");
+    let source = include_bytes!("shader.opt.spv");
     // println!("{source}");
     let module = spv::parse_u8_slice(source, &Options::default())?;
     let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
