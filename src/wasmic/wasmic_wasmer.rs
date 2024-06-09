@@ -1,13 +1,11 @@
 use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, Value};
 
-pub fn wasmish() -> anyhow::Result<()> {
-    let module_wat = include_bytes!("hi.wasm");
-
+pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
     let mut store = Store::default();
-    let module = Module::new(&store, &module_wat)?;
+    let module = Module::new(&store, wasm)?;
     let env = FunctionEnv::new(&mut store, 5);
     let import_object = imports! {
-        "" => {
+        "env" => {
              "hi" => Function::new_typed_with_env(&mut store, &env, hi),
         }
     };

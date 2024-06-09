@@ -100,7 +100,7 @@ fn main() -> Result<()> {
         conf::AppleGfxApi::OpenGl
     };
     conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
-    wasmic::wasmish()?;
+    wasmic::wasmish(include_bytes!("hi.wasm"))?;
     miniquad::start(conf, move || Box::new(Stage::new().expect("Bad init")));
     Ok(())
 }
