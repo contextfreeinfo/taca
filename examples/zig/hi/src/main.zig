@@ -1,6 +1,11 @@
 const std = @import("std");
+const taca = @import("taca.zig");
 
 pub fn main() !void {
+    const window = taca.Window.get();
+    const ctx = window.newRenderingContext();
+    const shader = ctx.newShader(@embedFile("shader.opt.spv"));
+    _ = shader;
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
     std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 
