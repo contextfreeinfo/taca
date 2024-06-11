@@ -5,7 +5,17 @@ pub fn main() !void {
     const window = taca.Window.get();
     const ctx = window.newRenderingContext();
     const shader = ctx.newShader(@embedFile("shader.opt.spv"));
-    _ = shader;
+    const pipeline = ctx.newPipeline(.{
+        .fragment = .{
+            .entry_point = "fs_main",
+            .shader = shader,
+        },
+        .vertex = .{
+            .entry_point = "vs_main",
+            .shader = shader,
+        },
+    });
+    _ = pipeline;
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
     std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 

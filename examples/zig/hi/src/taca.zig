@@ -1,6 +1,21 @@
 // Nice api.
 
+pub const Pipeline = extern struct {};
+
+pub const PipelineShaderInfo = struct {
+    entry_point: []const u8,
+    shader: *Shader,
+};
+
+pub const PipelineInfo = struct {
+    fragment: PipelineShaderInfo,
+    vertex: PipelineShaderInfo,
+};
+
 pub const RenderingContext = extern struct {
+    pub fn newPipeline(self: *RenderingContext, info: PipelineInfo) *Pipeline {
+        return taca_RenderingContext_newPipeline(self, &info);
+    }
     pub fn newShader(self: *RenderingContext, bytes: []const u8) *Shader {
         return taca_RenderingContext_newShader(self, bytes.ptr, bytes.len);
     }
@@ -14,6 +29,24 @@ pub const Window = extern struct {
 };
 
 // Extern definitions.
+
+// TODO Delete if not needed.
+pub const ExternPipelineInfo = extern struct {
+    fragment: ExternPipelineShaderInfo,
+    vertex: ExternPipelineShaderInfo,
+};
+
+// TODO Delete if not needed.
+pub const ExternPipelineShaderInfo = extern struct {
+    entryPoint: []const u8,
+    entryPointLength: usize,
+    shader: *Shader,
+};
+
+extern fn taca_RenderingContext_newPipeline(
+    context: *RenderingContext,
+    info: *const PipelineInfo,
+) callconv(.C) *Pipeline;
 
 extern fn taca_RenderingContext_newShader(
     context: *RenderingContext,
