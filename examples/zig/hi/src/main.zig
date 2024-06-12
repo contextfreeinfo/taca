@@ -1,9 +1,38 @@
 const std = @import("std");
 const taca = @import("taca.zig");
 
+const Vertex = extern struct {
+    pos: [2]f32,
+    color: [4]f32,
+};
+
+const Stage = struct {
+    pipeline: *taca.Pipeline,
+    // TODO bindings,
+    ctx: *taca.RenderingContext,
+};
+
 pub fn main() !void {
     const window = taca.Window.get();
     const ctx = window.newRenderingContext();
+    const vertices = [_]Vertex{
+        .{ .pos = .{ -0.5, -0.5 }, .color = .{ 1.0, 0.0, 0.0, 1.0 } },
+        .{ .pos = .{ 0.5, -0.5 }, .color = .{ 0.0, 1.0, 0.0, 1.0 } },
+        .{ .pos = .{ 0.0, 0.5 }, .color = .{ 0.0, 0.0, 1.0, 1.0 } },
+    };
+    const vertex_buffer = ctx.newBuffer(
+        taca.BufferType.VertexBuffer,
+        taca.BufferUsage.Immutable,
+        taca.BufferSlice.new(&vertices),
+    );
+    _ = vertex_buffer;
+    const indices = [_]u16{ 0, 1, 2 };
+    const index_buffer = ctx.newBuffer(
+        taca.BufferType.IndexBuffer,
+        taca.BufferUsage.Immutable,
+        taca.BufferSlice.new(&indices),
+    );
+    _ = index_buffer;
     const shader = ctx.newShader(@embedFile("shader.opt.spv"));
     const pipeline = ctx.newPipeline(.{
         .fragment = .{
@@ -31,9 +60,15 @@ pub fn main() !void {
     try bw.flush(); // don't forget to flush!
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+test "hi" {
+    const nums: []const i32 = &[_]i32{ 3, 4, 5 };
+    try blah(nums);
+}
+
+fn blah(comptime items: anytype) !void {
+    const expect = @import("std").testing.expect;
+    const info = @typeInfo(@TypeOf(items));
+    try expect(info.Pointer.size == .Slice);
+    try expect(@sizeOf(info.Pointer.child) == 4);
+    try expect(items.len == 3);
 }

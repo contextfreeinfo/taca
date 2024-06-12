@@ -1,4 +1,33 @@
-// Nice api.
+const std = @import("std");
+
+pub const Buffer = extern struct {};
+
+pub const BufferSlice = extern struct {
+    ptr: *const anyopaque,
+    size: usize,
+    item_size: usize,
+
+    pub fn new(comptime items: anytype) BufferSlice {
+        const info = @typeInfo(@TypeOf(items)).Pointer;
+        const item_size = @sizeOf(info.child);
+        return .{
+            .ptr = items.ptr,
+            .size = items.len * item_size,
+            .item_size = item_size,
+        };
+    }
+};
+
+pub const BufferType = enum(c_int) {
+    VertexBuffer,
+    IndexBuffer,
+};
+
+pub const BufferUsage = enum(c_int) {
+    Immutable,
+    Dynamic,
+    Stream,
+};
 
 pub const Pipeline = extern struct {};
 
@@ -13,10 +42,22 @@ pub const PipelineInfo = struct {
 };
 
 pub const RenderingContext = extern struct {
-    pub fn newPipeline(self: *RenderingContext, info: PipelineInfo) *Pipeline {
+    const Self = RenderingContext;
+
+    pub fn newBuffer(
+        self: *Self,
+        typ: BufferType,
+        usage: BufferUsage,
+        slice: BufferSlice,
+    ) *Buffer {
+        return taca_RenderingContext_newBuffer(self, typ, usage, &slice);
+    }
+
+    pub fn newPipeline(self: *Self, info: PipelineInfo) *Pipeline {
         return taca_RenderingContext_newPipeline(self, &info);
     }
-    pub fn newShader(self: *RenderingContext, bytes: []const u8) *Shader {
+
+    pub fn newShader(self: *Self, bytes: []const u8) *Shader {
         return taca_RenderingContext_newShader(self, bytes.ptr, bytes.len);
     }
 };
@@ -42,6 +83,13 @@ pub const ExternPipelineShaderInfo = extern struct {
     entryPointLength: usize,
     shader: *Shader,
 };
+
+extern fn taca_RenderingContext_newBuffer(
+    context: *RenderingContext,
+    typ: BufferType,
+    usage: BufferUsage,
+    info: *const BufferSlice,
+) callconv(.C) *Buffer;
 
 extern fn taca_RenderingContext_newPipeline(
     context: *RenderingContext,
