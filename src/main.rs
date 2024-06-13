@@ -13,6 +13,7 @@ struct Stage {
     pipeline: Pipeline,
     bindings: Bindings,
     ctx: Box<dyn RenderingBackend>,
+    drawn: i32,
 }
 
 impl Stage {
@@ -74,6 +75,7 @@ impl Stage {
             pipeline,
             bindings,
             ctx,
+            drawn: 0,
         })
     }
 }
@@ -82,12 +84,16 @@ impl EventHandler for Stage {
     fn update(&mut self) {}
 
     fn draw(&mut self) {
+        // if self.drawn > 2 {
+        //     return;
+        // }
         self.ctx.begin_default_pass(Default::default()); //
         self.ctx.apply_pipeline(&self.pipeline); //
         self.ctx.apply_bindings(&self.bindings); //
         self.ctx.draw(0, 3, 1); //
         self.ctx.end_render_pass(); //
         self.ctx.commit_frame(); //
+        self.drawn += 1;
     }
 }
 
@@ -100,6 +106,7 @@ fn main() -> Result<()> {
         conf::AppleGfxApi::OpenGl
     };
     conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
+    conf.window_title = "Taca".into();
     wasmic::wasmish(include_bytes!("hi.wasm"))?;
     miniquad::start(conf, move || Box::new(Stage::new().expect("Bad init")));
     Ok(())

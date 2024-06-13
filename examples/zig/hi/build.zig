@@ -3,11 +3,12 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
-        .os_tag = .wasi,
+        .os_tag = .freestanding,
     });
     // Build exe.
     const optimize = std.builtin.OptimizeMode.ReleaseSmall;
     const exe = b.addExecutable(.{
+        // .linkage = .dynamic,
         .name = "hi",
         .optimize = optimize,
         .root_source_file = b.path("src/main.zig"),

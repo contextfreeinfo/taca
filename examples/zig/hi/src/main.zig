@@ -7,12 +7,15 @@ const Vertex = extern struct {
 };
 
 const Stage = struct {
-    pipeline: *taca.Pipeline,
-    // TODO bindings,
     ctx: *taca.RenderingContext,
+    index_buffer: *taca.Buffer,
+    pipeline: *taca.Pipeline,
+    vertex_buffer: *taca.Buffer,
 };
 
-pub fn main() !void {
+var stage: ?Stage = null;
+
+pub fn main() void {
     const window = taca.Window.get();
     const ctx = window.newRenderingContext();
     const vertices = [_]Vertex{
@@ -21,20 +24,22 @@ pub fn main() !void {
         .{ .pos = .{ 0.0, 0.5 }, .color = .{ 0.0, 0.0, 1.0, 1.0 } },
     };
     const vertex_buffer = ctx.newBuffer(
-        taca.BufferType.VertexBuffer,
-        taca.BufferUsage.Immutable,
+        .vertex_buffer,
+        .immutable,
         taca.BufferSlice.new(&vertices),
     );
-    _ = vertex_buffer;
     const indices = [_]u16{ 0, 1, 2 };
     const index_buffer = ctx.newBuffer(
-        taca.BufferType.IndexBuffer,
-        taca.BufferUsage.Immutable,
+        .index_buffer,
+        .immutable,
         taca.BufferSlice.new(&indices),
     );
-    _ = index_buffer;
     const shader = ctx.newShader(@embedFile("shader.opt.spv"));
     const pipeline = ctx.newPipeline(.{
+        .attributes = &[_]taca.VertexAttribute{
+            .{ .format = .float2 },
+            .{ .format = .float4 },
+        },
         .fragment = .{
             .entry_point = "fs_main",
             .shader = shader,
@@ -44,20 +49,17 @@ pub fn main() !void {
             .shader = shader,
         },
     });
-    _ = pipeline;
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    stage = .{
+        .ctx = ctx,
+        .index_buffer = index_buffer,
+        .pipeline = pipeline,
+        .vertex_buffer = vertex_buffer,
+    };
+    // std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+}
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
+export fn listen(event: taca.Event) void {
+    _ = event;
 }
 
 test "hi" {

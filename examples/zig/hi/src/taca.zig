@@ -1,5 +1,11 @@
 const std = @import("std");
 
+pub const Bindings = extern struct {
+    vertex_buffers: []const *const Buffer,
+    index_buffer: *const Buffer,
+    // TODO images
+};
+
 pub const Buffer = extern struct {};
 
 pub const BufferSlice = extern struct {
@@ -19,14 +25,25 @@ pub const BufferSlice = extern struct {
 };
 
 pub const BufferType = enum(c_int) {
-    VertexBuffer,
-    IndexBuffer,
+    vertex_buffer,
+    index_buffer,
 };
 
 pub const BufferUsage = enum(c_int) {
-    Immutable,
-    Dynamic,
-    Stream,
+    immutable,
+    dynamic,
+    stream,
+};
+
+pub const EventKind = enum(c_int) {
+    draw,
+};
+
+pub const Event = extern struct {
+    kind: EventKind,
+    detail: extern union {
+        //
+    },
 };
 
 pub const Pipeline = extern struct {};
@@ -37,6 +54,7 @@ pub const PipelineShaderInfo = struct {
 };
 
 pub const PipelineInfo = struct {
+    attributes: []const VertexAttribute,
     fragment: PipelineShaderInfo,
     vertex: PipelineShaderInfo,
 };
@@ -63,6 +81,32 @@ pub const RenderingContext = extern struct {
 };
 
 pub const Shader = extern struct {};
+
+pub const VertexAttribute = extern struct {
+    format: VertexFormat,
+    buffer_index: usize = 0,
+};
+
+pub const VertexFormat = enum(c_int) {
+    // Retain order!
+    float1,
+    float2,
+    float3,
+    float4,
+    byte1,
+    byte2,
+    byte3,
+    byte4,
+    short1,
+    short2,
+    short3,
+    short4,
+    int1,
+    int2,
+    int3,
+    int4,
+    mat4,
+};
 
 pub const Window = extern struct {
     pub const get = taca_Window_get;
