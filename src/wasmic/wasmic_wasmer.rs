@@ -11,8 +11,8 @@ pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
     };
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let run = instance.exports.get_function("run")?;
-    run.call(&mut store, &[])?;
+    let start = instance.exports.get_function("_start")?;
+    start.call(&mut store, &[])?;
 
     let add_one = instance.exports.get_function("add_one")?;
     let result = add_one.call(&mut store, &[Value::I32(42)])?;
@@ -21,6 +21,10 @@ pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn print(text: &str) {
+    println!("{text}");
+}
+
 fn hi(mut _env: FunctionEnvMut<i32>) {
-    println!("Hi!");
+    crate::say_hi();
 }

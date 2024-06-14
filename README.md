@@ -6,6 +6,7 @@ Build optimized:
 
 ```
 # TODO Minify js.
+wat2wasm src/hi.wat -o src/hi.wasm
 naga src/shader.wgsl src/shader.spv
 spirv-opt -Os src/shader.spv -o src/shader.opt.spv
 cargo build --target wasm32-unknown-unknown --profile release-lto

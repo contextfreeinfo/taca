@@ -12,7 +12,9 @@ async function runWasm(memory, wasm, length) {
       },
     },
   });
-  instance.exports.run();
+  instance.exports._start();
+  // Finish initializing taca now that we've initialized the app.
+  wasm_exports.display();
 }
 
 /**

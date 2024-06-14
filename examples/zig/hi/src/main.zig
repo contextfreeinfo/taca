@@ -1,19 +1,4 @@
-const std = @import("std");
 const taca = @import("taca.zig");
-
-const Vertex = extern struct {
-    pos: [2]f32,
-    color: [4]f32,
-};
-
-const Stage = struct {
-    ctx: *taca.RenderingContext,
-    index_buffer: *taca.Buffer,
-    pipeline: *taca.Pipeline,
-    vertex_buffer: *taca.Buffer,
-};
-
-var stage: ?Stage = null;
 
 pub fn main() void {
     const window = taca.Window.get();
@@ -55,22 +40,33 @@ pub fn main() void {
         .pipeline = pipeline,
         .vertex_buffer = vertex_buffer,
     };
-    // std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 }
 
 export fn listen(event: taca.Event) void {
+    // TODO Branch on event type.
     _ = event;
+    const ctx = stage.?.ctx;
+    ctx.beginPass();
+    ctx.applyPipeline(stage.?.pipeline);
+    ctx.applyBindings(.{
+        .vertex_buffers = &[_]*taca.Buffer{stage.?.vertex_buffer},
+        .index_buffer = stage.?.index_buffer,
+    });
+    ctx.draw(0, 3, 1);
+    ctx.endPass();
+    ctx.commitFrame();
 }
 
-test "hi" {
-    const nums: []const i32 = &[_]i32{ 3, 4, 5 };
-    try blah(nums);
-}
+var stage: ?Stage = null;
 
-fn blah(comptime items: anytype) !void {
-    const expect = @import("std").testing.expect;
-    const info = @typeInfo(@TypeOf(items));
-    try expect(info.Pointer.size == .Slice);
-    try expect(@sizeOf(info.Pointer.child) == 4);
-    try expect(items.len == 3);
-}
+const Stage = struct {
+    ctx: *taca.RenderingContext,
+    index_buffer: *taca.Buffer,
+    pipeline: *taca.Pipeline,
+    vertex_buffer: *taca.Buffer,
+};
+
+const Vertex = extern struct {
+    pos: [2]f32,
+    color: [4]f32,
+};

@@ -97,19 +97,25 @@ impl EventHandler for Stage {
     }
 }
 
-fn main() -> Result<()> {
+fn main() {
+    wasmic::wasmish(include_bytes!("hi.wasm")).expect("Bad wasm");
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        display();
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", no_mangle)]
+pub fn display() {
     let mut conf = conf::Conf::default();
-    let metal = std::env::args().nth(1).as_deref() == Some("metal");
-    conf.platform.apple_gfx_api = if metal {
-        conf::AppleGfxApi::Metal
-    } else {
-        conf::AppleGfxApi::OpenGl
-    };
+    conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;
     conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
     conf.window_title = "Taca".into();
-    wasmic::wasmish(include_bytes!("hi.wasm"))?;
     miniquad::start(conf, move || Box::new(Stage::new().expect("Bad init")));
-    Ok(())
+}
+
+pub fn say_hi() {
+    wasmic::print("Hi there!");
 }
 
 mod shader {

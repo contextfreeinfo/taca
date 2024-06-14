@@ -5,7 +5,7 @@ pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn print(text: &[u8]) {
+pub fn print(text: &str) {
     unsafe {
         browser_print(text.as_ptr(), text.len());
     }
@@ -21,7 +21,7 @@ extern "C" {
 
 #[no_mangle]
 pub extern "C" fn hi() {
-    print("Hi!".as_bytes());
+    crate::say_hi();
 }
 
 #[no_mangle]
