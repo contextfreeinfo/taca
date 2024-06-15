@@ -1,9 +1,14 @@
-use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, Value};
+#![allow(non_snake_case)]
+
+use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store};
+
+use crate::platform::Platform;
 
 pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
+    Box::into_raw(Box::new(Platform {}));
     let mut store = Store::default();
     let module = Module::new(&store, wasm)?;
-    let env = FunctionEnv::new(&mut store, 5);
+    let env = FunctionEnv::new(&mut store, Platform {});
     let import_object = imports! {
         "env" => {
             "taca_RenderingContext_applyBindings" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_applyBindings),
@@ -34,28 +39,36 @@ pub fn print(text: &str) {
     println!("{text}");
 }
 
-fn taca_RenderingContext_applyBindings(mut _env: FunctionEnvMut<i32>, context: u32, bindings: u32) {
+fn taca_RenderingContext_applyBindings(
+    mut _env: FunctionEnvMut<Platform>,
+    context: u32,
+    bindings: u32,
+) {
     crate::wasmic::print(&format!(
         "taca_RenderingContext_applyBindings {context} {bindings}"
     ));
 }
 
-fn taca_RenderingContext_applyPipeline(mut _env: FunctionEnvMut<i32>, context: u32, pipeline: u32) {
+fn taca_RenderingContext_applyPipeline(
+    mut _env: FunctionEnvMut<Platform>,
+    context: u32,
+    pipeline: u32,
+) {
     crate::wasmic::print(&format!(
         "taca_RenderingContext_applyPipeline {context} {pipeline}"
     ));
 }
 
-fn taca_RenderingContext_beginPass(mut _env: FunctionEnvMut<i32>, context: u32) {
+fn taca_RenderingContext_beginPass(mut _env: FunctionEnvMut<Platform>, context: u32) {
     crate::wasmic::print(&format!("taca_RenderingContext_beginPass {context}"));
 }
 
-fn taca_RenderingContext_commitFrame(mut _env: FunctionEnvMut<i32>, context: u32) {
+fn taca_RenderingContext_commitFrame(mut _env: FunctionEnvMut<Platform>, context: u32) {
     crate::wasmic::print(&format!("taca_RenderingContext_commitFrame {context}"));
 }
 
 fn taca_RenderingContext_draw(
-    mut _env: FunctionEnvMut<i32>,
+    mut _env: FunctionEnvMut<Platform>,
     context: u32,
     base_element: u32,
     num_elements: u32,
@@ -66,12 +79,12 @@ fn taca_RenderingContext_draw(
     ));
 }
 
-fn taca_RenderingContext_endPass(mut _env: FunctionEnvMut<i32>, context: u32) {
+fn taca_RenderingContext_endPass(mut _env: FunctionEnvMut<Platform>, context: u32) {
     crate::wasmic::print(&format!("taca_RenderingContext_endPass {context}"));
 }
 
 fn taca_RenderingContext_newBuffer(
-    mut _env: FunctionEnvMut<i32>,
+    mut _env: FunctionEnvMut<Platform>,
     context: u32,
     typ: u32,
     usage: u32,
@@ -84,7 +97,7 @@ fn taca_RenderingContext_newBuffer(
 }
 
 fn taca_RenderingContext_newPipeline(
-    mut _env: FunctionEnvMut<i32>,
+    mut _env: FunctionEnvMut<Platform>,
     context: u32,
     info: u32,
 ) -> u32 {
@@ -94,19 +107,23 @@ fn taca_RenderingContext_newPipeline(
     0
 }
 
-fn taca_RenderingContext_newShader(mut _env: FunctionEnvMut<i32>, context: u32, bytes: u32) -> u32 {
+fn taca_RenderingContext_newShader(
+    mut _env: FunctionEnvMut<Platform>,
+    context: u32,
+    bytes: u32,
+) -> u32 {
     crate::wasmic::print(&format!(
         "taca_RenderingContext_newShader {context} {bytes}"
     ));
     0
 }
 
-fn taca_Window_get(mut _env: FunctionEnvMut<i32>) -> u32 {
+fn taca_Window_get(mut _env: FunctionEnvMut<Platform>) -> u32 {
     crate::wasmic::print("taca_Window_get");
     1
 }
 
-fn taca_Window_newRenderingContext(mut _env: FunctionEnvMut<i32>, window: u32) -> u32 {
+fn taca_Window_newRenderingContext(mut _env: FunctionEnvMut<Platform>, window: u32) -> u32 {
     crate::wasmic::print(&format!("taca_Window_newRenderingContext {window}"));
     1
 }

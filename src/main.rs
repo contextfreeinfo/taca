@@ -5,6 +5,8 @@ use anyhow::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::{Args, Parser, Subcommand};
 use miniquad::*;
+
+mod platform;
 mod shaders;
 mod wasmic;
 
