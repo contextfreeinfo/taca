@@ -2,6 +2,13 @@
 
 A runtime for multimedia wasm apps that runs native and in browsers.
 
+Some things:
+
+```
+cargo run --release -- run src/hi.wasm
+cargo run --release -- run examples/zig/hi/zig-out/bin/hi.wasm
+```
+
 Build optimized:
 
 ```
@@ -18,6 +25,8 @@ These files are copied and maybe modified from miniquad:
 
 - static/gl.js
 - static/index.html
+
+Link: http://127.0.0.1:8080/static/?app=../examples/zig/hi/zig-out/bin/hi.wasm
 
 ## Exploration
 

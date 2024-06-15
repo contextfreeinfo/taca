@@ -1,7 +1,32 @@
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs::File, io::Read};
+
 use anyhow::Result;
+#[cfg(not(target_arch = "wasm32"))]
+use clap::{Args, Parser, Subcommand};
 use miniquad::*;
 mod shaders;
 mod wasmic;
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(clap::Parser)]
+#[command(about, version, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Subcommand)]
+enum Commands {
+    Run(BuildArgs),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Args)]
+pub struct BuildArgs {
+    pub app: String,
+}
 
 #[repr(C)]
 struct Vertex {
@@ -47,7 +72,8 @@ impl Stage {
 
         let glsl = shaders::shaders()?;
         let shader = ctx
-            .new_shader( //
+            .new_shader(
+                //
                 match ctx.info().backend {
                     Backend::OpenGl => ShaderSource::Glsl {
                         vertex: &glsl.vertex,
@@ -61,7 +87,8 @@ impl Stage {
             )
             .unwrap();
 
-        let pipeline = ctx.new_pipeline( //
+        let pipeline = ctx.new_pipeline(
+            //
             &[BufferLayout::default()],
             &[
                 VertexAttribute::new("_p2vs_location0", VertexFormat::Float2),
@@ -98,10 +125,26 @@ impl EventHandler for Stage {
 }
 
 fn main() {
-    wasmic::wasmish(include_bytes!("hi.wasm")).expect("Bad wasm");
+    // TODO Push all variation into wasmic?
+    #[cfg(target_arch = "wasm32")]
+    {
+        // TODO Different loading for browser.
+        wasmic::wasmish().expect("Bad wasm");
+    }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        display();
+        let cli = Cli::parse();
+        match &cli.command {
+            Commands::Run(args) => {
+                let mut buf = Vec::<u8>::new();
+                File::open(&args.app)
+                    .expect("Bad open")
+                    .read_to_end(&mut buf)
+                    .expect("Bad read");
+                wasmic::wasmish(&buf).expect("Bad wasm");
+                display();
+            }
+        }
     }
 }
 

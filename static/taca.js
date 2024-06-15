@@ -1,3 +1,5 @@
+// @ts-check
+
 /**
  * @param {WebAssembly.Memory} memory
  * @param {number} wasm
@@ -14,7 +16,7 @@ async function runWasm(memory, wasm, length) {
   });
   instance.exports._start();
   // Finish initializing taca now that we've initialized the app.
-  wasm_exports.display();
+  // wasm_exports.display();
 }
 
 /**
@@ -36,8 +38,8 @@ miniquad_add_plugin({
       print(text, length) {
         print(wasm_memory, text, length);
       },
-      runWasm(wasm, length) {
-        runWasm(wasm_memory, wasm, length);
+      loadApp() {
+        loadApp();
       },
     });
   },
@@ -46,3 +48,51 @@ miniquad_add_plugin({
 load("../target/wasm32-unknown-unknown/release/taca.wasm");
 // load("../target/wasm32-unknown-unknown/release-lto/taca.wasm");
 // load("../target/wasm32-unknown-unknown/release-lto/taca.opt.wasm");
+
+async function loadApp() {
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams(url.search);
+  const app = params.get("app");
+  if (app == null) {
+    return;
+  }
+  const response = await fetch(app);
+  const { instance } = await WebAssembly.instantiateStreaming(response, {
+    env: {
+      taca_RenderingContext_applyBindings(context, bindings) {
+        wasm_exports.taca_RenderingContext_applyBindings(context, bindings);
+      },
+      taca_RenderingContext_applyPipeline(context, pipeline) {
+        wasm_exports.taca_RenderingContext_applyPipeline(context, pipeline);
+      },
+      taca_RenderingContext_beginPass(context) {
+        wasm_exports.taca_RenderingContext_beginPass(context);
+      },
+      taca_RenderingContext_commitFrame(context) {
+        wasm_exports.taca_RenderingContext_commitFrame(context);
+      },
+      taca_RenderingContext_draw(context) {
+        wasm_exports.taca_RenderingContext_draw(context);
+      },
+      taca_RenderingContext_endPass(context) {
+        wasm_exports.taca_RenderingContext_endPass(context);
+      },
+      taca_RenderingContext_newBuffer(context, typ, usage, info) {
+        return wasm_exports.taca_RenderingContext_newBuffer(context, typ, usage, info);
+      },
+      taca_RenderingContext_newPipeline(context, bytes) {
+        return wasm_exports.taca_RenderingContext_newBuffer(context, bytes);
+      },
+      taca_RenderingContext_newShader(context, bytes) {
+        return wasm_exports.taca_RenderingContext_newShader(context, bytes);
+      },
+      taca_Window_get() {
+        return wasm_exports.taca_Window_get();
+      },
+      taca_Window_newRenderingContext(window) {
+        wasm_exports.taca_Window_newRenderingContext(window);
+      },
+    },
+  });
+  instance.exports._start();
+}
