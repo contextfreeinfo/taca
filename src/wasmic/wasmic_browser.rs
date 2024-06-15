@@ -4,9 +4,13 @@ use crate::platform::Platform;
 
 pub fn wasmish() -> anyhow::Result<()> {
     unsafe {
-        let platform = Box::into_raw(Box::new(Platform {}));
+        let mut platform = Box::new(Platform::new(4096));
+        let buffer_ptr = platform.buffer.as_mut_ptr();
+        let buffer_len = platform.buffer.len();
+        let platform = Box::into_raw(platform);
         // crate::wasmic::print(&format!("rust platform: {platform:p}"));
-        browser_load_app(platform);
+        // TODO Also pass in buffer.
+        browser_load_app(platform, buffer_ptr, buffer_len);
     }
     Ok(())
 }
@@ -23,7 +27,7 @@ extern "C" {
 
     #[allow(improper_ctypes)]
     #[link_name = "loadApp"]
-    pub fn browser_load_app(platform: *mut Platform);
+    pub fn browser_load_app(platform: *mut Platform, buffer_ptr: *mut u8, buffer_len: usize);
 }
 
 #[no_mangle]

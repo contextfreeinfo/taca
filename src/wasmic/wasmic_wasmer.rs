@@ -5,10 +5,9 @@ use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, S
 use crate::platform::Platform;
 
 pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
-    Box::into_raw(Box::new(Platform {}));
     let mut store = Store::default();
     let module = Module::new(&store, wasm)?;
-    let env = FunctionEnv::new(&mut store, Platform {});
+    let env = FunctionEnv::new(&mut store, Platform::new(0));
     let import_object = imports! {
         "env" => {
             "taca_RenderingContext_applyBindings" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_applyBindings),

@@ -38,8 +38,8 @@ miniquad_add_plugin({
       print(text, length) {
         print(wasm_memory, text, length);
       },
-      loadApp(platform) {
-        loadApp(platform);
+      loadApp(platform, bufferPtr, bufferLen) {
+        loadApp(platform, wasm_memory, bufferPtr, bufferLen);
       },
     });
   },
@@ -49,8 +49,14 @@ load("../target/wasm32-unknown-unknown/release/taca.wasm");
 // load("../target/wasm32-unknown-unknown/release-lto/taca.wasm");
 // load("../target/wasm32-unknown-unknown/release-lto/taca.opt.wasm");
 
-async function loadApp(platform) {
-  console.log(`platform: ${platform}`);
+/**
+ * @param {number} platform
+ * @param {WebAssembly.Memory} memory
+ * @param {number} bufferPtr
+ * @param {number} bufferLen
+ */
+async function loadApp(platform, memory, bufferPtr, bufferLen) {
+  console.log(`platform: ${platform} ${bufferPtr} ${bufferLen}`);
   const url = new URL(window.location.href);
   const params = new URLSearchParams(url.search);
   const app = params.get("app");
