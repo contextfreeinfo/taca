@@ -2,25 +2,6 @@
 
 /**
  * @param {WebAssembly.Memory} memory
- * @param {number} wasm
- * @param {number} length
- */
-async function runWasm(memory, wasm, length) {
-  const chunk = memory.buffer.slice(wasm, wasm + length);
-  const { instance } = await WebAssembly.instantiate(chunk, {
-    env: {
-      hi() {
-        wasm_exports.hi();
-      },
-    },
-  });
-  instance.exports._start();
-  // Finish initializing taca now that we've initialized the app.
-  // wasm_exports.display();
-}
-
-/**
- * @param {WebAssembly.Memory} memory
  * @param {number} text
  * @param {number} length
  */
@@ -29,6 +10,12 @@ function print(memory, text, length) {
   const decoded = new TextDecoder("utf-8").decode(chunk);
   console.log(decoded);
 }
+
+/** @type {Uint8Array} */
+let appMemoryBytes;
+
+/** @type {Uint8Array} */
+let engineMemoryBytes;
 
 miniquad_add_plugin({
   name: "taca",
@@ -40,6 +27,12 @@ miniquad_add_plugin({
       },
       loadApp(platform, bufferPtr, bufferLen) {
         loadApp(platform, wasm_exports, wasm_memory, bufferPtr, bufferLen);
+      },
+      readAppMemory(engineDest, appSrc, count) {
+        engineMemoryBytes.set(
+          appMemoryBytes.slice(appSrc, appSrc + count),
+          engineDest
+        );
       },
     });
   },
@@ -57,7 +50,8 @@ load("../target/wasm32-unknown-unknown/release/taca.wasm");
  * @param {number} bufferLen
  */
 async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
-  console.log(`platform: ${platform} ${bufferPtr} ${bufferLen}`);
+  // console.log(`platform: ${platform} ${bufferPtr} ${bufferLen}`);
+  engineMemoryBytes = new Uint8Array(memory.buffer);
   const url = new URL(window.location.href);
   const params = new URLSearchParams(url.search);
   const app = params.get("app");
@@ -65,6 +59,7 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
     return;
   }
   const response = await fetch(app);
+  const bufferBytes = new Uint8Array(memory.buffer, bufferPtr, bufferLen);
   const { instance } = await WebAssembly.instantiateStreaming(response, {
     env: {
       taca_RenderingContext_applyBindings(context, bindings) {
@@ -86,12 +81,13 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
         engine.taca_RenderingContext_endPass(platform, context);
       },
       taca_RenderingContext_newBuffer(context, typ, usage, info) {
+        bufferBytes.set(appMemoryBytes.slice(info, info + 5 * 4));
         return engine.taca_RenderingContext_newBuffer(
           platform,
           context,
           typ,
           usage,
-          info
+          0
         );
       },
       taca_RenderingContext_newPipeline(context, bytes) {
@@ -112,5 +108,6 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
       },
     },
   });
+  appMemoryBytes = new Uint8Array(instance.exports.memory.buffer);
   instance.exports._start();
 }

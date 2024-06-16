@@ -9,3 +9,5 @@ mod wasmic_browser;
 
 #[cfg(target_arch = "wasm32")]
 pub use wasmic_browser::*;
+
+mod help;

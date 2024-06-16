@@ -1,6 +1,8 @@
 #![allow(non_snake_case)]
 
 use crate::platform::Platform;
+use crate::wasmic::help::BufferSlice;
+use std::mem::size_of;
 
 pub fn wasmish() -> anyhow::Result<()> {
     unsafe {
@@ -28,6 +30,10 @@ extern "C" {
     #[allow(improper_ctypes)]
     #[link_name = "loadApp"]
     pub fn browser_load_app(platform: *mut Platform, buffer_ptr: *mut u8, buffer_len: usize);
+
+    #[allow(improper_ctypes)]
+    #[link_name = "readAppMemory"]
+    pub fn browser_read_app_memory(dest: *mut u8, app_src: usize, count: usize);
 }
 
 #[no_mangle]
@@ -84,7 +90,7 @@ fn taca_RenderingContext_endPass(_platform: *mut Platform, context: u32) {
 
 #[no_mangle]
 fn taca_RenderingContext_newBuffer(
-    _platform: *mut Platform,
+    platform: *mut Platform,
     context: u32,
     typ: u32,
     usage: u32,
@@ -93,6 +99,16 @@ fn taca_RenderingContext_newBuffer(
     crate::wasmic::print(&format!(
         "taca_RenderingContext_newBuffer {context} {typ} {usage} {info}"
     ));
+    let platform = unsafe { &mut *platform };
+    let slice = unsafe {
+        &*((&platform.buffer[0..size_of::<BufferSlice>()]).as_ptr() as *const BufferSlice)
+    };
+    crate::wasmic::print(&format!("{slice:?}"));
+    let mut buffer = vec![0u8; slice.size];
+    unsafe {
+        browser_read_app_memory(buffer.as_mut_ptr(), slice.ptr, slice.size);
+    }
+    crate::wasmic::print(&format!("{buffer:?}"));
     0
 }
 

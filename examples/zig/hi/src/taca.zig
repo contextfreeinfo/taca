@@ -13,13 +13,12 @@ pub const BufferSlice = extern struct {
     size: usize,
     item_size: usize,
 
-    pub fn new(comptime items: anytype) BufferSlice {
+    pub fn new(items: anytype) BufferSlice {
         const info = @typeInfo(@TypeOf(items)).Pointer;
-        const item_size = @sizeOf(info.child);
         return .{
             .ptr = items.ptr,
-            .size = items.len * item_size,
-            .item_size = item_size,
+            .size = @sizeOf(info.child),
+            .item_size = @sizeOf(@typeInfo(info.child).Array.child),
         };
     }
 };
