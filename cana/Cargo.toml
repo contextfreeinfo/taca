@@ -1,0 +1,15 @@
+[package]
+name = "cana"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.86"
+
+[dependencies.naga]
+version = "0.20.0"
+default-features = false
+features = ["glsl-out", "spv-in"]
