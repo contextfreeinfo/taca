@@ -1516,6 +1516,7 @@ dependencies = [
  "miniquad",
  "naga",
  "wasmer",
+ "wasmer-types",
 ]
 
 [[package]]

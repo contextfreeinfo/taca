@@ -138,25 +138,27 @@ fn main() {
         let cli = Cli::parse();
         match &cli.command {
             Commands::Run(args) => {
-                let mut buf = Vec::<u8>::new();
-                File::open(&args.app)
-                    .expect("Bad open")
-                    .read_to_end(&mut buf)
-                    .expect("Bad read");
-                wasmic::wasmish(&buf).expect("Bad wasm");
-                display();
+                run(args.app.clone());
             }
         }
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", no_mangle)]
-pub fn display() {
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run(path: String) {
+    let mut buf = Vec::<u8>::new();
     let mut conf = conf::Conf::default();
     conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;
     conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
     conf.window_title = "Taca".into();
-    miniquad::start(conf, move || Box::new(Stage::new().expect("Bad init")));
+    miniquad::start(conf, move || {
+        File::open(path)
+            .expect("Bad open")
+            .read_to_end(&mut buf)
+            .expect("Bad read");
+        wasmic::wasmish(&buf).expect("Bad wasm");
+        Box::new(Stage::new().expect("Bad init"))
+    });
 }
 
 pub fn say_hi() {

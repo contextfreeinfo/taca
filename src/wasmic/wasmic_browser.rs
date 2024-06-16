@@ -1,18 +1,36 @@
 #![allow(non_snake_case)]
 
 use crate::platform::Platform;
-use crate::wasmic::help::BufferSlice;
+use crate::wasmic::help::{new_buffer, BufferSlice};
+use miniquad::{conf, EventHandler};
 use std::mem::size_of;
+
+struct App {}
+
+impl EventHandler for App {
+    fn update(&mut self) {}
+
+    fn draw(&mut self) {
+        // TODO
+    }
+}
 
 pub fn wasmish() -> anyhow::Result<()> {
     unsafe {
-        let mut platform = Box::new(Platform::new(4096));
-        let buffer_ptr = platform.buffer.as_mut_ptr();
-        let buffer_len = platform.buffer.len();
-        let platform = Box::into_raw(platform);
-        // crate::wasmic::print(&format!("rust platform: {platform:p}"));
-        // TODO Also pass in buffer.
-        browser_load_app(platform, buffer_ptr, buffer_len);
+        let mut conf = conf::Conf::default();
+        conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;
+        conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
+        conf.window_title = "Taca".into();
+        miniquad::start(conf, move || {
+            let mut platform = Box::new(Platform::new(1024));
+            let buffer_ptr = platform.buffer.as_mut_ptr();
+            let buffer_len = platform.buffer.len();
+            let platform = Box::into_raw(platform);
+            // crate::wasmic::print(&format!("rust platform: {platform:p}"));
+            // TODO Also pass in buffer.
+            browser_load_app(platform, buffer_ptr, buffer_len);
+            Box::new(App {})
+        })
     }
     Ok(())
 }
@@ -33,7 +51,7 @@ extern "C" {
 
     #[allow(improper_ctypes)]
     #[link_name = "readAppMemory"]
-    pub fn browser_read_app_memory(dest: *mut u8, app_src: usize, count: usize);
+    pub fn browser_read_app_memory(dest: *mut u8, app_src: u32, count: u32);
 }
 
 #[no_mangle]
@@ -104,11 +122,18 @@ fn taca_RenderingContext_newBuffer(
         &*((&platform.buffer[0..size_of::<BufferSlice>()]).as_ptr() as *const BufferSlice)
     };
     crate::wasmic::print(&format!("{slice:?}"));
-    let mut buffer = vec![0u8; slice.size];
+    let mut buffer = vec![0u8; slice.size as usize];
     unsafe {
         browser_read_app_memory(buffer.as_mut_ptr(), slice.ptr, slice.size);
     }
     crate::wasmic::print(&format!("{buffer:?}"));
+    new_buffer(
+        &mut platform.context.0,
+        typ,
+        usage,
+        &mut buffer,
+        slice.item_size as usize,
+    );
     0
 }
 

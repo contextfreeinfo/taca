@@ -1,8 +1,10 @@
 #![allow(non_snake_case)]
 
-use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store};
+use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, WasmPtr};
 
 use crate::platform::Platform;
+
+use super::help::{new_buffer, BufferSlice};
 
 pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
     let mut store = Store::default();
@@ -24,6 +26,8 @@ pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
         }
     };
     let instance = Instance::new(&mut store, &module, &import_object)?;
+    let env_mut = env.as_mut(&mut store);
+    env_mut.memory = Some(instance.exports.get_memory("memory")?.clone());
 
     let start = instance.exports.get_function("_start")?;
     start.call(&mut store, &[])?;
@@ -83,15 +87,30 @@ fn taca_RenderingContext_endPass(mut _env: FunctionEnvMut<Platform>, context: u3
 }
 
 fn taca_RenderingContext_newBuffer(
-    mut _env: FunctionEnvMut<Platform>,
+    mut env: FunctionEnvMut<Platform>,
     context: u32,
     typ: u32,
     usage: u32,
-    info: u32,
+    slice: u32,
 ) -> u32 {
     crate::wasmic::print(&format!(
-        "taca_RenderingContext_newBuffer {context} {typ} {usage} {info}"
+        "taca_RenderingContext_newBuffer {context} {typ} {usage} {slice}"
     ));
+    let (platform, store) = env.data_and_store_mut();
+    let view = platform.memory.as_ref().unwrap().view(&store);
+    // platform.memory.as_slice()[info..info+size_of(BufferSlice)];
+    let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
+    crate::wasmic::print(&format!("{slice:?}"));
+    let buffer = view
+        .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
+        .unwrap();
+    new_buffer(
+        &mut platform.context.0,
+        typ,
+        usage,
+        &buffer,
+        slice.item_size as usize,
+    );
     0
 }
 
