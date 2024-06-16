@@ -39,7 +39,7 @@ miniquad_add_plugin({
         print(wasm_memory, text, length);
       },
       loadApp(platform, bufferPtr, bufferLen) {
-        loadApp(platform, wasm_memory, bufferPtr, bufferLen);
+        loadApp(platform, wasm_exports, wasm_memory, bufferPtr, bufferLen);
       },
     });
   },
@@ -51,11 +51,12 @@ load("../target/wasm32-unknown-unknown/release/taca.wasm");
 
 /**
  * @param {number} platform
+ * @param {any} engine
  * @param {WebAssembly.Memory} memory
  * @param {number} bufferPtr
  * @param {number} bufferLen
  */
-async function loadApp(platform, memory, bufferPtr, bufferLen) {
+async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
   console.log(`platform: ${platform} ${bufferPtr} ${bufferLen}`);
   const url = new URL(window.location.href);
   const params = new URLSearchParams(url.search);
@@ -67,33 +68,25 @@ async function loadApp(platform, memory, bufferPtr, bufferLen) {
   const { instance } = await WebAssembly.instantiateStreaming(response, {
     env: {
       taca_RenderingContext_applyBindings(context, bindings) {
-        wasm_exports.taca_RenderingContext_applyBindings(
-          platform,
-          context,
-          bindings
-        );
+        engine.taca_RenderingContext_applyBindings(platform, context, bindings);
       },
       taca_RenderingContext_applyPipeline(context, pipeline) {
-        wasm_exports.taca_RenderingContext_applyPipeline(
-          platform,
-          context,
-          pipeline
-        );
+        engine.taca_RenderingContext_applyPipeline(platform, context, pipeline);
       },
       taca_RenderingContext_beginPass(context) {
-        wasm_exports.taca_RenderingContext_beginPass(platform, context);
+        engine.taca_RenderingContext_beginPass(platform, context);
       },
       taca_RenderingContext_commitFrame(context) {
-        wasm_exports.taca_RenderingContext_commitFrame(platform, context);
+        engine.taca_RenderingContext_commitFrame(platform, context);
       },
       taca_RenderingContext_draw(context) {
-        wasm_exports.taca_RenderingContext_draw(platform, context);
+        engine.taca_RenderingContext_draw(platform, context);
       },
       taca_RenderingContext_endPass(context) {
-        wasm_exports.taca_RenderingContext_endPass(platform, context);
+        engine.taca_RenderingContext_endPass(platform, context);
       },
       taca_RenderingContext_newBuffer(context, typ, usage, info) {
-        return wasm_exports.taca_RenderingContext_newBuffer(
+        return engine.taca_RenderingContext_newBuffer(
           platform,
           context,
           typ,
@@ -102,24 +95,20 @@ async function loadApp(platform, memory, bufferPtr, bufferLen) {
         );
       },
       taca_RenderingContext_newPipeline(context, bytes) {
-        return wasm_exports.taca_RenderingContext_newPipeline(
+        return engine.taca_RenderingContext_newPipeline(
           platform,
           context,
           bytes
         );
       },
       taca_RenderingContext_newShader(context, bytes) {
-        return wasm_exports.taca_RenderingContext_newShader(
-          platform,
-          context,
-          bytes
-        );
+        return engine.taca_RenderingContext_newShader(platform, context, bytes);
       },
       taca_Window_get() {
-        return wasm_exports.taca_Window_get(platform);
+        return engine.taca_Window_get(platform);
       },
       taca_Window_newRenderingContext(window) {
-        return wasm_exports.taca_Window_newRenderingContext(platform, window);
+        return engine.taca_Window_newRenderingContext(platform, window);
       },
     },
   });

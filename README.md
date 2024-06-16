@@ -2,18 +2,10 @@
 
 A runtime for multimedia wasm apps that runs native and in browsers.
 
-Some things:
-
-```
-cargo run --release -- run src/hi.wasm
-cargo run --release -- run examples/zig/hi/zig-out/bin/hi.wasm
-```
-
 Build optimized:
 
-```
+```sh
 # TODO Minify js.
-wat2wasm src/hi.wat -o src/hi.wasm
 naga src/shader.wgsl src/shader.spv
 spirv-opt -Os src/shader.spv -o src/shader.opt.spv
 cargo build --target wasm32-unknown-unknown --profile release-lto
@@ -21,12 +13,36 @@ wasm-opt -Os target/wasm32-unknown-unknown/release-lto/taca.wasm \
     -o target/wasm32-unknown-unknown/release-lto/taca.opt.wasm
 ```
 
+Build example:
+
+```sh
+# First time: Install zig 0.13
+cd examples/zig/hi
+zig build
+wasm-opt -Os zig-out/bin/hi.wasm -o zig-out/bin/hi.opt.wasm
+```
+
+Run native:
+
+```sh
+cargo run --release -- run examples/zig/hi/zig-out/bin/hi.wasm
+```
+
+Run web:
+
+```sh
+# First time: npm install -g http-server
+https-server .
+```
+
+Open: http://127.0.0.1:8080/static/?app=../examples/zig/hi/zig-out/bin/hi.wasm
+
+## Sources
+
 These files are copied and maybe modified from miniquad:
 
 - static/gl.js
 - static/index.html
-
-Link: http://127.0.0.1:8080/static/?app=../examples/zig/hi/zig-out/bin/hi.wasm
 
 ## Exploration
 
