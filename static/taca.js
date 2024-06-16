@@ -102,7 +102,7 @@ async function loadApp(platform, memory, bufferPtr, bufferLen) {
         );
       },
       taca_RenderingContext_newPipeline(context, bytes) {
-        return wasm_exports.taca_RenderingContext_newBuffer(
+        return wasm_exports.taca_RenderingContext_newPipeline(
           platform,
           context,
           bytes
@@ -119,7 +119,7 @@ async function loadApp(platform, memory, bufferPtr, bufferLen) {
         return wasm_exports.taca_Window_get(platform);
       },
       taca_Window_newRenderingContext(window) {
-        wasm_exports.taca_Window_newRenderingContext(platform, window);
+        return wasm_exports.taca_Window_newRenderingContext(platform, window);
       },
     },
   });
