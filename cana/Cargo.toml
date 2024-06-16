@@ -7,7 +7,6 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.86"
 
 [dependencies.naga]
 version = "0.20.0"

@@ -1,25 +1,75 @@
-use anyhow::Result;
 use naga::{
-    back::glsl::{self, WriterFlags}, front::spv::{self, Options}, proc::BoundsCheckPolicies, valid::{Capabilities, ValidationFlags, Validator}, ShaderStage
+    back::glsl::{self, WriterFlags},
+    front::spv::{self, Options},
+    proc::BoundsCheckPolicies,
+    valid::{Capabilities, ModuleInfo, ValidationFlags, Validator},
+    Module, ShaderStage,
 };
 
-#[no_mangle]
-pub fn spv_to_glsl(source: &[u8]) -> Result<()> {
-    let module = spv::parse_u8_slice(source, &Options::default())?;
-    let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
-    let info = validator.validate(&module)?;
-    let vertex = translate_to_glsl(&module, &info, ShaderStage::Vertex)?;
-    let fragment = translate_to_glsl(&module, &info, ShaderStage::Fragment)?;
-    let _ = vertex;
-    let _ = fragment;
-    Ok(())
+pub struct ShaderTranslation {
+    buffer: String,
+    module: Module,
+    info: ModuleInfo,
 }
 
-fn translate_to_glsl(
-    module: &naga::Module,
-    info: &naga::valid::ModuleInfo,
+#[repr(C)]
+pub enum Stage {
+    Vertex,
+    Fragment,
+}
+
+#[no_mangle]
+#[export_name = "shaderTranslationNew"]
+pub fn shader_translation(source: &[u8]) -> *mut ShaderTranslation {
+    let module = spv::parse_u8_slice(source, &Options::default()).unwrap();
+    let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
+    let info = validator.validate(&module).unwrap();
+    let translation = ShaderTranslation {
+        buffer: String::new(),
+        module,
+        info,
+    };
+    Box::into_raw(Box::new(translation))
+}
+
+#[no_mangle]
+#[export_name = "shaderTranslationToGlsl"]
+pub fn translate_to_glsl(translation: *mut ShaderTranslation, stage: Stage, entry_point: &str) {
+    let mut translation = unsafe { &mut *translation };
+    let stage = match stage {
+        Stage::Vertex => ShaderStage::Vertex,
+        Stage::Fragment => ShaderStage::Fragment,
+    };
+    translate_stage_to_glsl(&mut translation, stage, entry_point);
+}
+
+#[no_mangle]
+#[export_name = "shaderTranslationBufferLen"]
+pub fn translation_buffer_len(translation: *const ShaderTranslation) -> usize {
+    let translation = unsafe { &*translation };
+    translation.buffer.len()
+}
+
+#[no_mangle]
+#[export_name = "shaderTranslationBufferPtr"]
+pub fn translation_buffer_ptr(translation: *const ShaderTranslation) -> *const u8 {
+    let translation = unsafe { &*translation };
+    translation.buffer.as_ptr()
+}
+
+#[no_mangle]
+#[export_name = "shaderTranslationClose"]
+pub fn translation_close(translation: *mut ShaderTranslation) {
+    unsafe {
+        drop(Box::from_raw(translation));
+    }
+}
+
+fn translate_stage_to_glsl(
+    translation: &mut ShaderTranslation,
     shader_stage: naga::ShaderStage,
-) -> Result<String> {
+    entry_point: &str,
+) {
     let options = glsl::Options {
         version: glsl::Version::Embedded {
             version: 300,
@@ -28,36 +78,27 @@ fn translate_to_glsl(
         writer_flags: WriterFlags::empty(),
         ..glsl::Options::default()
     };
-    let entry_point = match shader_stage {
-        ShaderStage::Vertex => "vs_main",
-        ShaderStage::Fragment => "fs_main",
-        ShaderStage::Compute => todo!(),
-    }
-    .into();
     let pipeline_options = glsl::PipelineOptions {
         shader_stage,
-        entry_point,
+        entry_point: entry_point.into(),
         multiview: None,
     };
-    let mut buffer = String::new();
     let mut writer = glsl::Writer::new(
-        &mut buffer,
-        module,
-        info,
+        &mut translation.buffer,
+        &translation.module,
+        &translation.info,
         &options,
         &pipeline_options,
         // TODO What bounds checks???
         BoundsCheckPolicies::default(),
-    )?;
-    writer.write()?;
-    // println!("{buffer}");
-    Ok(buffer)
+    )
+    .unwrap();
+    writer.write().unwrap();
 }
 
 #[cfg(test)]
 mod tests {
     // use super::*;
-
     // #[test]
     // fn it_works() {
     //     let result = add(2, 2);
