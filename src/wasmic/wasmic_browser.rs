@@ -15,7 +15,7 @@ impl EventHandler for App {
     }
 }
 
-pub fn wasmish() -> anyhow::Result<()> {
+pub fn wasmish() {
     unsafe {
         let mut conf = conf::Conf::default();
         conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;
@@ -32,7 +32,6 @@ pub fn wasmish() -> anyhow::Result<()> {
             Box::new(App {})
         })
     }
-    Ok(())
 }
 
 pub fn print(text: &str) {

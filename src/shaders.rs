@@ -1,4 +1,3 @@
-use anyhow::Result;
 use naga::{
     back::glsl::{self, WriterFlags},
     front::spv::{self, Options},
@@ -13,22 +12,22 @@ pub struct GlslShaders {
     pub fragment: String,
 }
 
-pub fn shaders() -> Result<GlslShaders> {
+pub fn shaders() -> GlslShaders {
     let source = include_bytes!("shader.opt.spv");
     // println!("{source}");
-    let module = spv::parse_u8_slice(source, &Options::default())?;
+    let module = spv::parse_u8_slice(source, &Options::default()).unwrap();
     let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
-    let info = validator.validate(&module)?;
-    let vertex = translate_to_glsl(&module, &info, ShaderStage::Vertex)?;
-    let fragment = translate_to_glsl(&module, &info, ShaderStage::Fragment)?;
-    Ok(GlslShaders { vertex, fragment })
+    let info = validator.validate(&module).unwrap();
+    let vertex = translate_to_glsl(&module, &info, ShaderStage::Vertex);
+    let fragment = translate_to_glsl(&module, &info, ShaderStage::Fragment);
+    GlslShaders { vertex, fragment }
 }
 
 fn translate_to_glsl(
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
     shader_stage: naga::ShaderStage,
-) -> Result<String> {
+) -> String {
     let options = glsl::Options {
         version: glsl::Version::Embedded {
             version: 300,
@@ -57,8 +56,9 @@ fn translate_to_glsl(
         &pipeline_options,
         // TODO What bounds checks???
         BoundsCheckPolicies::default(),
-    )?;
-    writer.write()?;
+    )
+    .unwrap();
+    writer.write().unwrap();
     // println!("{buffer}");
-    Ok(buffer)
+    buffer
 }

@@ -1,7 +1,6 @@
 #[cfg(not(target_arch = "wasm32"))]
 use std::{fs::File, io::Read};
 
-use anyhow::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::{Args, Parser, Subcommand};
 use miniquad::*;
@@ -44,7 +43,7 @@ struct Stage {
 }
 
 impl Stage {
-    pub fn new() -> Result<Stage> {
+    pub fn new() -> Stage {
         let mut ctx: Box<dyn RenderingBackend> = window::new_rendering_backend();
 
         #[rustfmt::skip]
@@ -72,7 +71,7 @@ impl Stage {
             images: vec![],
         };
 
-        let glsl = shaders::shaders()?;
+        let glsl = shaders::shaders();
         let shader = ctx
             .new_shader(
                 //
@@ -100,12 +99,12 @@ impl Stage {
             PipelineParams::default(),
         );
 
-        Ok(Stage {
+        Stage {
             pipeline,
             bindings,
             ctx,
             drawn: 0,
-        })
+        }
     }
 }
 
@@ -131,7 +130,7 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     {
         // TODO Different loading for browser.
-        wasmic::wasmish().expect("Bad wasm");
+        wasmic::wasmish();
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -157,7 +156,7 @@ pub fn run(path: String) {
             .read_to_end(&mut buf)
             .expect("Bad read");
         wasmic::wasmish(&buf).expect("Bad wasm");
-        Box::new(Stage::new().expect("Bad init"))
+        Box::new(Stage::new())
     });
 }
 

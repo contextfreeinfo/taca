@@ -1511,7 +1511,6 @@ dependencies = [
 name = "taca"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "miniquad",
  "naga",
