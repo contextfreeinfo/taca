@@ -1,3 +1,5 @@
-/target/
+static/taca.min.js
+static/taca.min.js.gz
+target/
 .zig-cache/
 zig-out/

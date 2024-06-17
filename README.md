@@ -5,7 +5,7 @@ A runtime for multimedia wasm apps that runs native and in browsers.
 Build optimized:
 
 ```sh
-# TODO Minify js.
+uglifyjs static/gl.js static/taca.js -o static/taca.min.js
 naga src/shader.wgsl src/shader.spv
 spirv-opt -Os src/shader.spv -o src/shader.opt.spv
 cargo build --target wasm32-unknown-unknown --profile release-lto
