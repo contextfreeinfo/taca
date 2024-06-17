@@ -155,7 +155,7 @@ pub fn run(path: String) {
             .expect("Bad open")
             .read_to_end(&mut buf)
             .expect("Bad read");
-        wasmic::wasmish(&buf).expect("Bad wasm");
+        wasmic::wasmish(&buf);
         Box::new(Stage::new())
     });
 }

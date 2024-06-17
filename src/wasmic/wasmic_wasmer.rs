@@ -6,9 +6,9 @@ use crate::platform::Platform;
 
 use super::help::{new_buffer, BufferSlice};
 
-pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
+pub fn wasmish(wasm: &[u8]) {
     let mut store = Store::default();
-    let module = Module::new(&store, wasm)?;
+    let module = Module::new(&store, wasm).unwrap();
     let env = FunctionEnv::new(&mut store, Platform::new(0));
     let import_object = imports! {
         "env" => {
@@ -25,17 +25,15 @@ pub fn wasmish(wasm: &[u8]) -> anyhow::Result<()> {
             "taca_Window_newRenderingContext" => Function::new_typed_with_env(&mut store, &env, taca_Window_newRenderingContext),
         }
     };
-    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let env_mut = env.as_mut(&mut store);
-    env_mut.memory = Some(instance.exports.get_memory("memory")?.clone());
+    env_mut.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
 
-    let start = instance.exports.get_function("_start")?;
-    start.call(&mut store, &[])?;
+    let start = instance.exports.get_function("_start").unwrap();
+    start.call(&mut store, &[]).unwrap();
 
-    let listen = instance.exports.get_function("listen")?;
+    let listen = instance.exports.get_function("listen").unwrap();
     let _ = listen;
-
-    Ok(())
 }
 
 pub fn print(text: &str) {
@@ -104,13 +102,7 @@ fn taca_RenderingContext_newBuffer(
     let buffer = view
         .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
         .unwrap();
-    new_buffer(
-        &mut platform.context.0,
-        typ,
-        usage,
-        &buffer,
-        slice.item_size as usize,
-    );
+    new_buffer(platform, typ, usage, &buffer, slice.item_size as usize);
     0
 }
 

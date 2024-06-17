@@ -2,8 +2,8 @@ use naga::{
     back::glsl::{self, WriterFlags},
     front::spv::{self, Options},
     proc::BoundsCheckPolicies,
-    valid::{Capabilities, ValidationFlags, Validator},
-    ShaderStage,
+    valid::{Capabilities, ModuleInfo, ValidationFlags, Validator},
+    Module, ShaderStage,
 };
 
 #[derive(Debug)]
@@ -12,14 +12,33 @@ pub struct GlslShaders {
     pub fragment: String,
 }
 
+pub struct Shader {
+    pub module: Module,
+    pub info: ModuleInfo,
+}
+
+impl Shader {
+    pub fn new(bytes: &[u8]) -> Shader {
+        let module = spv::parse_u8_slice(bytes, &Options::default()).unwrap();
+        let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
+        let info = validator.validate(&module).unwrap();
+        Shader { module, info }
+    }
+
+    pub fn to_glsl(&self, shader_stage: naga::ShaderStage, entry_point: String) -> String {
+        crate::wasmic::print(&format!("{shader_stage:?} {}", &entry_point));
+        translate_to_glsl(&self.module, &self.info, shader_stage, entry_point)
+    }
+}
+
 pub fn shaders() -> GlslShaders {
     let source = include_bytes!("shader.opt.spv");
     // println!("{source}");
     let module = spv::parse_u8_slice(source, &Options::default()).unwrap();
     let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
     let info = validator.validate(&module).unwrap();
-    let vertex = translate_to_glsl(&module, &info, ShaderStage::Vertex);
-    let fragment = translate_to_glsl(&module, &info, ShaderStage::Fragment);
+    let vertex = translate_to_glsl(&module, &info, ShaderStage::Vertex, "vs_main".into());
+    let fragment = translate_to_glsl(&module, &info, ShaderStage::Fragment, "fs_main".into());
     GlslShaders { vertex, fragment }
 }
 
@@ -27,6 +46,7 @@ fn translate_to_glsl(
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
     shader_stage: naga::ShaderStage,
+    entry_point: String,
 ) -> String {
     let options = glsl::Options {
         version: glsl::Version::Embedded {
@@ -36,12 +56,6 @@ fn translate_to_glsl(
         writer_flags: WriterFlags::empty(),
         ..glsl::Options::default()
     };
-    let entry_point = match shader_stage {
-        ShaderStage::Vertex => "vs_main",
-        ShaderStage::Fragment => "fs_main",
-        ShaderStage::Compute => todo!(),
-    }
-    .into();
     let pipeline_options = glsl::PipelineOptions {
         shader_stage,
         entry_point,

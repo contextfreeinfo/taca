@@ -91,14 +91,12 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
         );
       },
       taca_RenderingContext_newPipeline(context, bytes) {
-        return engine.taca_RenderingContext_newPipeline(
-          platform,
-          context,
-          bytes
-        );
+        bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 6 * 4));
+        return engine.taca_RenderingContext_newPipeline(platform, context, 0);
       },
       taca_RenderingContext_newShader(context, bytes) {
-        return engine.taca_RenderingContext_newShader(platform, context, bytes);
+        bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 2 * 4));
+        return engine.taca_RenderingContext_newShader(platform, context, 0);
       },
       taca_Window_get() {
         return engine.taca_Window_get(platform);
