@@ -14,7 +14,9 @@ impl EventHandler for App {
     fn update(&mut self) {}
 
     fn draw(&mut self) {
-        // TODO
+        unsafe {
+            browser_send_event(0);
+        }
     }
 }
 
@@ -47,13 +49,15 @@ extern "C" {
     #[link_name = "print"]
     pub fn browser_print(text: *const u8, len: usize);
 
-    #[allow(improper_ctypes)]
+    #[allow(improper_ctypes)] // Ok because opaque.
     #[link_name = "loadApp"]
     pub fn browser_load_app(platform: *mut Platform, buffer_ptr: *mut u8, buffer_len: usize);
 
-    #[allow(improper_ctypes)]
     #[link_name = "readAppMemory"]
     pub fn browser_read_app_memory(dest: *mut u8, app_src: u32, count: u32);
+
+    #[link_name = "sendEvent"]
+    pub fn browser_send_event(kind: u32);
 }
 
 pub unsafe fn browser_read_app_span<T>(dest: *mut T, span: Span) {
@@ -82,16 +86,16 @@ pub extern "C" fn taca_crate_version() -> i32 {
 
 #[no_mangle]
 fn taca_RenderingContext_applyBindings(_platform: *mut Platform, context: u32, bindings: u32) {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_applyBindings {context} {bindings}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_applyBindings {context} {bindings}"
+    // ));
 }
 
 #[no_mangle]
 fn taca_RenderingContext_applyPipeline(_platform: *mut Platform, context: u32, pipeline: u32) {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_applyPipeline {context} {pipeline}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_applyPipeline {context} {pipeline}"
+    // ));
 }
 
 #[no_mangle]
@@ -101,7 +105,7 @@ fn taca_RenderingContext_beginPass(_platform: *mut Platform, context: u32) {
 
 #[no_mangle]
 fn taca_RenderingContext_commitFrame(_platform: *mut Platform, context: u32) {
-    crate::wasmic::print(&format!("taca_RenderingContext_commitFrame {context}"));
+    // crate::wasmic::print(&format!("taca_RenderingContext_commitFrame {context}"));
 }
 
 #[no_mangle]
@@ -112,14 +116,14 @@ fn taca_RenderingContext_draw(
     num_elements: u32,
     num_instances: u32,
 ) {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_draw {context} {base_element} {num_elements} {num_instances}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_draw {context} {base_element} {num_elements} {num_instances}"
+    // ));
 }
 
 #[no_mangle]
 fn taca_RenderingContext_endPass(_platform: *mut Platform, context: u32) {
-    crate::wasmic::print(&format!("taca_RenderingContext_endPass {context}"));
+    // crate::wasmic::print(&format!("taca_RenderingContext_endPass {context}"));
 }
 
 #[no_mangle]

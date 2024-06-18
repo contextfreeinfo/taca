@@ -38,13 +38,6 @@ pub const EventKind = enum(c_int) {
     draw,
 };
 
-pub const Event = extern struct {
-    kind: EventKind,
-    detail: extern union {
-        //
-    },
-};
-
 pub const Pipeline = extern struct {};
 
 pub const PipelineShaderInfo = struct {
@@ -151,6 +144,9 @@ pub const Window = extern struct {
     // TODO Some display/init first that allows config?
     pub const get = taca_Window_get;
     pub const newRenderingContext = taca_Window_newRenderingContext;
+    pub fn print(text: []const u8) void {
+        taca_Window_print(Span(u8).from(text));
+    }
 };
 
 // Extern definitions.
@@ -245,3 +241,5 @@ extern fn taca_Window_get() callconv(.C) *Window;
 extern fn taca_Window_newRenderingContext(
     window: *Window,
 ) callconv(.C) *RenderingContext;
+
+extern fn taca_Window_print(text: Span(u8)) callconv(.C) void;

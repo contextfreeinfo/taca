@@ -11,6 +11,9 @@ function print(memory, text, length) {
   console.log(decoded);
 }
 
+/** @type {any} */
+let appExports;
+
 /** @type {Uint8Array} */
 let appMemoryBytes;
 
@@ -33,6 +36,9 @@ miniquad_add_plugin({
           appMemoryBytes.slice(appSrc, appSrc + count),
           engineDest
         );
+      },
+      sendEvent(kind) {
+        appExports?.listen(kind);
       },
     });
   },
@@ -104,8 +110,12 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
       taca_Window_newRenderingContext(window) {
         return engine.taca_Window_newRenderingContext(platform, window);
       },
+      taca_Window_print(text) {
+        // TODO
+      },
     },
   });
+  appExports = instance.exports;
   appMemoryBytes = new Uint8Array(instance.exports.memory.buffer);
   instance.exports._start();
 }

@@ -42,7 +42,7 @@ pub fn main() void {
     };
 }
 
-export fn listen(event: taca.Event) void {
+export fn listen(event: taca.EventKind) void {
     // TODO Branch on event type.
     _ = event;
     const ctx = stage.?.ctx;
