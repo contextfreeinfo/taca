@@ -3,6 +3,7 @@ use std::{fs::File, io::Read};
 
 #[cfg(not(target_arch = "wasm32"))]
 use clap::{Args, Parser, Subcommand};
+#[cfg(not(target_arch = "wasm32"))]
 use miniquad::*;
 
 mod platform;
@@ -29,12 +30,14 @@ pub struct BuildArgs {
     pub app: String,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[repr(C)]
 struct Vertex {
     pos: [f32; 2],
     color: [f32; 4],
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 struct Stage {
     pipeline: Pipeline,
     bindings: Bindings,
@@ -42,6 +45,7 @@ struct Stage {
     drawn: i32,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Stage {
     pub fn new() -> Stage {
         let mut ctx: Box<dyn RenderingBackend> = window::new_rendering_backend();
@@ -108,6 +112,7 @@ impl Stage {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl EventHandler for Stage {
     fn update(&mut self) {}
 
@@ -160,10 +165,7 @@ pub fn run(path: String) {
     });
 }
 
-pub fn say_hi() {
-    wasmic::print("Hi there!");
-}
-
+#[cfg(not(target_arch = "wasm32"))]
 mod shader {
     use miniquad::*;
 

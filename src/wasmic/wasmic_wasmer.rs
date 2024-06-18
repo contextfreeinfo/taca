@@ -4,7 +4,7 @@ use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, S
 
 use crate::platform::Platform;
 
-use super::help::{new_buffer, BufferSlice};
+use super::help::{new_buffer, new_rendering_context, BufferSlice};
 
 pub fn wasmish(wasm: &[u8]) {
     let mut store = Store::default();
@@ -91,18 +91,25 @@ fn taca_RenderingContext_newBuffer(
     usage: u32,
     slice: u32,
 ) -> u32 {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_newBuffer {context} {typ} {usage} {slice}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_newBuffer {context} {typ} {usage} {slice}"
+    // ));
     let (platform, store) = env.data_and_store_mut();
     let view = platform.memory.as_ref().unwrap().view(&store);
     // platform.memory.as_slice()[info..info+size_of(BufferSlice)];
     let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
-    crate::wasmic::print(&format!("{slice:?}"));
+    // crate::wasmic::print(&format!("{slice:?}"));
     let buffer = view
         .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
         .unwrap();
-    new_buffer(platform, typ, usage, &buffer, slice.item_size as usize);
+    new_buffer(
+        platform,
+        context,
+        typ,
+        usage,
+        &buffer,
+        slice.item_size as usize,
+    );
     0
 }
 
@@ -129,11 +136,11 @@ fn taca_RenderingContext_newShader(
 }
 
 fn taca_Window_get(mut _env: FunctionEnvMut<Platform>) -> u32 {
-    crate::wasmic::print("taca_Window_get");
+    // crate::wasmic::print("taca_Window_get");
     1
 }
 
-fn taca_Window_newRenderingContext(mut _env: FunctionEnvMut<Platform>, window: u32) -> u32 {
-    crate::wasmic::print(&format!("taca_Window_newRenderingContext {window}"));
-    1
+fn taca_Window_newRenderingContext(mut env: FunctionEnvMut<Platform>, _window: u32) -> u32 {
+    // crate::wasmic::print(&format!("taca_Window_newRenderingContext {window}"));
+    new_rendering_context(env.data_mut())
 }

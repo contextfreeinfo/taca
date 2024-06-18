@@ -6,6 +6,7 @@ use naga::{
     Module, ShaderStage,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug)]
 pub struct GlslShaders {
     pub vertex: String,
@@ -25,12 +26,13 @@ impl Shader {
         Shader { module, info }
     }
 
-    pub fn to_glsl(&self, shader_stage: naga::ShaderStage, entry_point: String) -> String {
-        crate::wasmic::print(&format!("{shader_stage:?} {}", &entry_point));
+    pub fn to_glsl(&self, shader_stage: ShaderStage, entry_point: String) -> String {
+        // crate::wasmic::print(&format!("{shader_stage:?} {}", &entry_point));
         translate_to_glsl(&self.module, &self.info, shader_stage, entry_point)
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn shaders() -> GlslShaders {
     let source = include_bytes!("shader.opt.spv");
     // println!("{source}");
@@ -43,9 +45,9 @@ pub fn shaders() -> GlslShaders {
 }
 
 fn translate_to_glsl(
-    module: &naga::Module,
-    info: &naga::valid::ModuleInfo,
-    shader_stage: naga::ShaderStage,
+    module: &Module,
+    info: &ModuleInfo,
+    shader_stage: ShaderStage,
     entry_point: String,
 ) -> String {
     let options = glsl::Options {

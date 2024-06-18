@@ -91,7 +91,7 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
         );
       },
       taca_RenderingContext_newPipeline(context, bytes) {
-        bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 6 * 4));
+        bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 8 * 4));
         return engine.taca_RenderingContext_newPipeline(platform, context, 0);
       },
       taca_RenderingContext_newShader(context, bytes) {

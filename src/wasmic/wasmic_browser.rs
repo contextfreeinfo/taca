@@ -2,8 +2,8 @@
 
 use crate::platform::Platform;
 use crate::wasmic::help::{
-    new_buffer, new_pipeline, new_shader, BufferSlice, ExternPipelineInfo, PipelineInfo,
-    PipelineShaderInfo, Span,
+    new_buffer, new_pipeline, new_rendering_context, new_shader, BufferSlice, ExternPipelineInfo,
+    PipelineInfo, PipelineShaderInfo, Span, VertexAttribute,
 };
 use miniquad::{conf, EventHandler};
 use std::mem::size_of;
@@ -56,8 +56,8 @@ extern "C" {
     pub fn browser_read_app_memory(dest: *mut u8, app_src: u32, count: u32);
 }
 
-pub unsafe fn browser_read_app_span(dest: *mut u8, span: Span) {
-    browser_read_app_memory(dest, span.ptr, span.len);
+pub unsafe fn browser_read_app_span<T>(dest: *mut T, span: Span) {
+    browser_read_app_memory(dest as *mut u8, span.ptr, span.len * size_of::<T>() as u32);
 }
 
 pub unsafe fn browser_read_app_string(span: Span) -> String {
@@ -66,9 +66,13 @@ pub unsafe fn browser_read_app_string(span: Span) -> String {
     String::from_utf8(buffer).unwrap()
 }
 
-#[no_mangle]
-pub extern "C" fn hi() {
-    crate::say_hi();
+pub unsafe fn browser_read_app_vec<T>(span: Span) -> Vec<T>
+where
+    T: Clone + Copy + Default,
+{
+    let mut buffer = vec![T::default(); span.len as usize];
+    browser_read_app_span(buffer.as_mut_ptr(), span);
+    buffer
 }
 
 #[no_mangle]
@@ -124,41 +128,49 @@ fn taca_RenderingContext_newBuffer(
     context: u32,
     typ: u32,
     usage: u32,
-    info: u32,
+    _info: u32,
 ) -> u32 {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_newBuffer {context} {typ} {usage} {info}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_newBuffer {context} {typ} {usage} {info}"
+    // ));
     let platform = unsafe { &mut *platform };
     let slice = unsafe {
         &*((&platform.buffer[0..size_of::<BufferSlice>()]).as_ptr() as *const BufferSlice)
     };
-    crate::wasmic::print(&format!("{slice:?}"));
+    // crate::wasmic::print(&format!("{slice:?}"));
     let mut buffer = vec![0u8; slice.size as usize];
     unsafe {
         browser_read_app_memory(buffer.as_mut_ptr(), slice.ptr, slice.size);
     }
-    crate::wasmic::print(&format!("{buffer:?}"));
-    new_buffer(platform, typ, usage, &mut buffer, slice.item_size as usize);
+    // crate::wasmic::print(&format!("{buffer:?}"));
+    new_buffer(
+        platform,
+        context,
+        typ,
+        usage,
+        &mut buffer,
+        slice.item_size as usize,
+    );
     0
 }
 
 #[no_mangle]
-fn taca_RenderingContext_newPipeline(platform: *mut Platform, context: u32, info: u32) -> u32 {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_newPipeline {context} {info}"
-    ));
+fn taca_RenderingContext_newPipeline(platform: *mut Platform, context: u32, _info: u32) -> u32 {
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_newPipeline {context} {info}"
+    // ));
     let platform = unsafe { &mut *platform };
     let info = unsafe {
         &*((&platform.buffer[0..size_of::<ExternPipelineInfo>()]).as_ptr()
             as *const ExternPipelineInfo)
     };
+    let attributes = unsafe { browser_read_app_vec::<VertexAttribute>(info.attributes) };
     let fragment_entry_point = unsafe { browser_read_app_string(info.fragment.entry_point) };
     let vertex_entry_point = unsafe { browser_read_app_string(info.vertex.entry_point) };
-    crate::wasmic::print(&format!(
-        "{info:?} -- {vertex_entry_point} -- {fragment_entry_point}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "{info:?} -- {vertex_entry_point} -- {fragment_entry_point}"
     let info = PipelineInfo {
+        attributes,
         fragment: PipelineShaderInfo {
             entry_point: fragment_entry_point,
             shader: info.fragment.shader,
@@ -168,15 +180,15 @@ fn taca_RenderingContext_newPipeline(platform: *mut Platform, context: u32, info
             shader: info.vertex.shader,
         },
     };
-    new_pipeline(platform, info);
-    0
+    // crate::wasmic::print(&format!("{:?}", &info));
+    new_pipeline(platform, context, info)
 }
 
 #[no_mangle]
-fn taca_RenderingContext_newShader(platform: *mut Platform, context: u32, bytes: u32) -> u32 {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_newShader {context} {bytes}"
-    ));
+fn taca_RenderingContext_newShader(platform: *mut Platform, _context: u32, _bytes: u32) -> u32 {
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_newShader {context} {bytes}"
+    // ));
     let platform = unsafe { &mut *platform };
     let span = unsafe { *((&platform.buffer[0..size_of::<Span>()]).as_ptr() as *const Span) };
     let mut buffer = vec![0u8; span.len as usize];
@@ -188,12 +200,12 @@ fn taca_RenderingContext_newShader(platform: *mut Platform, context: u32, bytes:
 
 #[no_mangle]
 fn taca_Window_get(_platform: *mut Platform) -> u32 {
-    crate::wasmic::print("taca_Window_get");
+    // crate::wasmic::print("taca_Window_get");
     1
 }
 
 #[no_mangle]
-fn taca_Window_newRenderingContext(_platform: *mut Platform, window: u32) -> u32 {
-    crate::wasmic::print(&format!("taca_Window_newRenderingContext {window}"));
-    1
+fn taca_Window_newRenderingContext(platform: *mut Platform, _window: u32) -> u32 {
+    // crate::wasmic::print(&format!("taca_Window_newRenderingContext {window}"));
+    new_rendering_context(unsafe { &mut *platform })
 }

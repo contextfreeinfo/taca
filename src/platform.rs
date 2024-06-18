@@ -1,4 +1,4 @@
-use miniquad::{window, RenderingBackend};
+use miniquad::{Pipeline, RenderingBackend};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer::Memory;
 
@@ -6,9 +6,10 @@ use crate::shaders::Shader;
 
 pub struct Platform {
     pub buffer: Vec<u8>,
-    pub context: RenderingContext,
+    pub contexts: Vec<RenderingContext>,
     #[cfg(not(target_arch = "wasm32"))]
     pub memory: Option<Memory>,
+    pub pipelines: Vec<Pipeline>,
     pub shaders: Vec<Shader>,
 }
 
@@ -19,9 +20,10 @@ impl Platform {
     pub fn new(buffer_len: usize) -> Platform {
         Platform {
             buffer: vec![0; buffer_len],
-            context: RenderingContext(window::new_rendering_backend()),
+            contexts: vec![],
             #[cfg(not(target_arch = "wasm32"))]
             memory: None,
+            pipelines: vec![],
             shaders: vec![],
         }
     }

@@ -1,11 +1,17 @@
 #![allow(non_snake_case)]
 
-use miniquad::{BufferSource, BufferType, BufferUsage};
+use miniquad::{
+    window, BufferLayout, BufferSource, BufferType, BufferUsage, PipelineParams, ShaderMeta,
+    ShaderSource, UniformBlockLayout, VertexFormat,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer::ValueType;
 
-use crate::{platform::Platform, shaders::Shader};
+use crate::{
+    platform::{Platform, RenderingContext},
+    shaders::Shader,
+};
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(ValueType))]
 #[derive(Clone, Copy, Debug)]
@@ -20,6 +26,7 @@ pub struct BufferSlice {
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct ExternPipelineInfo {
+    pub attributes: Span,
     pub fragment: ExternPipelineShaderInfo,
     pub vertex: ExternPipelineShaderInfo,
 }
@@ -34,6 +41,7 @@ pub struct ExternPipelineShaderInfo {
 
 #[derive(Clone, Debug)]
 pub struct PipelineInfo {
+    pub attributes: Vec<VertexAttribute>,
     pub fragment: PipelineShaderInfo,
     pub vertex: PipelineShaderInfo,
 }
@@ -52,7 +60,45 @@ pub struct Span {
     pub len: u32,
 }
 
-pub fn new_buffer(platform: &mut Platform, typ: u32, usage: u32, buffer: &[u8], item_size: usize) {
+#[cfg_attr(not(target_arch = "wasm32"), derive(ValueType))]
+#[derive(Clone, Copy, Debug, Default)]
+#[repr(C)]
+pub struct VertexAttribute {
+    pub format: u32,
+    pub buffer_index: u32,
+}
+
+fn value_to_vertex_format(value: u32) -> VertexFormat {
+    match value {
+        0 => VertexFormat::Float1,
+        1 => VertexFormat::Float2,
+        2 => VertexFormat::Float3,
+        3 => VertexFormat::Float4,
+        4 => VertexFormat::Byte1,
+        5 => VertexFormat::Byte2,
+        6 => VertexFormat::Byte3,
+        7 => VertexFormat::Byte4,
+        8 => VertexFormat::Short1,
+        9 => VertexFormat::Short2,
+        10 => VertexFormat::Short3,
+        11 => VertexFormat::Short4,
+        12 => VertexFormat::Int1,
+        13 => VertexFormat::Int2,
+        14 => VertexFormat::Int3,
+        15 => VertexFormat::Int4,
+        16 => VertexFormat::Mat4,
+        _ => panic!(),
+    }
+}
+
+pub fn new_buffer(
+    platform: &mut Platform,
+    context: u32,
+    typ: u32,
+    usage: u32,
+    buffer: &[u8],
+    item_size: usize,
+) {
     let typ = match typ {
         0 => BufferType::VertexBuffer,
         1 => BufferType::IndexBuffer,
@@ -65,15 +111,78 @@ pub fn new_buffer(platform: &mut Platform, typ: u32, usage: u32, buffer: &[u8], 
         _ => panic!(),
     };
     let source = unsafe { BufferSource::pointer(buffer.as_ptr(), buffer.len(), item_size) };
-    crate::wasmic::print(&format!("{buffer:?}"));
-    platform.context.0.new_buffer(typ, usage, source);
+    // crate::wasmic::print(&format!("{buffer:?}"));
+    platform.contexts[context as usize - 1]
+        .0
+        .new_buffer(typ, usage, source);
 }
 
-pub fn new_pipeline(platform: &mut Platform, info: PipelineInfo) {
-    platform.shaders[info.vertex.shader as usize - 1]
+pub fn new_pipeline(platform: &mut Platform, context: u32, info: PipelineInfo) -> u32 {
+    let context = &mut platform.contexts[context as usize - 1];
+    // TODO Metal for Mac.
+    let vertex = platform.shaders[info.vertex.shader as usize - 1]
         .to_glsl(naga::ShaderStage::Vertex, info.vertex.entry_point);
-    platform.shaders[info.fragment.shader as usize - 1]
+    let fragment = platform.shaders[info.fragment.shader as usize - 1]
         .to_glsl(naga::ShaderStage::Fragment, info.fragment.entry_point);
+    let shader = context
+        .0
+        .new_shader(
+            ShaderSource::Glsl {
+                vertex: &vertex,
+                fragment: &fragment,
+            },
+            ShaderMeta {
+                images: vec![],
+                uniforms: UniformBlockLayout { uniforms: vec![] },
+            },
+        )
+        .unwrap();
+    let attributes: Vec<miniquad::VertexAttribute> = info
+        .attributes
+        .iter()
+        .enumerate()
+        .map(|(index, attr)| miniquad::VertexAttribute {
+            name: &ATTRIBUTE_NAMES[index],
+            format: value_to_vertex_format(attr.format),
+            buffer_index: attr.buffer_index as usize,
+        })
+        .collect();
+    let buffer_count = info
+        .attributes
+        .iter()
+        .map(|attr| attr.buffer_index)
+        .max()
+        .unwrap_or(0)
+        + 1;
+    let pipeline = context.0.new_pipeline(
+        &vec![BufferLayout::default(); buffer_count as usize],
+        &attributes,
+        shader,
+        PipelineParams::default(),
+    );
+    platform.pipelines.push(pipeline);
+    platform.pipelines.len() as u32
+}
+
+// Required to be 'static by miniquad.
+const ATTRIBUTE_NAMES: [&str; 10] = [
+    "_p2vs_location0",
+    "_p2vs_location1",
+    "_p2vs_location2",
+    "_p2vs_location3",
+    "_p2vs_location4",
+    "_p2vs_location5",
+    "_p2vs_location6",
+    "_p2vs_location7",
+    "_p2vs_location8",
+    "_p2vs_location9",
+];
+
+pub fn new_rendering_context(platform: &mut Platform) -> u32 {
+    platform
+        .contexts
+        .push(RenderingContext(window::new_rendering_backend()));
+    platform.contexts.len() as u32
 }
 
 pub fn new_shader(platform: &mut Platform, bytes: &[u8]) -> u32 {

@@ -169,11 +169,13 @@ const ExternBindings = extern struct {
 };
 
 const ExternPipelineInfo = extern struct {
+    attributes: Span(VertexAttribute),
     fragment: ExternPipelineShaderInfo,
     vertex: ExternPipelineShaderInfo,
 
     pub fn from(info: PipelineInfo) ExternPipelineInfo {
         return .{
+            .attributes = Span(VertexAttribute).from(info.attributes),
             .fragment = ExternPipelineShaderInfo.from(info.fragment),
             .vertex = ExternPipelineShaderInfo.from(info.vertex),
         };
