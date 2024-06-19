@@ -43,7 +43,7 @@ pub fn main() void {
 }
 
 export fn listen(event: taca.EventKind) void {
-    // TODO Branch on event type.
+    // TODO Branch on event kind.
     _ = event;
     const ctx = stage.?.ctx;
     ctx.beginPass();

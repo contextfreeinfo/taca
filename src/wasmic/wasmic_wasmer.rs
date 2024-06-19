@@ -1,12 +1,40 @@
 #![allow(non_snake_case)]
 
-use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, WasmPtr};
+use miniquad::EventHandler;
+use wasmer::{
+    imports, Function, FunctionEnv, FunctionEnvMut, Instance, MemoryView, Module, Store, Value,
+    ValueType, WasmPtr,
+};
 
 use crate::platform::Platform;
 
-use super::help::{new_buffer, new_rendering_context, BufferSlice};
+use super::help::{
+    apply_bindings, apply_pipeline, begin_pass, commit_frame, draw, end_pass, new_buffer,
+    new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice, ExternBindings,
+    ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span,
+};
 
-pub fn wasmish(wasm: &[u8]) {
+pub struct App {
+    listen: Function,
+    store: Store,
+}
+
+impl App {
+    pub fn new(store: Store, instance: Instance) -> Self {
+        let listen = instance.exports.get_function("listen").unwrap().clone();
+        Self { listen, store }
+    }
+}
+
+impl<'a> EventHandler for App {
+    fn update(&mut self) {}
+
+    fn draw(&mut self) {
+        self.listen.call(&mut self.store, &[Value::I32(0)]).unwrap();
+    }
+}
+
+pub fn wasmish(wasm: &[u8]) -> App {
     let mut store = Store::default();
     let module = Module::new(&store, wasm).unwrap();
     let env = FunctionEnv::new(&mut store, Platform::new(0));
@@ -28,60 +56,95 @@ pub fn wasmish(wasm: &[u8]) {
     let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     let env_mut = env.as_mut(&mut store);
     env_mut.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
-
+    // Start up.
     let start = instance.exports.get_function("_start").unwrap();
     start.call(&mut store, &[]).unwrap();
-
-    let listen = instance.exports.get_function("listen").unwrap();
-    let _ = listen;
+    App::new(store, instance)
 }
 
 pub fn print(text: &str) {
     println!("{text}");
 }
 
+fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
+where
+    T: Copy + ValueType,
+{
+    WasmPtr::<T>::new(span.ptr)
+        .slice(&view, span.len)
+        .unwrap()
+        .read_to_vec()
+        .unwrap()
+}
+
+fn read_string(view: &MemoryView, span: Span) -> String {
+    WasmPtr::<u8>::new(span.ptr)
+        .read_utf8_string(&view, span.len)
+        .unwrap()
+}
+
 fn taca_RenderingContext_applyBindings(
-    mut _env: FunctionEnvMut<Platform>,
+    mut env: FunctionEnvMut<Platform>,
     context: u32,
     bindings: u32,
 ) {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_applyBindings {context} {bindings}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_applyBindings {context} {bindings}"
+    // ));
+    let (platform, store) = env.data_and_store_mut();
+    let view = platform.memory.as_ref().unwrap().view(&store);
+    let bindings = WasmPtr::<ExternBindings>::new(bindings)
+        .read(&view)
+        .unwrap();
+    let bindings = Bindings {
+        vertex_buffers: read_span(&view, bindings.vertex_buffers),
+        index_buffer: bindings.index_buffer,
+    };
+    apply_bindings(platform, context, bindings);
 }
 
 fn taca_RenderingContext_applyPipeline(
-    mut _env: FunctionEnvMut<Platform>,
+    mut env: FunctionEnvMut<Platform>,
     context: u32,
     pipeline: u32,
 ) {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_applyPipeline {context} {pipeline}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_applyPipeline {context} {pipeline}"
+    // ));
+    let platform = env.data_mut();
+    apply_pipeline(platform, context, pipeline)
 }
 
-fn taca_RenderingContext_beginPass(mut _env: FunctionEnvMut<Platform>, context: u32) {
-    crate::wasmic::print(&format!("taca_RenderingContext_beginPass {context}"));
+fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<Platform>, context: u32) {
+    // crate::wasmic::print(&format!("taca_RenderingContext_beginPass {context}"));
+    let platform = env.data_mut();
+    begin_pass(platform, context)
 }
 
-fn taca_RenderingContext_commitFrame(mut _env: FunctionEnvMut<Platform>, context: u32) {
-    crate::wasmic::print(&format!("taca_RenderingContext_commitFrame {context}"));
+fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<Platform>, context: u32) {
+    // crate::wasmic::print(&format!("taca_RenderingContext_commitFrame {context}"));
+    let platform = env.data_mut();
+    commit_frame(platform, context)
 }
 
 fn taca_RenderingContext_draw(
-    mut _env: FunctionEnvMut<Platform>,
+    mut env: FunctionEnvMut<Platform>,
     context: u32,
-    base_element: u32,
-    num_elements: u32,
-    num_instances: u32,
+    item_begin: i32,
+    item_count: i32,
+    instance_count: i32,
 ) {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_draw {context} {base_element} {num_elements} {num_instances}"
-    ));
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_draw {context} {base_element} {num_elements} {num_instances}"
+    // ));
+    let platform = env.data_mut();
+    draw(platform, context, item_begin, item_count, instance_count);
 }
 
-fn taca_RenderingContext_endPass(mut _env: FunctionEnvMut<Platform>, context: u32) {
-    crate::wasmic::print(&format!("taca_RenderingContext_endPass {context}"));
+fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<Platform>, context: u32) {
+    // crate::wasmic::print(&format!("taca_RenderingContext_endPass {context}"));
+    let platform = env.data_mut();
+    end_pass(platform, context)
 }
 
 fn taca_RenderingContext_newBuffer(
@@ -96,7 +159,6 @@ fn taca_RenderingContext_newBuffer(
     // ));
     let (platform, store) = env.data_and_store_mut();
     let view = platform.memory.as_ref().unwrap().view(&store);
-    // platform.memory.as_slice()[info..info+size_of(BufferSlice)];
     let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
     // crate::wasmic::print(&format!("{slice:?}"));
     let buffer = view
@@ -109,30 +171,50 @@ fn taca_RenderingContext_newBuffer(
         usage,
         &buffer,
         slice.item_size as usize,
-    );
-    0
+    )
 }
 
 fn taca_RenderingContext_newPipeline(
-    mut _env: FunctionEnvMut<Platform>,
+    mut env: FunctionEnvMut<Platform>,
     context: u32,
     info: u32,
 ) -> u32 {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_newPipeline {context} {info}"
-    ));
-    0
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_newPipeline {context} {info}"
+    // ));
+    let (platform, store) = env.data_and_store_mut();
+    let view = platform.memory.as_ref().unwrap().view(&store);
+    let info = WasmPtr::<ExternPipelineInfo>::new(info)
+        .read(&view)
+        .unwrap();
+    let attributes = read_span(&view, info.attributes);
+    let info = PipelineInfo {
+        attributes,
+        fragment: PipelineShaderInfo {
+            entry_point: read_string(&view, info.fragment.entry_point),
+            shader: info.fragment.shader,
+        },
+        vertex: PipelineShaderInfo {
+            entry_point: read_string(&view, info.vertex.entry_point),
+            shader: info.vertex.shader,
+        },
+    };
+    new_pipeline(platform, context, info)
 }
 
 fn taca_RenderingContext_newShader(
-    mut _env: FunctionEnvMut<Platform>,
-    context: u32,
+    mut env: FunctionEnvMut<Platform>,
+    _context: u32,
     bytes: u32,
 ) -> u32 {
-    crate::wasmic::print(&format!(
-        "taca_RenderingContext_newShader {context} {bytes}"
-    ));
-    0
+    // crate::wasmic::print(&format!(
+    //     "taca_RenderingContext_newShader {context} {bytes}"
+    // ));
+    let (platform, store) = env.data_and_store_mut();
+    let view = platform.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let bytes = read_span(&view, bytes);
+    new_shader(platform, &bytes)
 }
 
 fn taca_Window_get(mut _env: FunctionEnvMut<Platform>) -> u32 {

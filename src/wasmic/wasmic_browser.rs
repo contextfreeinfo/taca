@@ -2,8 +2,9 @@
 
 use crate::platform::Platform;
 use crate::wasmic::help::{
-    new_buffer, new_pipeline, new_rendering_context, new_shader, BufferSlice, ExternPipelineInfo,
-    PipelineInfo, PipelineShaderInfo, Span, VertexAttribute,
+    apply_bindings, apply_pipeline, begin_pass, commit_frame, draw, end_pass, new_buffer,
+    new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice, ExternBindings,
+    ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span, VertexAttribute,
 };
 use miniquad::{conf, EventHandler};
 use std::mem::size_of;
@@ -85,45 +86,65 @@ pub extern "C" fn taca_crate_version() -> i32 {
 }
 
 #[no_mangle]
-fn taca_RenderingContext_applyBindings(_platform: *mut Platform, context: u32, bindings: u32) {
+fn taca_RenderingContext_applyBindings(platform: *mut Platform, context: u32, _bindings: u32) {
     // crate::wasmic::print(&format!(
     //     "taca_RenderingContext_applyBindings {context} {bindings}"
     // ));
+    let platform = unsafe { &mut *platform };
+    let bindings = unsafe {
+        &*((&platform.buffer[0..size_of::<ExternBindings>()]).as_ptr() as *const ExternBindings)
+    };
+    let vertex_buffers = unsafe { browser_read_app_vec::<u32>(bindings.vertex_buffers) };
+    let bindings = Bindings {
+        vertex_buffers,
+        index_buffer: bindings.index_buffer,
+    };
+    apply_bindings(platform, context, bindings);
 }
 
 #[no_mangle]
-fn taca_RenderingContext_applyPipeline(_platform: *mut Platform, context: u32, pipeline: u32) {
+fn taca_RenderingContext_applyPipeline(platform: *mut Platform, context: u32, pipeline: u32) {
     // crate::wasmic::print(&format!(
     //     "taca_RenderingContext_applyPipeline {context} {pipeline}"
     // ));
+    let platform = unsafe { &mut *platform };
+    apply_pipeline(platform, context, pipeline);
 }
 
 #[no_mangle]
-fn taca_RenderingContext_beginPass(_platform: *mut Platform, context: u32) {
-    crate::wasmic::print(&format!("taca_RenderingContext_beginPass {context}"));
+fn taca_RenderingContext_beginPass(platform: *mut Platform, context: u32) {
+    // crate::wasmic::print(&format!("taca_RenderingContext_beginPass {context}"));
+    let platform = unsafe { &mut *platform };
+    begin_pass(platform, context);
 }
 
 #[no_mangle]
-fn taca_RenderingContext_commitFrame(_platform: *mut Platform, context: u32) {
+fn taca_RenderingContext_commitFrame(platform: *mut Platform, context: u32) {
     // crate::wasmic::print(&format!("taca_RenderingContext_commitFrame {context}"));
+    let platform = unsafe { &mut *platform };
+    commit_frame(platform, context);
 }
 
 #[no_mangle]
 fn taca_RenderingContext_draw(
-    _platform: *mut Platform,
+    platform: *mut Platform,
     context: u32,
-    base_element: u32,
-    num_elements: u32,
-    num_instances: u32,
+    item_begin: i32,
+    item_count: i32,
+    instance_count: i32,
 ) {
     // crate::wasmic::print(&format!(
     //     "taca_RenderingContext_draw {context} {base_element} {num_elements} {num_instances}"
     // ));
+    let platform = unsafe { &mut *platform };
+    draw(platform, context, item_begin, item_count, instance_count);
 }
 
 #[no_mangle]
-fn taca_RenderingContext_endPass(_platform: *mut Platform, context: u32) {
+fn taca_RenderingContext_endPass(platform: *mut Platform, context: u32) {
     // crate::wasmic::print(&format!("taca_RenderingContext_endPass {context}"));
+    let platform = unsafe { &mut *platform };
+    end_pass(platform, context);
 }
 
 #[no_mangle]
@@ -154,8 +175,7 @@ fn taca_RenderingContext_newBuffer(
         usage,
         &mut buffer,
         slice.item_size as usize,
-    );
-    0
+    )
 }
 
 #[no_mangle]

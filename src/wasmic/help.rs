@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
 use miniquad::{
-    window, BufferLayout, BufferSource, BufferType, BufferUsage, PipelineParams, ShaderMeta,
-    ShaderSource, UniformBlockLayout, VertexFormat,
+    window, BufferId, BufferLayout, BufferSource, BufferType, BufferUsage, PipelineParams,
+    ShaderMeta, ShaderSource, UniformBlockLayout, VertexFormat,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -13,6 +13,13 @@ use crate::{
     shaders::Shader,
 };
 
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct Bindings {
+    pub vertex_buffers: Vec<u32>,
+    pub index_buffer: u32,
+}
+
 #[cfg_attr(not(target_arch = "wasm32"), derive(ValueType))]
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -20,6 +27,14 @@ pub struct BufferSlice {
     pub ptr: u32,
     pub size: u32,
     pub item_size: u32,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), derive(ValueType))]
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct ExternBindings {
+    pub vertex_buffers: Span,
+    pub index_buffer: u32,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(ValueType))]
@@ -91,6 +106,54 @@ fn value_to_vertex_format(value: u32) -> VertexFormat {
     }
 }
 
+pub fn apply_bindings(platform: &mut Platform, context: u32, bindings: Bindings) {
+    let vertex_buffers: Vec<BufferId> = bindings
+        .vertex_buffers
+        .iter()
+        .map(|buf| platform.buffer_ids[*buf as usize - 1])
+        .collect();
+    let bindings = miniquad::Bindings {
+        vertex_buffers,
+        index_buffer: platform.buffer_ids[bindings.index_buffer as usize - 1],
+        images: vec![],
+    };
+    platform.contexts[context as usize - 1]
+        .0
+        .apply_bindings(&bindings);
+}
+
+pub fn apply_pipeline(platform: &mut Platform, context: u32, pipeline: u32) {
+    platform.contexts[context as usize - 1]
+        .0
+        .apply_pipeline(&platform.pipelines[pipeline as usize - 1]);
+}
+
+pub fn begin_pass(platform: &mut Platform, context: u32) {
+    platform.contexts[context as usize - 1]
+        .0
+        .begin_default_pass(Default::default());
+}
+
+pub fn draw(
+    platform: &mut Platform,
+    context: u32,
+    item_begin: i32,
+    item_count: i32,
+    instance_count: i32,
+) {
+    platform.contexts[context as usize - 1]
+        .0
+        .draw(item_begin, item_count, instance_count);
+}
+
+pub fn commit_frame(platform: &mut Platform, context: u32) {
+    platform.contexts[context as usize - 1].0.commit_frame();
+}
+
+pub fn end_pass(platform: &mut Platform, context: u32) {
+    platform.contexts[context as usize - 1].0.end_render_pass();
+}
+
 pub fn new_buffer(
     platform: &mut Platform,
     context: u32,
@@ -98,7 +161,7 @@ pub fn new_buffer(
     usage: u32,
     buffer: &[u8],
     item_size: usize,
-) {
+) -> u32 {
     let typ = match typ {
         0 => BufferType::VertexBuffer,
         1 => BufferType::IndexBuffer,
@@ -112,9 +175,11 @@ pub fn new_buffer(
     };
     let source = unsafe { BufferSource::pointer(buffer.as_ptr(), buffer.len(), item_size) };
     // crate::wasmic::print(&format!("{buffer:?}"));
-    platform.contexts[context as usize - 1]
+    let buffer_id = platform.contexts[context as usize - 1]
         .0
         .new_buffer(typ, usage, source);
+    platform.buffer_ids.push(buffer_id);
+    platform.buffer_ids.len() as u32
 }
 
 pub fn new_pipeline(platform: &mut Platform, context: u32, info: PipelineInfo) -> u32 {

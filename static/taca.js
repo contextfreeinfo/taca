@@ -69,7 +69,8 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
   const { instance } = await WebAssembly.instantiateStreaming(response, {
     env: {
       taca_RenderingContext_applyBindings(context, bindings) {
-        engine.taca_RenderingContext_applyBindings(platform, context, bindings);
+        bufferBytes.set(appMemoryBytes.slice(bindings, bindings + 3 * 4));
+        engine.taca_RenderingContext_applyBindings(platform, context, 0);
       },
       taca_RenderingContext_applyPipeline(context, pipeline) {
         engine.taca_RenderingContext_applyPipeline(platform, context, pipeline);
@@ -80,8 +81,19 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
       taca_RenderingContext_commitFrame(context) {
         engine.taca_RenderingContext_commitFrame(platform, context);
       },
-      taca_RenderingContext_draw(context) {
-        engine.taca_RenderingContext_draw(platform, context);
+      taca_RenderingContext_draw(
+        context,
+        item_begin,
+        item_count,
+        instance_count
+      ) {
+        engine.taca_RenderingContext_draw(
+          platform,
+          context,
+          item_begin,
+          item_count,
+          instance_count
+        );
       },
       taca_RenderingContext_endPass(context) {
         engine.taca_RenderingContext_endPass(platform, context);
