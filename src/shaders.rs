@@ -2,16 +2,17 @@ use miniquad::{UniformDesc, UniformType};
 use naga::{
     back::glsl::{self, WriterFlags},
     front::spv::{self, Options},
-    proc::BoundsCheckPolicies,
+    proc::{BoundsCheckPolicies, BoundsCheckPolicy},
     valid::{Capabilities, ModuleInfo, ValidationFlags, Validator},
     AddressSpace, GlobalVariable, Handle, Module, ResourceBinding, Scalar, ScalarKind, ShaderStage,
     StructMember, Type, TypeInner, VectorSize,
 };
 
 pub struct Shader {
-    pub module: Module,
+    pub autonames: Vec<String>,
     pub info: ModuleInfo,
-    pub uniform_names: Vec<String>,
+    pub module: Module,
+    pub uniforms: Vec<UniformDesc>,
 }
 
 impl Shader {
@@ -35,64 +36,59 @@ impl Shader {
         }
         // println!("{:?}", &types);
         let mut uniforms = Vec::<UniformDesc>::new();
+        let mut autonames = Vec::<String>::new();
         for var in module.global_variables.iter_mut() {
             let var = var.1;
             if var.space == AddressSpace::Uniform {
-                dig_uniforms(&mut uniforms, var, &types);
-                match &types[var.ty.index()].as_ref().unwrap().inner {
-                    naga::TypeInner::Struct { members, .. } => {
-                        assert_eq!(1, members.len());
-                        println!(
-                            "{:?} {:?} {:?}",
-                            var,
-                            members[0].name,
-                            types[members[0].ty.index()]
-                        );
-                        match &types[members[0].ty.index()].as_ref().unwrap().inner {
-                            _ => {}
-                        }
-                    }
-                    _ => panic!(),
-                }
+                dig_uniforms(&mut uniforms, &mut autonames, var, &types);
             }
         }
-        // Extract sorted uniform names.
-        let mut uniforms: Vec<_> = module
-            .global_variables
-            .iter()
-            .filter(|var| var.1.space == AddressSpace::Uniform)
-            .map(|var| var.1)
-            .collect();
-        uniforms.sort_by_key(|uniform| {
-            let binding = uniform.binding.as_ref().unwrap();
-            (binding.group, binding.binding)
-        });
-        // crate::wasmic::print(&format!("{:?}", uniforms));
-        let uniform_names: Vec<String> = uniforms
-            .iter()
-            .map(|var| var.name.as_ref().map_or_else(|| "_", |name| name).into())
-            .collect();
+        // for uniform in &uniforms {
+        //     println!("{}: {:?}", &uniform.name, uniform.uniform_type);
+        // }
         // Done.
         Shader {
-            module,
+            autonames,
             info,
-            uniform_names,
+            module,
+            uniforms,
         }
     }
 
     pub fn to_glsl(&self, shader_stage: ShaderStage, entry_point: String) -> String {
         // crate::wasmic::print(&format!("{shader_stage:?} {}", &entry_point));
-        translate_to_glsl(&self.module, &self.info, shader_stage, entry_point)
+        let mut glsl = translate_to_glsl(&self.module, &self.info, shader_stage, entry_point);
+        // Rename from naga conventions to common names across stages for miniquad needs.
+        // The goal here is to share uniforms across stages, but types and blocks need to match.
+        // Happily, naga seems to match type names for each writing.
+        let (block_suffix, var_suffix) = match shader_stage {
+            ShaderStage::Vertex => ("Vertex", "vs"),
+            ShaderStage::Fragment => ("Fragment", "fs"),
+            ShaderStage::Compute => todo!(),
+        };
+        glsl = glsl.replace(&format!("_block_0{block_suffix} {{"), "block_0 {");
+        for name in &self.autonames {
+            glsl = glsl.replace(&format!("{name}_{var_suffix}"), name);
+        }
+        // crate::wasmic::print(&format!("{glsl}"));
+        glsl
     }
 }
 
-fn dig_uniforms(uniforms: &mut Vec<UniformDesc>, var: &GlobalVariable, types: &[Option<&Type>]) {
+fn dig_uniforms(
+    uniforms: &mut Vec<UniformDesc>,
+    autonames: &mut Vec<String>,
+    var: &GlobalVariable,
+    types: &[Option<&Type>],
+) {
     // Allocates a lot but expected to be rarely used.
     let name = if let Some(name) = &var.name {
         name.clone()
     } else if let Some(ResourceBinding { group, binding }) = var.binding {
         // Default naming convention in naga.
-        format!("_group_{group}_binding_{binding}")
+        let autoname = format!("_group_{group}_binding_{binding}");
+        autonames.push(autoname.clone());
+        autoname
     } else {
         panic!()
     };
@@ -203,19 +199,16 @@ fn translate_to_glsl(
         info,
         &options,
         &pipeline_options,
-        // TODO What bounds checks???
-        BoundsCheckPolicies::default(),
+        BoundsCheckPolicies {
+            // Be safe by default until I know better.
+            index: BoundsCheckPolicy::Restrict,
+            buffer: BoundsCheckPolicy::Restrict,
+            image_load: BoundsCheckPolicy::Restrict,
+            image_store: BoundsCheckPolicy::Restrict,
+            binding_array: BoundsCheckPolicy::Restrict,
+        },
     )
     .unwrap();
     writer.write().unwrap();
-    // TODO Rename "uniform type_4_block_0Vertex { type_4 _group_0_binding_0_vs; };"
-    // TODO to avoid _[fv]s suffixes.
-    // const positionLocation = gl.getUniformLocation(program, 'u_light.position');
-    // const colorLocation = gl.getUniformLocation(program, 'u_light.color');
-    // const intensityLocation = gl.getUniformLocation(program, 'u_light.intensity');
-    // TODO Parse for /^uniform (\w+)/ for uniform names?
-    // TODO But miniquad::graphics::gl::load_shader_internal uses glGetUniformLocation not glGetUniformBlockIndex
-    // TODO And we get different uniform names for vertex (_vs) vs fragment (_fs) shaders.
-    // crate::wasmic::print(&format!("{buffer}"));
     buffer
 }

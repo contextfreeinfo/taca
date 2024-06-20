@@ -185,8 +185,10 @@ pub fn new_buffer(
 pub fn new_pipeline(platform: &mut Platform, context: u32, info: PipelineInfo) -> u32 {
     let context = &mut platform.contexts[context as usize - 1];
     // TODO Metal for Mac.
-    let vertex = platform.shaders[info.vertex.shader as usize - 1]
-        .to_glsl(naga::ShaderStage::Vertex, info.vertex.entry_point);
+    // TODO Force single shader????
+    // TODO Track doubling up across stages???
+    let shader = &platform.shaders[info.vertex.shader as usize - 1];
+    let vertex = shader.to_glsl(naga::ShaderStage::Vertex, info.vertex.entry_point);
     let fragment = platform.shaders[info.fragment.shader as usize - 1]
         .to_glsl(naga::ShaderStage::Fragment, info.fragment.entry_point);
     let shader = context
@@ -198,7 +200,9 @@ pub fn new_pipeline(platform: &mut Platform, context: u32, info: PipelineInfo) -
             },
             ShaderMeta {
                 images: vec![],
-                uniforms: UniformBlockLayout { uniforms: vec![] },
+                uniforms: UniformBlockLayout {
+                    uniforms: shader.uniforms.clone(),
+                },
             },
         )
         .unwrap();
