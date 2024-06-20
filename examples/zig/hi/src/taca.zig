@@ -62,6 +62,12 @@ pub const RenderingContext = extern struct {
         taca_RenderingContext_applyPipeline(self, pipeline);
     }
 
+    pub fn applyUniforms(self: *Self, uniforms: anytype) void {
+        // TODO
+        _ = self;
+        _ = uniforms;
+    }
+
     pub fn beginPass(self: *Self) void {
         taca_RenderingContext_beginPass(self);
     }

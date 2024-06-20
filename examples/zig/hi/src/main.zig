@@ -20,6 +20,8 @@ pub fn main() void {
         taca.BufferSlice.new(&indices),
     );
     const shader = ctx.newShader(@embedFile("shader.opt.spv"));
+    // const fs = ctx.newShader(@embedFile("fs.spv"));
+    // const vs = ctx.newShader(@embedFile("vs.spv"));
     const pipeline = ctx.newPipeline(.{
         .attributes = &[_]taca.VertexAttribute{
             .{ .format = .float2 },
@@ -28,10 +30,12 @@ pub fn main() void {
         .fragment = .{
             .entry_point = "fs_main",
             .shader = shader,
+            // .shader = fs,
         },
         .vertex = .{
             .entry_point = "vs_main",
             .shader = shader,
+            // .shader = vs,
         },
     });
     stage = .{
