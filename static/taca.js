@@ -75,6 +75,10 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
       taca_RenderingContext_applyPipeline(context, pipeline) {
         engine.taca_RenderingContext_applyPipeline(platform, context, pipeline);
       },
+      taca_RenderingContext_applyUniforms(context, uniforms) {
+        bufferBytes.set(appMemoryBytes.slice(uniforms, uniforms + 2 * 4));
+        return engine.taca_RenderingContext_applyUniforms(platform, context, 0);
+      },
       taca_RenderingContext_beginPass(context) {
         engine.taca_RenderingContext_beginPass(platform, context);
       },

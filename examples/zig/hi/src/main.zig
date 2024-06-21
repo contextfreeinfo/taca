@@ -3,26 +3,25 @@ const taca = @import("taca.zig");
 pub fn main() void {
     const window = taca.Window.get();
     const ctx = window.newRenderingContext();
-    const vertices = [_]Vertex{
-        .{ .pos = .{ -0.5, -0.5 }, .color = .{ 1.0, 0.0, 0.0, 1.0 } },
-        .{ .pos = .{ 0.5, -0.5 }, .color = .{ 0.0, 1.0, 0.0, 1.0 } },
-        .{ .pos = .{ 0.0, 0.5 }, .color = .{ 0.0, 0.0, 1.0, 1.0 } },
-    };
     const vertex_buffer = ctx.newBuffer(
         .vertex_buffer,
         .immutable,
-        taca.BufferSlice.new(&vertices),
+        taca.BufferSlice.new(&[_]Vertex{
+            .{ .pos = .{ -0.5, -0.5 }, .color = .{ 1.0, 0.0, 0.0, 1.0 } },
+            .{ .pos = .{ 0.5, -0.5 }, .color = .{ 0.0, 1.0, 0.0, 1.0 } },
+            .{ .pos = .{ 0.0, 0.5 }, .color = .{ 0.0, 0.0, 1.0, 1.0 } },
+        }),
     );
-    const indices = [_]u16{ 0, 1, 2 };
     const index_buffer = ctx.newBuffer(
         .index_buffer,
         .immutable,
-        taca.BufferSlice.new(&indices),
+        taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     );
     const shader = ctx.newShader(@embedFile("shader.opt.spv"));
     // const fs = ctx.newShader(@embedFile("fs.spv"));
     // const vs = ctx.newShader(@embedFile("vs.spv"));
     const pipeline = ctx.newPipeline(.{
+        // TODO Automate attributes from shader?
         .attributes = &[_]taca.VertexAttribute{
             .{ .format = .float2 },
             .{ .format = .float4 },
@@ -56,6 +55,7 @@ export fn listen(event: taca.EventKind) void {
         .vertex_buffers = &[_]*taca.Buffer{stage.?.vertex_buffer},
         .index_buffer = stage.?.index_buffer,
     });
+    ctx.applyUniforms(&Uniforms{ .pointer = .{ 0.5, 0.5 } });
     ctx.draw(0, 3, 1);
     ctx.endPass();
     ctx.commitFrame();
@@ -68,6 +68,10 @@ const Stage = struct {
     index_buffer: *taca.Buffer,
     pipeline: *taca.Pipeline,
     vertex_buffer: *taca.Buffer,
+};
+
+const Uniforms = extern struct {
+    pointer: [2]f32,
 };
 
 const Vertex = extern struct {

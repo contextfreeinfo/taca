@@ -61,12 +61,12 @@ impl Shader {
         // Rename from naga conventions to common names across stages for miniquad needs.
         // The goal here is to share uniforms across stages, but types and blocks need to match.
         // Happily, naga seems to match type names for each writing.
-        let (block_suffix, var_suffix) = match shader_stage {
+        let (_, var_suffix) = match shader_stage {
             ShaderStage::Vertex => ("Vertex", "vs"),
             ShaderStage::Fragment => ("Fragment", "fs"),
             ShaderStage::Compute => todo!(),
         };
-        glsl = glsl.replace(&format!("_block_0{block_suffix} {{"), "block_0 {");
+        glsl = flatten_out_uniform_blocks(&glsl);
         for name in &self.autonames {
             glsl = glsl.replace(&format!("{name}_{var_suffix}"), name);
         }
@@ -144,6 +144,28 @@ const SCALAR_FLOAT: Scalar = Scalar {
     width: 4,
 };
 
+fn flatten_out_uniform_blocks(glsl: &str) -> String {
+    let mut result = String::new();
+    for line in glsl.split('\n') {
+        let start = "uniform ";
+        let line = match () {
+            _ if line.starts_with(start) => {
+                // From `uniform type_4_block_0Vertex { type_4 _group_0_binding_0_vs; };`
+                // To `uniform type_4 _group_0_binding_0;`
+                result.push_str(start);
+                let next = &line[start.len()..];
+                let next = &next[next.find('{').unwrap() + 1..];
+                let next = &next[next.find(|c| c != ' ').unwrap()..];
+                &next[..=next.find(';').unwrap()]
+            }
+            _ => line,
+        };
+        result.push_str(line);
+        result.push('\n');
+    }
+    result
+}
+
 fn interpret_uniform_type(ty: &Type) -> UniformType {
     match &ty.inner {
         naga::TypeInner::Matrix {
@@ -180,6 +202,8 @@ fn translate_to_glsl(
     entry_point: String,
 ) -> String {
     let options = glsl::Options {
+        // TODO Bind to specific locations if miniquad could support explicit locations?
+        // binding_map: todo!(),
         version: glsl::Version::Embedded {
             version: 300,
             is_webgl: true,

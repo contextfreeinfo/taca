@@ -63,9 +63,7 @@ pub const RenderingContext = extern struct {
     }
 
     pub fn applyUniforms(self: *Self, uniforms: anytype) void {
-        // TODO
-        _ = self;
-        _ = uniforms;
+        taca_RenderingContext_applyUniforms(self, as_u8_span(uniforms));
     }
 
     pub fn beginPass(self: *Self) void {
@@ -117,6 +115,14 @@ pub fn Span(comptime T: type) type {
         pub fn from(slice: []const T) Span(T) {
             return .{ .ptr = slice.ptr, .len = slice.len };
         }
+    };
+}
+
+fn as_u8_span(any: anytype) Span(u8) {
+    const info = @typeInfo(@TypeOf(any)).Pointer;
+    return .{
+        .ptr = @ptrCast(any),
+        .len = @sizeOf(info.child),
     };
 }
 
@@ -204,6 +210,11 @@ extern fn taca_RenderingContext_applyBindings(
 extern fn taca_RenderingContext_applyPipeline(
     context: *RenderingContext,
     pipeline: *Pipeline,
+) void;
+
+extern fn taca_RenderingContext_applyUniforms(
+    context: *RenderingContext,
+    uniforms: Span(u8),
 ) void;
 
 extern fn taca_RenderingContext_beginPass(

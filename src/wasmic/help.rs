@@ -128,6 +128,13 @@ pub fn apply_pipeline(platform: &mut Platform, context: u32, pipeline: u32) {
         .apply_pipeline(&platform.pipelines[pipeline as usize - 1]);
 }
 
+pub fn apply_uniforms(platform: &mut Platform, context: u32, uniforms: &[u8]) {
+    // crate::wasmic::print(&format!("{:?}", uniforms));
+    platform.contexts[context as usize - 1]
+        .0
+        .apply_uniforms_from_bytes(uniforms.as_ptr(), uniforms.len());
+}
+
 pub fn begin_pass(platform: &mut Platform, context: u32) {
     platform.contexts[context as usize - 1]
         .0

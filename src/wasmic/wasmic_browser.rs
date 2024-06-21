@@ -2,9 +2,9 @@
 
 use crate::platform::Platform;
 use crate::wasmic::help::{
-    apply_bindings, apply_pipeline, begin_pass, commit_frame, draw, end_pass, new_buffer,
-    new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice, ExternBindings,
-    ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span, VertexAttribute,
+    apply_bindings, apply_pipeline, apply_uniforms, begin_pass, commit_frame, draw, end_pass,
+    new_buffer, new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice,
+    ExternBindings, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span, VertexAttribute,
 };
 use miniquad::{conf, EventHandler};
 use std::mem::size_of;
@@ -109,6 +109,14 @@ fn taca_RenderingContext_applyPipeline(platform: *mut Platform, context: u32, pi
     // ));
     let platform = unsafe { &mut *platform };
     apply_pipeline(platform, context, pipeline);
+}
+
+#[no_mangle]
+fn taca_RenderingContext_applyUniforms(platform: *mut Platform, context: u32, _uniforms: u32) {
+    let platform = unsafe { &mut *platform };
+    let uniforms = unsafe { *((&platform.buffer[0..size_of::<Span>()]).as_ptr() as *const Span) };
+    let uniforms = unsafe { browser_read_app_vec::<u8>(uniforms) };
+    apply_uniforms(platform, context, &uniforms);
 }
 
 #[no_mangle]

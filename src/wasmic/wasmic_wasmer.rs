@@ -9,9 +9,7 @@ use wasmer::{
 use crate::platform::Platform;
 
 use super::help::{
-    apply_bindings, apply_pipeline, begin_pass, commit_frame, draw, end_pass, new_buffer,
-    new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice, ExternBindings,
-    ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span,
+    apply_bindings, apply_pipeline, apply_uniforms, begin_pass, commit_frame, draw, end_pass, new_buffer, new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice, ExternBindings, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span
 };
 
 pub struct App {
@@ -42,6 +40,7 @@ pub fn wasmish(wasm: &[u8]) -> App {
         "env" => {
             "taca_RenderingContext_applyBindings" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_applyBindings),
             "taca_RenderingContext_applyPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_applyPipeline),
+            "taca_RenderingContext_applyUniforms" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_applyUniforms),
             "taca_RenderingContext_beginPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_beginPass),
             "taca_RenderingContext_commitFrame" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_commitFrame),
             "taca_RenderingContext_draw" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_draw),
@@ -113,6 +112,18 @@ fn taca_RenderingContext_applyPipeline(
     // ));
     let platform = env.data_mut();
     apply_pipeline(platform, context, pipeline)
+}
+
+fn taca_RenderingContext_applyUniforms(
+    mut env: FunctionEnvMut<Platform>,
+    context: u32,
+    bytes: u32,
+) {
+    let (platform, store) = env.data_and_store_mut();
+    let view = platform.memory.as_ref().unwrap().view(&store);
+    let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let uniforms = read_span::<u8>(&view, uniforms);
+    apply_uniforms(platform, context, &uniforms);
 }
 
 fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<Platform>, context: u32) {
