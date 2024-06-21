@@ -126,8 +126,13 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
       taca_Window_newRenderingContext(window) {
         return engine.taca_Window_newRenderingContext(platform, window);
       },
-      taca_Window_print(text) {
-        // TODO
+      taca_Window_print(window, text) {
+        bufferBytes.set(appMemoryBytes.slice(text, text + 2 * 4));
+        engine.taca_Window_print(platform, window, text);
+      },
+      taca_Window_state(result, window) {
+        engine.taca_Window_state(platform, window, 0);
+        appMemoryBytes.set(bufferBytes.slice(0, 4 * 4), result);
       },
     },
   });

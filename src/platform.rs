@@ -1,6 +1,6 @@
-use miniquad::{BufferId, Pipeline, RenderingBackend};
+use miniquad::{window, BufferId, Pipeline, RenderingBackend};
 #[cfg(not(target_arch = "wasm32"))]
-use wasmer::Memory;
+use wasmer::{Memory, ValueType};
 
 use crate::shaders::Shader;
 
@@ -12,6 +12,7 @@ pub struct Platform {
     pub memory: Option<Memory>,
     pub pipelines: Vec<Pipeline>,
     pub shaders: Vec<Shader>,
+    pub window_state: WindowState,
 }
 
 pub struct RenderingContext(pub Box<dyn RenderingBackend>);
@@ -27,6 +28,21 @@ impl Platform {
             memory: None,
             pipelines: vec![],
             shaders: vec![],
+            window_state: Default::default(),
         }
     }
+
+    pub fn init_state(&mut self) {
+        let window_size = window::screen_size();
+        self.window_state.pointer = [-1.0, -1.0];
+        self.window_state.size = [window_size.0, window_size.1];
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), derive(ValueType))]
+#[derive(Clone, Copy, Debug, Default)]
+#[repr(C)]
+pub struct WindowState {
+    pub pointer: [f32; 2],
+    pub size: [f32; 2],
 }

@@ -2,6 +2,7 @@ const taca = @import("taca.zig");
 
 pub fn main() void {
     const window = taca.Window.get();
+    window.print("Hi from Zig!");
     const ctx = window.newRenderingContext();
     const vertex_buffer = ctx.newBuffer(
         .vertex_buffer,
@@ -42,12 +43,14 @@ pub fn main() void {
         .index_buffer = index_buffer,
         .pipeline = pipeline,
         .vertex_buffer = vertex_buffer,
+        .window = window,
     };
 }
 
 export fn listen(event: taca.EventKind) void {
     // TODO Branch on event kind.
     _ = event;
+    var state = stage.?.window.state();
     const ctx = stage.?.ctx;
     ctx.beginPass();
     ctx.applyPipeline(stage.?.pipeline);
@@ -55,7 +58,8 @@ export fn listen(event: taca.EventKind) void {
         .vertex_buffers = &[_]*taca.Buffer{stage.?.vertex_buffer},
         .index_buffer = stage.?.index_buffer,
     });
-    ctx.applyUniforms(&Uniforms{ .pointer = .{ 0.5, 0.5 } });
+    state.pointer[1] = state.size[1] - state.pointer[1];
+    ctx.applyUniforms(&Uniforms{ .pointer = state.pointer });
     ctx.draw(0, 3, 1);
     ctx.endPass();
     ctx.commitFrame();
@@ -68,6 +72,7 @@ const Stage = struct {
     index_buffer: *taca.Buffer,
     pipeline: *taca.Pipeline,
     vertex_buffer: *taca.Buffer,
+    window: *taca.Window,
 };
 
 const Uniforms = extern struct {

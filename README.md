@@ -6,8 +6,6 @@ Build optimized:
 
 ```sh
 uglifyjs static/gl.js static/taca.js -o static/taca.min.js
-naga src/shader.wgsl src/shader.spv
-spirv-opt -Os src/shader.spv -o src/shader.opt.spv
 cargo build --target wasm32-unknown-unknown --profile release-lto
 wasm-opt -Os target/wasm32-unknown-unknown/release-lto/taca.wasm \
     -o target/wasm32-unknown-unknown/release-lto/taca.opt.wasm

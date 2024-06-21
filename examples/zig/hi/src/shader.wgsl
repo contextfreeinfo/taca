@@ -25,7 +25,7 @@ fn vs_main(
 fn fs_main(
   in: VertexOutput,
 ) -> @location(0) vec4f {
-  let distance = 1.0 - length(uniforms.pointer - in.position.xy * 5e-4);
-  return vec4f(vec3f(distance), 1.0);
-  // return vec4f(in.color.rgb + 1e-3 * distance, 1.0);
+  let nearness = 1.0 - min(1e-2 * length(uniforms.pointer - in.position.xy), 1.0);
+  // return vec4f(vec3f(distance), 1.0);
+  return vec4f(in.color.rgb + nearness, 1.0);
 }

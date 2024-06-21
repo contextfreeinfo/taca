@@ -155,10 +155,22 @@ pub const VertexFormat = enum(c_int) {
 pub const Window = extern struct {
     // TODO Some display/init first that allows config?
     pub const get = taca_Window_get;
+
     pub const newRenderingContext = taca_Window_newRenderingContext;
-    pub fn print(text: []const u8) void {
-        taca_Window_print(Span(u8).from(text));
+
+    pub fn print(self: *Window, text: []const u8) void {
+        taca_Window_print(self, Span(u8).from(text));
     }
+
+    pub fn state(self: *Window) WindowState {
+        return taca_Window_state(self);
+    }
+};
+
+pub const WindowState = extern struct {
+    // TODO Should size be integer?
+    pointer: [2]f32,
+    size: [2]f32,
 };
 
 // Extern definitions.
@@ -259,4 +271,11 @@ extern fn taca_Window_newRenderingContext(
     window: *Window,
 ) callconv(.C) *RenderingContext;
 
-extern fn taca_Window_print(text: Span(u8)) callconv(.C) void;
+extern fn taca_Window_print(
+    window: *Window,
+    text: Span(u8),
+) callconv(.C) void;
+
+extern fn taca_Window_state(
+    window: *Window,
+) callconv(.C) WindowState;

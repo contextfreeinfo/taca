@@ -129,7 +129,7 @@ pub fn apply_pipeline(platform: &mut Platform, context: u32, pipeline: u32) {
 }
 
 pub fn apply_uniforms(platform: &mut Platform, context: u32, uniforms: &[u8]) {
-    // crate::wasmic::print(&format!("{:?}", uniforms));
+    // super::print(&format!("{:?}", uniforms));
     platform.contexts[context as usize - 1]
         .0
         .apply_uniforms_from_bytes(uniforms.as_ptr(), uniforms.len());
@@ -181,7 +181,6 @@ pub fn new_buffer(
         _ => panic!(),
     };
     let source = unsafe { BufferSource::pointer(buffer.as_ptr(), buffer.len(), item_size) };
-    // crate::wasmic::print(&format!("{buffer:?}"));
     let buffer_id = platform.contexts[context as usize - 1]
         .0
         .new_buffer(typ, usage, source);
