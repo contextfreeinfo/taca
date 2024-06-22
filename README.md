@@ -8,6 +8,11 @@ Mouse hover puts a spotlight on the triangle:
 
 https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.wasm
 
+Screenshot, which is close to half the size of the entire runtime and demo app
+combined, when everything is gzipped:
+
+![Taca demo app screenshot with colorful RGB triangle and white spotlight](docs/screenshot.png)
+
 ## Dev Notes
 
 Build optimized:
