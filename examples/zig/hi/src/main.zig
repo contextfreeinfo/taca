@@ -80,9 +80,9 @@ const Stage = struct {
     window: *taca.Window,
 };
 
-const Uniforms = packed struct {
-    aspect: @Vector(2, f32),
-    pointer: @Vector(2, f32),
+const Uniforms = extern struct {
+    aspect: [2]f32,
+    pointer: [2]f32,
 };
 
 const Vertex = extern struct {
