@@ -2,9 +2,13 @@
 
 A runtime for multimedia wasm apps that runs native and in browsers.
 
-Live demo:
+## Live Demo
+
+Mouse hover puts a spotlight on the triangle:
 
 https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.wasm
+
+## Dev Notes
 
 Build optimized:
 
