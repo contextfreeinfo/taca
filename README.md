@@ -2,6 +2,10 @@
 
 A runtime for multimedia wasm apps that runs native and in browsers.
 
+Live demo:
+
+https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.wasm
+
 Build optimized:
 
 ```sh
@@ -9,15 +13,6 @@ uglifyjs static/gl.js static/taca.js -o docs/demo/taca.js
 cargo build --target wasm32-unknown-unknown --profile release-lto
 wasm-opt -Os target/wasm32-unknown-unknown/release-lto/taca.wasm \
     -o docs/demo/taca.wasm
-```
-
-Build example:
-
-```sh
-# First time: Install zig 0.13
-cd examples/zig/hi
-zig build
-wasm-opt -Os zig-out/bin/hi.wasm -o zig-out/bin/hi.opt.wasm
 ```
 
 Run native:
