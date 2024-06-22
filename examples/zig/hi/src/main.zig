@@ -5,7 +5,7 @@ pub fn main() void {
     window.print("Hi from Zig!");
     const ctx = window.newRenderingContext();
     const vertex_buffer = ctx.newBuffer(
-        .vertex_buffer,
+        .vertex,
         .immutable,
         taca.BufferSlice.new(&[_]Vertex{
             .{ .pos = .{ -0.5, -0.5 }, .color = .{ 1.0, 0.0, 0.0, 1.0 } },
@@ -14,7 +14,7 @@ pub fn main() void {
         }),
     );
     const index_buffer = ctx.newBuffer(
-        .index_buffer,
+        .index,
         .immutable,
         taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     );

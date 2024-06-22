@@ -24,8 +24,8 @@ pub const BufferSlice = extern struct {
 };
 
 pub const BufferType = enum(c_int) {
-    vertex_buffer,
-    index_buffer,
+    vertex,
+    index,
 };
 
 pub const BufferUsage = enum(c_int) {
