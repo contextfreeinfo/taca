@@ -8,6 +8,10 @@ Mouse hover puts a spotlight on the triangle:
 
 https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.wasm
 
+## Demo Screenshot
+
+^^^ SEE ACTUAL DEMO LINK JUST ABOVE. ^^^
+
 Screenshot, which is close to half the size of the entire runtime and demo app
 combined, when everything is gzipped:
 
