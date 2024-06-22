@@ -2,11 +2,10 @@
 
 A runtime for multimedia wasm apps that runs native and in browsers.
 
-## Live Demo
+## Live Demos
 
-Mouse hover puts a spotlight on the triangle:
-
-https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.wasm
+- Mouse pointer spotlight on RGB triangle:
+  https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.wasm (written in Zig)
 
 ## Demo Screenshot
 
