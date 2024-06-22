@@ -4,13 +4,14 @@ pub fn main() void {
     const window = taca.Window.get();
     window.print("Hi from Zig!");
     const ctx = window.newRenderingContext();
+    const y = @sqrt(3.0) / 4.0;
     const vertex_buffer = ctx.newBuffer(
         .vertex,
         .immutable,
         taca.BufferSlice.new(&[_]Vertex{
-            .{ .pos = .{ -0.5, -0.5 }, .color = .{ 1.0, 0.0, 0.0, 1.0 } },
-            .{ .pos = .{ 0.5, -0.5 }, .color = .{ 0.0, 1.0, 0.0, 1.0 } },
-            .{ .pos = .{ 0.0, 0.5 }, .color = .{ 0.0, 0.0, 1.0, 1.0 } },
+            .{ .pos = .{ -0.5, -y }, .color = .{ 1, 0, 0, 1 } },
+            .{ .pos = .{ 0.5, -y }, .color = .{ 0, 1, 0, 1 } },
+            .{ .pos = .{ 0.0, y }, .color = .{ 0, 0, 1, 1 } },
         }),
     );
     const index_buffer = ctx.newBuffer(
@@ -50,7 +51,7 @@ pub fn main() void {
 export fn listen(event: taca.EventKind) void {
     // TODO Branch on event kind.
     _ = event;
-    var state = stage.?.window.state();
+    const state = stage.?.window.state();
     const ctx = stage.?.ctx;
     ctx.beginPass();
     ctx.applyPipeline(stage.?.pipeline);
@@ -58,8 +59,12 @@ export fn listen(event: taca.EventKind) void {
         .vertex_buffers = &[_]*taca.Buffer{stage.?.vertex_buffer},
         .index_buffer = stage.?.index_buffer,
     });
-    state.pointer[1] = state.size[1] - state.pointer[1];
-    ctx.applyUniforms(&Uniforms{ .pointer = state.pointer });
+    const size = state.size;
+    const aspect = size[0] / size[1];
+    ctx.applyUniforms(&Uniforms{
+        .aspect = if (aspect < 1) .{ 1 / aspect, 1 } else .{ 1, aspect },
+        .pointer = .{ state.pointer[0], size[1] - state.pointer[1] },
+    });
     ctx.draw(0, 3, 1);
     ctx.endPass();
     ctx.commitFrame();
@@ -75,8 +80,9 @@ const Stage = struct {
     window: *taca.Window,
 };
 
-const Uniforms = extern struct {
-    pointer: [2]f32,
+const Uniforms = packed struct {
+    aspect: @Vector(2, f32),
+    pointer: @Vector(2, f32),
 };
 
 const Vertex = extern struct {

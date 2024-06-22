@@ -1,4 +1,5 @@
 struct Uniforms {
+  aspect: vec2f,
   pointer: vec2f,
 }
 
@@ -17,6 +18,8 @@ fn vs_main(
   var out: VertexOutput;
   // out.position = vec4f(in_pos + uniforms.pointer, 0.0, 1.0);
   out.position = vec4f(in_pos, 0.0, 1.0);
+  out.position.x *= uniforms.aspect.x;
+  out.position.y *= uniforms.aspect.y;
   out.color = in_color;
   return out;
 }
