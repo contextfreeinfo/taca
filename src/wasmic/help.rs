@@ -141,6 +141,13 @@ pub fn begin_pass(platform: &mut Platform, context: u32) {
         .begin_default_pass(Default::default());
 }
 
+pub fn build_title(platform: &Platform) -> String {
+    platform
+        .title
+        .as_ref()
+        .map_or_else(|| "Taca".into(), |it| it.clone())
+}
+
 pub fn draw(
     platform: &mut Platform,
     context: u32,

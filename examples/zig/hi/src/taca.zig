@@ -162,6 +162,10 @@ pub const Window = extern struct {
         taca_Window_print(self, Span(u8).from(text));
     }
 
+    pub fn setTitle(self: *Window, title: []const u8) void {
+        taca_Window_setTitle(self, Span(u8).from(title));
+    }
+
     pub fn state(self: *Window) WindowState {
         return taca_Window_state(self);
     }
@@ -274,6 +278,11 @@ extern fn taca_Window_newRenderingContext(
 extern fn taca_Window_print(
     window: *Window,
     text: Span(u8),
+) callconv(.C) void;
+
+extern fn taca_Window_setTitle(
+    window: *Window,
+    title: Span(u8),
 ) callconv(.C) void;
 
 extern fn taca_Window_state(

@@ -1,10 +1,7 @@
 #[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, io::Read};
-
-#[cfg(not(target_arch = "wasm32"))]
 use clap::{Args, Parser, Subcommand};
 #[cfg(not(target_arch = "wasm32"))]
-use miniquad::*;
+use wasmic::run;
 
 mod platform;
 mod shaders;
@@ -46,20 +43,4 @@ fn main() {
             }
         }
     }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn run(path: String) {
-    let mut buf = Vec::<u8>::new();
-    let mut conf = conf::Conf::default();
-    conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;
-    conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
-    conf.window_title = "Taca".into();
-    miniquad::start(conf, move || {
-        File::open(path)
-            .expect("Bad open")
-            .read_to_end(&mut buf)
-            .expect("Bad read");
-        Box::new(wasmic::wasmish(&buf))
-    });
 }

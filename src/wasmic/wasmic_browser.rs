@@ -2,8 +2,8 @@
 
 use crate::platform::{Platform, WindowState};
 use crate::wasmic::help::{
-    apply_bindings, apply_pipeline, apply_uniforms, begin_pass, commit_frame, draw, end_pass,
-    new_buffer, new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice,
+    apply_bindings, apply_pipeline, apply_uniforms, begin_pass, build_title, commit_frame, draw,
+    end_pass, new_buffer, new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice,
     ExternBindings, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span, VertexAttribute,
 };
 use miniquad::{conf, EventHandler};
@@ -34,22 +34,12 @@ impl EventHandler for App {
 }
 
 pub fn wasmish() {
+    let mut platform = Box::new(Platform::new(1024));
+    let buffer_ptr = platform.buffer.as_mut_ptr();
+    let buffer_len = platform.buffer.len();
+    let platform = Box::into_raw(platform);
     unsafe {
-        let mut conf = conf::Conf::default();
-        conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;
-        conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
-        conf.window_title = "Taca".into();
-        miniquad::start(conf, move || {
-            let mut platform = Box::new(Platform::new(1024));
-            platform.init_state();
-            let buffer_ptr = platform.buffer.as_mut_ptr();
-            let buffer_len = platform.buffer.len();
-            let platform = Box::into_raw(platform);
-            // crate::wasmic::print(&format!("rust platform: {platform:p}"));
-            // TODO Also pass in buffer.
-            browser_load_app(platform, buffer_ptr, buffer_len);
-            Box::new(App { platform })
-        })
+        browser_load_app(platform, buffer_ptr, buffer_len);
     }
 }
 
@@ -72,6 +62,9 @@ extern "C" {
 
     #[link_name = "sendEvent"]
     pub fn browser_send_event(kind: u32);
+
+    #[link_name = "startApp"]
+    pub fn browser_start_app();
 }
 
 pub unsafe fn browser_read_app_span<T>(dest: *mut T, span: Span) {
@@ -96,6 +89,22 @@ where
 #[no_mangle]
 pub extern "C" fn taca_crate_version() -> i32 {
     0
+}
+
+#[no_mangle]
+fn taca_start(platform: *mut Platform) {
+    let mut conf = conf::Conf::default();
+    conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;
+    conf.platform.webgl_version = conf::WebGLVersion::WebGL2;
+    let platform = unsafe { &mut *platform };
+    conf.window_title = build_title(platform);
+    miniquad::start(conf, move || {
+        platform.init_state();
+        unsafe {
+            browser_start_app();
+        }
+        Box::new(App { platform })
+    })
 }
 
 #[no_mangle]
@@ -234,6 +243,14 @@ fn taca_Window_print(platform: *mut Platform, _window: u32, _text: u32) {
     let text = unsafe { browser_read_app_string(text) };
     // This is roundabout, but it lets us filter things here in engine code in the future.
     print(&text);
+}
+
+#[no_mangle]
+fn taca_Window_setTitle(platform: *mut Platform, _window: u32, _text: u32) {
+    let platform = unsafe { &mut *platform };
+    let text = unsafe { *((&platform.buffer[0..size_of::<Span>()]).as_ptr() as *const Span) };
+    let text = unsafe { browser_read_app_string(text) };
+    platform.title = Some(text);
 }
 
 #[no_mangle]

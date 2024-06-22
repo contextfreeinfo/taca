@@ -16,7 +16,10 @@ pub fn build(b: *std.Build) void {
     });
     // exe.addIncludePath(.{ .path = "../../../include" });
     // exe.export_table = false;
-    exe.root_module.export_symbol_names = &[_][]const u8{"listen"};
+    exe.root_module.export_symbol_names = &[_][]const u8{
+        "config",
+        "listen",
+    };
     b.installArtifact(exe);
     // Set up for testing.
     // const lib_unit_tests = b.addTest(.{

@@ -12,6 +12,7 @@ pub struct Platform {
     pub memory: Option<Memory>,
     pub pipelines: Vec<Pipeline>,
     pub shaders: Vec<Shader>,
+    pub title: Option<String>,
     pub window_state: WindowState,
 }
 
@@ -28,6 +29,7 @@ impl Platform {
             memory: None,
             pipelines: vec![],
             shaders: vec![],
+            title: None,
             window_state: Default::default(),
         }
     }

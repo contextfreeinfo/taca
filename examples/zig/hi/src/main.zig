@@ -1,5 +1,10 @@
 const taca = @import("taca.zig");
 
+export fn config() void {
+    const window = taca.Window.get();
+    window.setTitle("Hi from Zig!");
+}
+
 pub fn main() void {
     const window = taca.Window.get();
     window.print("Hi from Zig!");

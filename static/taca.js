@@ -40,6 +40,9 @@ miniquad_add_plugin({
       sendEvent(kind) {
         appExports?.listen(kind);
       },
+      startApp() {
+        appExports._start();
+      },
     });
   },
 });
@@ -129,6 +132,23 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
         bufferBytes.set(appMemoryBytes.slice(text, text + 2 * 4));
         engine.taca_Window_print(platform, window, text);
       },
+      taca_Window_setTitle(window, title) {
+        const titleSlice = appMemoryBytes.slice(title, title + 2 * 4);
+        bufferBytes.set(titleSlice);
+        engine.taca_Window_setTitle(platform, window, title);
+        // Also set manually here because miniquad doesn't seem to.
+        // TODO Factor out this logic? Seems so painful.
+        const titleView = new DataView(
+          titleSlice.buffer,
+          titleSlice.byteOffset,
+          titleSlice.byteLength
+        );
+        const titlePtr = titleView.getUint32(0, true); // true for little-endian
+        const titleLen = titleView.getUint32(4, true);
+        const chunk = appMemoryBytes.slice(titlePtr, titlePtr + titleLen);
+        const decoded = new TextDecoder("utf-8").decode(chunk);
+        document.title = decoded;
+      },
       taca_Window_state(result, window) {
         engine.taca_Window_state(platform, window, 0);
         appMemoryBytes.set(bufferBytes.slice(0, 4 * 4), result);
@@ -136,6 +156,9 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
     },
   });
   appExports = instance.exports;
-  appMemoryBytes = new Uint8Array(instance.exports.memory.buffer);
-  instance.exports._start();
+  appMemoryBytes = new Uint8Array(appExports.memory.buffer);
+  if (appExports.config) {
+    appExports.config();
+  }
+  engine.taca_start(platform);
 }
