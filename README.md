@@ -5,10 +5,10 @@ A runtime for multimedia wasm apps that runs native and in browsers.
 Build optimized:
 
 ```sh
-uglifyjs static/gl.js static/taca.js -o site/demo/taca.js
+uglifyjs static/gl.js static/taca.js -o docs/demo/taca.js
 cargo build --target wasm32-unknown-unknown --profile release-lto
 wasm-opt -Os target/wasm32-unknown-unknown/release-lto/taca.wasm \
-    -o site/demo/taca.wasm
+    -o docs/demo/taca.wasm
 ```
 
 Build example:
