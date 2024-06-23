@@ -106,7 +106,30 @@ fn value_to_vertex_format(value: u32) -> VertexFormat {
     }
 }
 
+fn vertex_format_to_value(format: VertexFormat) -> u32 {
+    match format {
+        VertexFormat::Float1 => 0,
+        VertexFormat::Float2 => 1,
+        VertexFormat::Float3 => 2,
+        VertexFormat::Float4 => 3,
+        VertexFormat::Byte1 => 4,
+        VertexFormat::Byte2 => 5,
+        VertexFormat::Byte3 => 6,
+        VertexFormat::Byte4 => 7,
+        VertexFormat::Short1 => 8,
+        VertexFormat::Short2 => 9,
+        VertexFormat::Short3 => 10,
+        VertexFormat::Short4 => 11,
+        VertexFormat::Int1 => 12,
+        VertexFormat::Int2 => 13,
+        VertexFormat::Int3 => 14,
+        VertexFormat::Int4 => 15,
+        VertexFormat::Mat4 => 16,
+    }
+}
+
 pub fn apply_bindings(platform: &mut Platform, context: u32, bindings: Bindings) {
+    attempt_pipeline(platform, context);
     let vertex_buffers: Vec<BufferId> = bindings
         .vertex_buffers
         .iter()
@@ -117,28 +140,76 @@ pub fn apply_bindings(platform: &mut Platform, context: u32, bindings: Bindings)
         index_buffer: platform.buffer_ids[bindings.index_buffer as usize - 1],
         images: vec![],
     };
-    platform.contexts[context as usize - 1]
-        .0
-        .apply_bindings(&bindings);
+    let context = &mut platform.contexts[context as usize - 1];
+    context.backend.apply_bindings(&bindings);
+    context.pass.bound = true;
 }
 
 pub fn apply_pipeline(platform: &mut Platform, context: u32, pipeline: u32) {
-    platform.contexts[context as usize - 1]
-        .0
-        .apply_pipeline(&platform.pipelines[pipeline as usize - 1]);
+    let context = &mut platform.contexts[context as usize - 1];
+    context.apply_pipeline(&platform.pipelines[pipeline as usize - 1]);
 }
 
 pub fn apply_uniforms(platform: &mut Platform, context: u32, uniforms: &[u8]) {
-    // super::print(&format!("{:?}", uniforms));
-    platform.contexts[context as usize - 1]
-        .0
+    attempt_pipeline(platform, context);
+    let context = &mut platform.contexts[context as usize - 1];
+    context
+        .backend
         .apply_uniforms_from_bytes(uniforms.as_ptr(), uniforms.len());
 }
 
+fn attempt_bindings(platform: &mut Platform, context: u32) {
+    attempt_pipeline(platform, context);
+    let context = &mut platform.contexts[context as usize - 1];
+    if !context.pass.bound
+        && platform.index_buffer_ids.len() == 1
+        && platform.vertex_buffer_ids.len() == 1
+    {
+        let bindings = miniquad::Bindings {
+            vertex_buffers: platform.vertex_buffer_ids.clone(),
+            index_buffer: *platform.index_buffer_ids.first().unwrap(),
+            images: vec![],
+        };
+        context.backend.apply_bindings(&bindings);
+        context.pass.bound = true;
+    }
+}
+
+pub fn attempt_pipeline(platform: &mut Platform, context: u32) {
+    if platform.pipelines.is_empty() && platform.shaders.len() == 1 {
+        let shader = platform.shaders.first().unwrap();
+        let entry = shader.vertex_entries.first().unwrap();
+        let info = PipelineInfo {
+            attributes: entry
+                .attributes
+                .iter()
+                .map(|format| VertexAttribute {
+                    // Backtracking to int here because that's what we expect in
+                    // this helper.
+                    format: vertex_format_to_value(*format),
+                    buffer_index: 0,
+                })
+                .collect(),
+            fragment: PipelineShaderInfo {
+                entry_point: "fs_main".into(),
+                shader: 1,
+            },
+            vertex: PipelineShaderInfo {
+                entry_point: "vs_main".into(),
+                shader: 1,
+            },
+        };
+        new_pipeline(platform, context, info);
+    }
+    let context = &mut platform.contexts[context as usize - 1];
+    if !context.pass.pipelined && platform.pipelines.len() == 1 {
+        context.apply_pipeline(platform.pipelines.first().unwrap());
+    }
+}
+
 pub fn begin_pass(platform: &mut Platform, context: u32) {
-    platform.contexts[context as usize - 1]
-        .0
-        .begin_default_pass(Default::default());
+    let context = &mut platform.contexts[context as usize - 1];
+    context.begin_pass();
 }
 
 pub fn build_title(platform: &Platform) -> String {
@@ -148,6 +219,11 @@ pub fn build_title(platform: &Platform) -> String {
         .map_or_else(|| "Taca".into(), |it| it.clone())
 }
 
+pub fn commit_frame(platform: &mut Platform, context: u32) {
+    let context = &mut platform.contexts[context as usize - 1];
+    context.commit_frame();
+}
+
 pub fn draw(
     platform: &mut Platform,
     context: u32,
@@ -155,17 +231,14 @@ pub fn draw(
     item_count: i32,
     instance_count: i32,
 ) {
-    platform.contexts[context as usize - 1]
-        .0
-        .draw(item_begin, item_count, instance_count);
-}
-
-pub fn commit_frame(platform: &mut Platform, context: u32) {
-    platform.contexts[context as usize - 1].0.commit_frame();
+    attempt_bindings(platform, context);
+    let context = &mut platform.contexts[context as usize - 1];
+    context.backend.draw(item_begin, item_count, instance_count);
 }
 
 pub fn end_pass(platform: &mut Platform, context: u32) {
-    platform.contexts[context as usize - 1].0.end_render_pass();
+    let context = &mut platform.contexts[context as usize - 1];
+    context.end_pass();
 }
 
 pub fn new_buffer(
@@ -189,8 +262,13 @@ pub fn new_buffer(
     };
     let source = unsafe { BufferSource::pointer(buffer.as_ptr(), buffer.len(), item_size) };
     let buffer_id = platform.contexts[context as usize - 1]
-        .0
+        .backend
         .new_buffer(typ, usage, source);
+    match typ {
+        BufferType::VertexBuffer => &mut platform.vertex_buffer_ids,
+        BufferType::IndexBuffer => &mut platform.index_buffer_ids,
+    }
+    .push(buffer_id);
     platform.buffer_ids.push(buffer_id);
     platform.buffer_ids.len() as u32
 }
@@ -205,7 +283,7 @@ pub fn new_pipeline(platform: &mut Platform, context: u32, info: PipelineInfo) -
     let fragment = platform.shaders[info.fragment.shader as usize - 1]
         .to_glsl(naga::ShaderStage::Fragment, info.fragment.entry_point);
     let shader = context
-        .0
+        .backend
         .new_shader(
             ShaderSource::Glsl {
                 vertex: &vertex,
@@ -236,7 +314,7 @@ pub fn new_pipeline(platform: &mut Platform, context: u32, info: PipelineInfo) -
         .max()
         .unwrap_or(0)
         + 1;
-    let pipeline = context.0.new_pipeline(
+    let pipeline = context.backend.new_pipeline(
         &vec![BufferLayout::default(); buffer_count as usize],
         &attributes,
         shader,
@@ -261,9 +339,10 @@ const ATTRIBUTE_NAMES: [&str; 10] = [
 ];
 
 pub fn new_rendering_context(platform: &mut Platform) -> u32 {
-    platform
-        .contexts
-        .push(RenderingContext(window::new_rendering_backend()));
+    platform.contexts.push(RenderingContext {
+        backend: window::new_rendering_backend(),
+        pass: Default::default(),
+    });
     platform.contexts.len() as u32
 }
 

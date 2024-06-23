@@ -47,8 +47,7 @@ miniquad_add_plugin({
   },
 });
 
-load("../target/wasm32-unknown-unknown/release/taca.wasm");
-// load("taca.wasm");
+load("taca.wasm");
 
 /**
  * @param {number} platform

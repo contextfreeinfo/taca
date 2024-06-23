@@ -1,18 +1,26 @@
-use miniquad::{UniformDesc, UniformType};
+use miniquad::{UniformDesc, UniformType, VertexFormat};
 use naga::{
     back::glsl::{self, WriterFlags},
     front::spv::{self, Options},
     proc::{BoundsCheckPolicies, BoundsCheckPolicy},
     valid::{Capabilities, ModuleInfo, ValidationFlags, Validator},
-    AddressSpace, GlobalVariable, Handle, Module, ResourceBinding, Scalar, ScalarKind, ShaderStage,
-    StructMember, Type, TypeInner, VectorSize,
+    AddressSpace, Binding, GlobalVariable, Handle, Module, ResourceBinding, Scalar, ScalarKind,
+    ShaderStage, StructMember, Type, TypeInner, VectorSize,
 };
 
 pub struct Shader {
     pub autonames: Vec<String>,
+    pub fragment_entries: Vec<String>,
     pub info: ModuleInfo,
     pub module: Module,
     pub uniforms: Vec<UniformDesc>,
+    pub vertex_entries: Vec<VertexEntry>,
+}
+
+#[derive(Clone, Debug)]
+pub struct VertexEntry {
+    pub name: String,
+    pub attributes: Vec<VertexFormat>,
 }
 
 impl Shader {
@@ -43,15 +51,43 @@ impl Shader {
                 dig_uniforms(&mut uniforms, &mut autonames, var, &types);
             }
         }
-        // for uniform in &uniforms {
-        //     println!("{}: {:?}", &uniform.name, uniform.uniform_type);
-        // }
+        // Input attributes.
+        let mut fragment_entries = vec![];
+        let mut vertex_entries = vec![];
+        for entry in &module.entry_points {
+            match entry.stage {
+                ShaderStage::Vertex => {
+                    let mut attributes: Vec<Option<VertexFormat>> =
+                        vec![None; entry.function.arguments.len()];
+                    for arg in &entry.function.arguments {
+                        if let Some(binding) = &arg.binding {
+                            if let Binding::Location { location, .. } = binding {
+                                if let Some(ty) = types[arg.ty.index()] {
+                                    attributes[*location as usize] =
+                                        Some(interpret_vertex_format(ty));
+                                }
+                            }
+                        }
+                    }
+                    if attributes.iter().all(|attr| attr.is_some()) {
+                        vertex_entries.push(VertexEntry {
+                            name: entry.name.clone(),
+                            attributes: attributes.iter().map(|attr| attr.unwrap()).collect(),
+                        });
+                    }
+                }
+                ShaderStage::Fragment => fragment_entries.push(entry.name.clone()),
+                ShaderStage::Compute => todo!(),
+            }
+        }
         // Done.
         Shader {
             autonames,
+            fragment_entries,
             info,
             module,
             uniforms,
+            vertex_entries,
         }
     }
 
@@ -190,6 +226,54 @@ fn interpret_uniform_type(ty: &Type) -> UniformType {
             VectorSize::Bi => UniformType::Int2,
             VectorSize::Tri => UniformType::Int3,
             VectorSize::Quad => UniformType::Int4,
+        },
+        _ => panic!(),
+    }
+}
+
+fn interpret_vertex_format(ty: &Type) -> VertexFormat {
+    match &ty.inner {
+        naga::TypeInner::Matrix {
+            columns: VectorSize::Quad,
+            rows: VectorSize::Quad,
+            scalar: SCALAR_FLOAT,
+        } => VertexFormat::Mat4,
+        naga::TypeInner::Scalar(SCALAR_FLOAT) => VertexFormat::Float1,
+        naga::TypeInner::Scalar(Scalar {
+            kind: ScalarKind::Float,
+            width,
+        }) => match width {
+            1 => VertexFormat::Byte1,
+            2 => VertexFormat::Short1,
+            4 => VertexFormat::Int1,
+            _ => panic!(),
+        },
+        naga::TypeInner::Vector {
+            size,
+            scalar: SCALAR_FLOAT,
+        } => match size {
+            VectorSize::Bi => VertexFormat::Float2,
+            VectorSize::Tri => VertexFormat::Float3,
+            VectorSize::Quad => VertexFormat::Float4,
+        },
+        naga::TypeInner::Vector {
+            size,
+            scalar:
+                Scalar {
+                    kind: ScalarKind::Float,
+                    width,
+                },
+        } => match (size, width) {
+            (VectorSize::Bi, 1) => VertexFormat::Byte2,
+            (VectorSize::Tri, 1) => VertexFormat::Byte3,
+            (VectorSize::Quad, 1) => VertexFormat::Byte4,
+            (VectorSize::Bi, 2) => VertexFormat::Short2,
+            (VectorSize::Tri, 2) => VertexFormat::Short3,
+            (VectorSize::Quad, 2) => VertexFormat::Short4,
+            (VectorSize::Bi, 4) => VertexFormat::Int2,
+            (VectorSize::Tri, 4) => VertexFormat::Int3,
+            (VectorSize::Quad, 4) => VertexFormat::Int4,
+            _ => panic!(),
         },
         _ => panic!(),
     }

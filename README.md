@@ -18,6 +18,13 @@ combined, when everything is gzipped:
 
 ## Dev Notes
 
+Build normal:
+
+```sh
+cargo build --target wasm32-unknown-unknown --release && \
+  cp target/wasm32-unknown-unknown/release/taca.wasm static/
+```
+
 Build optimized:
 
 ```sh

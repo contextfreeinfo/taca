@@ -1,6 +1,6 @@
-static/taca.min.js
-static/taca.min.js.gz
+static/taca.wasm
 target/
 untracked/
 .zig-cache/
 zig-out/
+*.spv
