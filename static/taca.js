@@ -65,95 +65,102 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
   if (app == null) {
     return;
   }
-  const response = await fetch(app);
   const bufferBytes = new Uint8Array(memory.buffer, bufferPtr, bufferLen);
-  const { instance } = await WebAssembly.instantiateStreaming(response, {
-    env: {
-      taca_RenderingContext_applyBindings(context, bindings) {
-        bufferBytes.set(appMemoryBytes.slice(bindings, bindings + 3 * 4));
-        engine.taca_RenderingContext_applyBindings(platform, context, 0);
-      },
-      taca_RenderingContext_applyPipeline(context, pipeline) {
-        engine.taca_RenderingContext_applyPipeline(platform, context, pipeline);
-      },
-      taca_RenderingContext_applyUniforms(context, uniforms) {
-        bufferBytes.set(appMemoryBytes.slice(uniforms, uniforms + 2 * 4));
-        return engine.taca_RenderingContext_applyUniforms(platform, context, 0);
-      },
-      taca_RenderingContext_beginPass(context) {
-        engine.taca_RenderingContext_beginPass(platform, context);
-      },
-      taca_RenderingContext_commitFrame(context) {
-        engine.taca_RenderingContext_commitFrame(platform, context);
-      },
-      taca_RenderingContext_draw(
-        context,
-        item_begin,
-        item_count,
-        instance_count
-      ) {
-        engine.taca_RenderingContext_draw(
-          platform,
+  const { instance } = await WebAssembly.instantiate(
+    await (await fetch(app)).arrayBuffer(),
+    {
+      env: {
+        taca_RenderingContext_applyBindings(context, bindings) {
+          bufferBytes.set(appMemoryBytes.slice(bindings, bindings + 3 * 4));
+          engine.taca_RenderingContext_applyBindings(platform, context, 0);
+        },
+        taca_RenderingContext_applyPipeline(context, pipeline) {
+          engine.taca_RenderingContext_applyPipeline(
+            platform,
+            context,
+            pipeline
+          );
+        },
+        taca_RenderingContext_applyUniforms(context, uniforms) {
+          bufferBytes.set(appMemoryBytes.slice(uniforms, uniforms + 2 * 4));
+          return engine.taca_RenderingContext_applyUniforms(
+            platform,
+            context,
+            0
+          );
+        },
+        taca_RenderingContext_beginPass(context) {
+          engine.taca_RenderingContext_beginPass(platform, context);
+        },
+        taca_RenderingContext_commitFrame(context) {
+          engine.taca_RenderingContext_commitFrame(platform, context);
+        },
+        taca_RenderingContext_draw(
           context,
           item_begin,
           item_count,
           instance_count
-        );
+        ) {
+          engine.taca_RenderingContext_draw(
+            platform,
+            context,
+            item_begin,
+            item_count,
+            instance_count
+          );
+        },
+        taca_RenderingContext_endPass(context) {
+          engine.taca_RenderingContext_endPass(platform, context);
+        },
+        taca_RenderingContext_newBuffer(context, typ, usage, info) {
+          bufferBytes.set(appMemoryBytes.slice(info, info + 5 * 4));
+          return engine.taca_RenderingContext_newBuffer(
+            platform,
+            context,
+            typ,
+            usage,
+            0
+          );
+        },
+        taca_RenderingContext_newPipeline(context, bytes) {
+          bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 8 * 4));
+          return engine.taca_RenderingContext_newPipeline(platform, context, 0);
+        },
+        taca_RenderingContext_newShader(context, bytes) {
+          bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 2 * 4));
+          return engine.taca_RenderingContext_newShader(platform, context, 0);
+        },
+        taca_Window_newRenderingContext() {
+          return engine.taca_Window_newRenderingContext(platform);
+        },
+        taca_Window_print(text) {
+          bufferBytes.set(appMemoryBytes.slice(text, text + 2 * 4));
+          engine.taca_Window_print(platform, text);
+        },
+        taca_Window_setTitle(title) {
+          const titleSlice = appMemoryBytes.slice(title, title + 2 * 4);
+          bufferBytes.set(titleSlice);
+          engine.taca_Window_setTitle(platform, title);
+          // Also set manually here because miniquad doesn't seem to.
+          // TODO Factor out this logic? Seems so painful.
+          const titleView = new DataView(
+            titleSlice.buffer,
+            titleSlice.byteOffset,
+            titleSlice.byteLength
+          );
+          const titlePtr = titleView.getUint32(0, true);
+          const titleLen = titleView.getUint32(4, true);
+          const chunk = appMemoryBytes.slice(titlePtr, titlePtr + titleLen);
+          const decoded = new TextDecoder("utf-8").decode(chunk);
+          document.title = decoded;
+        },
+        taca_Window_state(result) {
+          engine.taca_Window_state(platform, 0);
+          appMemoryBytes.set(bufferBytes.slice(0, 4 * 4), result);
+        },
       },
-      taca_RenderingContext_endPass(context) {
-        engine.taca_RenderingContext_endPass(platform, context);
-      },
-      taca_RenderingContext_newBuffer(context, typ, usage, info) {
-        bufferBytes.set(appMemoryBytes.slice(info, info + 5 * 4));
-        return engine.taca_RenderingContext_newBuffer(
-          platform,
-          context,
-          typ,
-          usage,
-          0
-        );
-      },
-      taca_RenderingContext_newPipeline(context, bytes) {
-        bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 8 * 4));
-        return engine.taca_RenderingContext_newPipeline(platform, context, 0);
-      },
-      taca_RenderingContext_newShader(context, bytes) {
-        bufferBytes.set(appMemoryBytes.slice(bytes, bytes + 2 * 4));
-        return engine.taca_RenderingContext_newShader(platform, context, 0);
-      },
-      taca_Window_get() {
-        return engine.taca_Window_get(platform);
-      },
-      taca_Window_newRenderingContext(window) {
-        return engine.taca_Window_newRenderingContext(platform, window);
-      },
-      taca_Window_print(window, text) {
-        bufferBytes.set(appMemoryBytes.slice(text, text + 2 * 4));
-        engine.taca_Window_print(platform, window, text);
-      },
-      taca_Window_setTitle(window, title) {
-        const titleSlice = appMemoryBytes.slice(title, title + 2 * 4);
-        bufferBytes.set(titleSlice);
-        engine.taca_Window_setTitle(platform, window, title);
-        // Also set manually here because miniquad doesn't seem to.
-        // TODO Factor out this logic? Seems so painful.
-        const titleView = new DataView(
-          titleSlice.buffer,
-          titleSlice.byteOffset,
-          titleSlice.byteLength
-        );
-        const titlePtr = titleView.getUint32(0, true); // true for little-endian
-        const titleLen = titleView.getUint32(4, true);
-        const chunk = appMemoryBytes.slice(titlePtr, titlePtr + titleLen);
-        const decoded = new TextDecoder("utf-8").decode(chunk);
-        document.title = decoded;
-      },
-      taca_Window_state(result, window) {
-        engine.taca_Window_state(platform, window, 0);
-        appMemoryBytes.set(bufferBytes.slice(0, 4 * 4), result);
-      },
-    },
-  });
+    }
+  );
   appExports = instance.exports;
   appMemoryBytes = new Uint8Array(appExports.memory.buffer);
   if (appExports.config) {

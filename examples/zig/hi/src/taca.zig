@@ -153,21 +153,18 @@ pub const VertexFormat = enum(c_int) {
 };
 
 pub const Window = extern struct {
-    // TODO Some display/init first that allows config?
-    pub const get = taca_Window_get;
-
     pub const newRenderingContext = taca_Window_newRenderingContext;
 
-    pub fn print(self: *Window, text: []const u8) void {
-        taca_Window_print(self, Span(u8).from(text));
+    pub fn print(text: []const u8) void {
+        taca_Window_print(Span(u8).from(text));
     }
 
-    pub fn setTitle(self: *Window, title: []const u8) void {
-        taca_Window_setTitle(self, Span(u8).from(title));
+    pub fn setTitle(title: []const u8) void {
+        taca_Window_setTitle(Span(u8).from(title));
     }
 
-    pub fn state(self: *Window) WindowState {
-        return taca_Window_state(self);
+    pub fn state() WindowState {
+        return taca_Window_state();
     }
 };
 
@@ -269,22 +266,18 @@ extern fn taca_RenderingContext_newShader(
     bytes: Span(u8),
 ) callconv(.C) *Shader;
 
-extern fn taca_Window_get() callconv(.C) *Window;
-
 extern fn taca_Window_newRenderingContext(
-    window: *Window,
+    // Nothing
 ) callconv(.C) *RenderingContext;
 
 extern fn taca_Window_print(
-    window: *Window,
     text: Span(u8),
 ) callconv(.C) void;
 
 extern fn taca_Window_setTitle(
-    window: *Window,
     title: Span(u8),
 ) callconv(.C) void;
 
 extern fn taca_Window_state(
-    window: *Window,
+    // Nothing
 ) callconv(.C) WindowState;

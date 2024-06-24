@@ -232,12 +232,12 @@ fn taca_Window_get(_platform: *mut Platform) -> u32 {
 }
 
 #[no_mangle]
-fn taca_Window_newRenderingContext(platform: *mut Platform, _window: u32) -> u32 {
+fn taca_Window_newRenderingContext(platform: *mut Platform) -> u32 {
     new_rendering_context(unsafe { &mut *platform })
 }
 
 #[no_mangle]
-fn taca_Window_print(platform: *mut Platform, _window: u32, _text: u32) {
+fn taca_Window_print(platform: *mut Platform, _text: u32) {
     let platform = unsafe { &mut *platform };
     let text = unsafe { *((&platform.buffer[0..size_of::<Span>()]).as_ptr() as *const Span) };
     let text = unsafe { browser_read_app_string(text) };
@@ -246,7 +246,7 @@ fn taca_Window_print(platform: *mut Platform, _window: u32, _text: u32) {
 }
 
 #[no_mangle]
-fn taca_Window_setTitle(platform: *mut Platform, _window: u32, _text: u32) {
+fn taca_Window_setTitle(platform: *mut Platform, _text: u32) {
     let platform = unsafe { &mut *platform };
     let text = unsafe { *((&platform.buffer[0..size_of::<Span>()]).as_ptr() as *const Span) };
     let text = unsafe { browser_read_app_string(text) };
@@ -254,7 +254,7 @@ fn taca_Window_setTitle(platform: *mut Platform, _window: u32, _text: u32) {
 }
 
 #[no_mangle]
-fn taca_Window_state(platform: *mut Platform, _result: u32, _window: u32) {
+fn taca_Window_state(platform: *mut Platform, _result: u32) {
     let platform = unsafe { &mut *platform };
     let state = &platform.window_state as *const WindowState as *const u8;
     let size = size_of::<WindowState>();

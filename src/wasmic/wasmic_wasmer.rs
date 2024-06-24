@@ -262,11 +262,11 @@ fn taca_Window_get(mut _env: FunctionEnvMut<Platform>) -> u32 {
     1
 }
 
-fn taca_Window_newRenderingContext(mut env: FunctionEnvMut<Platform>, _window: u32) -> u32 {
+fn taca_Window_newRenderingContext(mut env: FunctionEnvMut<Platform>) -> u32 {
     new_rendering_context(env.data_mut())
 }
 
-fn taca_Window_print(mut env: FunctionEnvMut<Platform>, _window: u32, text: u32) {
+fn taca_Window_print(mut env: FunctionEnvMut<Platform>, text: u32) {
     let (platform, store) = env.data_and_store_mut();
     let view = platform.memory.as_ref().unwrap().view(&store);
     let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
@@ -274,7 +274,7 @@ fn taca_Window_print(mut env: FunctionEnvMut<Platform>, _window: u32, text: u32)
     print(&text);
 }
 
-fn taca_Window_setTitle(mut env: FunctionEnvMut<Platform>, _window: u32, text: u32) {
+fn taca_Window_setTitle(mut env: FunctionEnvMut<Platform>, text: u32) {
     let (platform, store) = env.data_and_store_mut();
     let view = platform.memory.as_ref().unwrap().view(&store);
     let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
@@ -282,7 +282,7 @@ fn taca_Window_setTitle(mut env: FunctionEnvMut<Platform>, _window: u32, text: u
     platform.title = Some(text);
 }
 
-fn taca_Window_state(mut env: FunctionEnvMut<Platform>, result: u32, _window: u32) {
+fn taca_Window_state(mut env: FunctionEnvMut<Platform>, result: u32) {
     let (platform, store) = env.data_and_store_mut();
     let view = platform.memory.as_ref().unwrap().view(&store);
     WasmRef::<WindowState>::new(&view, result as u64)

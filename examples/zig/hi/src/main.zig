@@ -1,12 +1,11 @@
 const taca = @import("taca.zig");
+const window = taca.Window;
 
 export fn config() void {
-    const window = taca.Window.get();
     window.setTitle("Hi from Zig!");
 }
 
 pub fn main() void {
-    const window = taca.Window.get();
     window.print("Hi from Zig!");
     const ctx = window.newRenderingContext();
     const y = @sqrt(3.0) / 4.0;
@@ -25,13 +24,13 @@ pub fn main() void {
         taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     );
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
-    stage = .{ .ctx = ctx, .window = window };
+    stage = .{ .ctx = ctx };
 }
 
 export fn listen(event: taca.EventKind) void {
     // TODO Branch on event kind.
     _ = event;
-    const state = stage.?.window.state();
+    const state = window.state();
     const ctx = stage.?.ctx;
     const size = state.size;
     const aspect = size[0] / size[1];
@@ -47,7 +46,6 @@ var stage: ?Stage = null;
 
 const Stage = struct {
     ctx: *taca.RenderingContext,
-    window: *taca.Window,
 };
 
 const Uniforms = extern struct {

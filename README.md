@@ -4,7 +4,7 @@ A runtime for multimedia wasm apps that runs native and in browsers.
 
 ## Live Demos
 
-- [Mouse pointer spotlight on RGB triangle](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.wasm)
+- [Mouse pointer spotlight on RGB triangle](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi.taca)
   ([Zig source](examples/zig/hi/src/main.zig))
 
 ## Demo Screenshot
