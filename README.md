@@ -28,16 +28,13 @@ cargo build --target wasm32-unknown-unknown --release && \
 Build optimized:
 
 ```sh
-uglifyjs static/gl.js static/taca.js -o docs/demo/taca.js && \
-cargo build --target wasm32-unknown-unknown --profile release-lto && \
-wasm-opt -Os target/wasm32-unknown-unknown/release-lto/taca.wasm \
-    -o docs/demo/taca.wasm
+./build-opt.sh
 ```
 
 Run native:
 
 ```sh
-cargo run --release -- run examples/zig/hi/zig-out/bin/hi.wasm
+cargo run --release -- run docs/demo/apps/zig/hi.taca
 ```
 
 Run web:
@@ -47,7 +44,7 @@ Run web:
 https-server .
 ```
 
-Open: http://127.0.0.1:8080/static/?app=../examples/zig/hi/zig-out/bin/hi.wasm
+Open: http://127.0.0.1:8080/static/?app=../docs/demo/apps/zig/hi.taca
 
 ## Sources
 

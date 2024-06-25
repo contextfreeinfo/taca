@@ -2,6 +2,7 @@
 
 use std::{fs::File, io::Read};
 
+use lz4_flex::frame::FrameDecoder;
 use miniquad::{conf, EventHandler};
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, MemoryView, Module, Store, Value,
@@ -70,6 +71,14 @@ pub fn run(path: String) {
         .expect("Bad open")
         .read_to_end(&mut buf)
         .expect("Bad read");
+    if buf[0] == 0x04 {
+        // Presume lz4 compressed since wasm starts with 0x00.
+        let mut dest = vec![0u8; 0];
+        FrameDecoder::new(&buf as &[u8])
+            .read_to_end(&mut dest)
+            .unwrap();
+        buf = dest;
+    }
     let mut app = Box::new(wasmish(&buf));
     let mut conf = conf::Conf::default();
     conf.platform.apple_gfx_api = conf::AppleGfxApi::Metal;

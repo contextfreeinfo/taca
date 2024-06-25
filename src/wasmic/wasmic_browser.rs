@@ -6,8 +6,9 @@ use crate::wasmic::help::{
     end_pass, new_buffer, new_pipeline, new_rendering_context, new_shader, Bindings, BufferSlice,
     ExternBindings, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, Span, VertexAttribute,
 };
+use lz4_flex::frame::FrameDecoder;
 use miniquad::{conf, EventHandler};
-use std::mem::size_of;
+use std::{io::Read, mem::size_of};
 
 struct App {
     platform: *mut Platform,
@@ -86,9 +87,48 @@ where
     buffer
 }
 
+#[repr(C)]
+pub struct VecInfo {
+    ptr: *mut u8,
+    len: usize,
+    capacity: usize,
+}
+
+impl VecInfo {
+    pub fn from_vec(vec: Vec<u8>) -> *mut VecInfo {
+        let mut vec = std::mem::ManuallyDrop::new(vec);
+        let vec = VecInfo {
+            ptr: vec.as_mut_ptr(),
+            len: vec.len(),
+            capacity: vec.capacity(),
+        };
+        Box::into_raw(Box::new(vec))
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn taca_alloc(len: usize) -> *mut VecInfo {
+    let vec = vec![0u8; len];
+    VecInfo::from_vec(vec)
+}
+
 #[no_mangle]
 pub extern "C" fn taca_crate_version() -> i32 {
     0
+}
+
+#[no_mangle]
+pub extern "C" fn taca_free(ptr: *mut u8, len: usize, capacity: usize) {
+    let vec = VecInfo { ptr, len, capacity };
+    let _ = unsafe { Vec::from_raw_parts(vec.ptr, vec.len, vec.capacity) };
+}
+
+#[no_mangle]
+pub extern "C" fn taca_decompress(ptr: *mut u8, len: usize) -> *mut VecInfo {
+    let source = unsafe { std::slice::from_raw_parts(ptr, len) };
+    let mut dest = vec![0u8; 0];
+    FrameDecoder::new(source).read_to_end(&mut dest).unwrap();
+    VecInfo::from_vec(dest)
 }
 
 #[no_mangle]
@@ -246,9 +286,12 @@ fn taca_Window_print(platform: *mut Platform, _text: u32) {
 }
 
 #[no_mangle]
-fn taca_Window_setTitle(platform: *mut Platform, _text: u32) {
+fn taca_Window_setTitle(platform: *mut Platform, textPtr: u32, textLen: u32) {
     let platform = unsafe { &mut *platform };
-    let text = unsafe { *((&platform.buffer[0..size_of::<Span>()]).as_ptr() as *const Span) };
+    let text = Span {
+        ptr: textPtr,
+        len: textLen,
+    };
     let text = unsafe { browser_read_app_string(text) };
     platform.title = Some(text);
 }
