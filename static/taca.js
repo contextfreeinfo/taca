@@ -62,6 +62,16 @@ function engineMemoryBytes() {
   return new Uint8Array(engineMemory.buffer);
 }
 
+// Start app request early.
+const appRequest = (() => {
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams(url.search);
+  const app = params.get("app");
+  if (app) {
+    return fetch(app);
+  }
+})();
+
 /**
  * @param {number} platform
  * @param {any} engine
@@ -73,10 +83,7 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
   // console.log(`platform: ${platform} ${bufferPtr} ${bufferLen}`);
   engineExports = wasm_exports;
   engineMemory = memory;
-  const url = new URL(window.location.href);
-  const params = new URLSearchParams(url.search);
-  const app = params.get("app");
-  if (app == null) {
+  if (!appRequest) {
     return;
   }
   const bufferBytes = () => new Uint8Array(memory.buffer, bufferPtr, bufferLen);
@@ -165,7 +172,7 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
   };
   // Read wasm data in advance because of custom handling or mime type issues.
   let mustFree = null;
-  let appContent = await (await fetch(app)).arrayBuffer();
+  let appContent = await (await appRequest).arrayBuffer();
   if (new DataView(appContent).getUint32(0, false) == 0x04224d18) {
     // LZ4 compressed.
     const seeInfo = (info) => {
