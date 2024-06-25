@@ -177,7 +177,8 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
       };
     };
     const engineBytes = seeInfo(
-      engineExports.taca_alloc(appContent.byteLength)
+        // TODO platform
+        engineExports.taca_alloc(appContent.byteLength)
     );
     try {
       const engineBytesArray = new Uint8Array(
@@ -187,6 +188,7 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
       );
       engineBytesArray.set(new Uint8Array(appContent));
       mustFree = seeInfo(
+        // TODO platform
         engineExports.taca_decompress(engineBytes.ptr, engineBytes.len)
       );
       appContent = new ArrayBuffer(mustFree.len);

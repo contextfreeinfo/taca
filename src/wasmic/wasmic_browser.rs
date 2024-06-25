@@ -95,21 +95,25 @@ pub struct VecInfo {
 }
 
 impl VecInfo {
-    pub fn from_vec(vec: Vec<u8>) -> *mut VecInfo {
+    pub fn from_vec(vec: Vec<u8>, buffer: &mut Vec<u8>) {
         let mut vec = std::mem::ManuallyDrop::new(vec);
         let vec = VecInfo {
             ptr: vec.as_mut_ptr(),
             len: vec.len(),
             capacity: vec.capacity(),
         };
-        Box::into_raw(Box::new(vec))
+        let vec_ptr = &vec as *const VecInfo as *const u8;
+        let info_len = size_of::<VecInfo>();
+        let vec_ptr = unsafe { std::slice::from_raw_parts(vec_ptr, info_len) };
+        buffer[0..info_len].copy_from_slice(vec_ptr);
     }
 }
 
 #[no_mangle]
-pub extern "C" fn taca_alloc(len: usize) -> *mut VecInfo {
+pub extern "C" fn taca_alloc(platform: *mut Platform, len: usize) {
+    let platform = unsafe { &mut *platform };
     let vec = vec![0u8; len];
-    VecInfo::from_vec(vec)
+    VecInfo::from_vec(vec);
 }
 
 #[no_mangle]
@@ -124,11 +128,12 @@ pub extern "C" fn taca_free(ptr: *mut u8, len: usize, capacity: usize) {
 }
 
 #[no_mangle]
-pub extern "C" fn taca_decompress(ptr: *mut u8, len: usize) -> *mut VecInfo {
+pub extern "C" fn taca_decompress(platform: *mut Platform, ptr: *mut u8, len: usize) {
+    let platform = unsafe { &mut *platform };
     let source = unsafe { std::slice::from_raw_parts(ptr, len) };
     let mut dest = vec![0u8; 0];
     FrameDecoder::new(source).read_to_end(&mut dest).unwrap();
-    VecInfo::from_vec(dest)
+    VecInfo::from_vec(dest, &mut platform.buffer);
 }
 
 #[no_mangle]
