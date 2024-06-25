@@ -87,6 +87,7 @@ where
     buffer
 }
 
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct VecInfo {
     ptr: *mut u8,
@@ -118,8 +119,8 @@ pub extern "C" fn taca_crate_version() -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn taca_free(ptr: *mut u8, len: usize, capacity: usize) {
-    let vec = VecInfo { ptr, len, capacity };
+pub extern "C" fn taca_free(info: *mut VecInfo) {
+    let vec = unsafe { Box::from_raw(info) };
     let _ = unsafe { Vec::from_raw_parts(vec.ptr, vec.len, vec.capacity) };
 }
 

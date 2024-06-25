@@ -169,36 +169,34 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
   if (new DataView(appContent).getUint32(0, false) == 0x04224d18) {
     // LZ4 compressed.
     const seeInfo = (info) => {
-      const view = new DataView(engineMemory.buffer, info, 3 * 4);
+      const view = new DataView(engineMemory.buffer, info, 2 * 4);
       return {
         ptr: view.getUint32(0, true),
         len: view.getUint32(4, true),
-        capacity: view.getUint32(8, true),
       };
     };
-    const engineBytes = seeInfo(
-      engineExports.taca_alloc(appContent.byteLength)
-    );
+    const engineBytes = engineExports.taca_alloc(appContent.byteLength);
     try {
+      const engineBytesInfo = seeInfo(engineBytes);
+      // Copy compressed into engine.
       const engineBytesArray = new Uint8Array(
         engineMemory.buffer,
-        engineBytes.ptr,
-        appContent.byteLength
+        engineBytesInfo.ptr,
+        engineBytesInfo.len
       );
       engineBytesArray.set(new Uint8Array(appContent));
-      mustFree = seeInfo(
-        engineExports.taca_decompress(engineBytes.ptr, engineBytes.len)
+      mustFree = engineExports.taca_decompress(
+        engineBytesInfo.ptr,
+        engineBytesInfo.len
       );
-      appContent = new ArrayBuffer(mustFree.len);
+      const decompressed = seeInfo(mustFree);
+      appContent = new ArrayBuffer(decompressed.len);
+      // Copy decompressed out of engine.
       new Uint8Array(appContent).set(
-        new Uint8Array(engineMemory.buffer, mustFree.ptr, appContent.byteLength)
+        new Uint8Array(engineMemory.buffer, decompressed.ptr, decompressed.len)
       );
     } finally {
-      engineExports.taca_free(
-        engineBytes.ptr,
-        engineBytes.len,
-        engineBytes.capacity
-      );
+      engineExports.taca_free(engineBytes);
     }
   }
   /** @type {WebAssembly.Instance} */
@@ -207,7 +205,7 @@ async function loadApp(platform, engine, memory, bufferPtr, bufferLen) {
     instance = (await WebAssembly.instantiate(appContent, { env })).instance;
   } finally {
     if (mustFree) {
-      engineExports.taca_free(mustFree.ptr, mustFree.len, mustFree.capacity);
+      engineExports.taca_free(mustFree);
     }
   }
   appExports = instance.exports;
