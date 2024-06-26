@@ -1,0 +1,22 @@
+[package]
+name = "taca"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.7", features = ["derive"] }
+lz4_flex = "0.11.3"
+# Git version for WebGL2 support.
+miniquad = { git = "https://github.com/not-fl3/miniquad/" }
+
+[dependencies.naga]
+version = "0.20.0"
+default-features = false
+features = ["glsl-out", "msl-out", "spv-in"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wasmer = "4.3.1"
+wasmer-types = "4.3.1"
+
+# [target.'cfg(target_arch = "wasm32")'.dependencies]
+# wasmer = { version = "4.3.1", features = ["js"] }

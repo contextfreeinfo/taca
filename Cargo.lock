@@ -217,6 +217,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cana"
+version = "0.1.0"
+dependencies = [
+ "naga",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
