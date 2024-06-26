@@ -1,5 +1,3 @@
-const std = @import("std");
-
 pub const Bindings = struct {
     vertex_buffers: []const *Buffer,
     index_buffer: *Buffer,
@@ -13,6 +11,7 @@ pub const BufferSlice = extern struct {
     size: usize,
     item_size: usize,
 
+    // TODO Video on this? Rust, Zig, Jai, D, Odin, C++?
     pub fn new(items: anytype) BufferSlice {
         const info = @typeInfo(@TypeOf(items)).Pointer;
         return .{
@@ -118,13 +117,7 @@ pub fn Span(comptime T: type) type {
     };
 }
 
-fn as_u8_span(any: anytype) Span(u8) {
-    const info = @typeInfo(@TypeOf(any)).Pointer;
-    return .{
-        .ptr = @ptrCast(any),
-        .len = @sizeOf(info.child),
-    };
-}
+// TODO Text metrics and rendering
 
 pub const VertexAttribute = extern struct {
     format: VertexFormat,
@@ -174,7 +167,17 @@ pub const WindowState = extern struct {
     size: [2]f32,
 };
 
-// Extern definitions.
+// Helpers
+
+fn as_u8_span(any: anytype) Span(u8) {
+    const info = @typeInfo(@TypeOf(any)).Pointer;
+    return .{
+        .ptr = @ptrCast(any),
+        .len = @sizeOf(info.child),
+    };
+}
+
+// Extern definitions
 
 const ExternBindings = extern struct {
     vertex_buffers: Span(*Buffer),

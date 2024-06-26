@@ -3,7 +3,7 @@
 use std::{fs::File, io::Read};
 
 use lz4_flex::frame::FrameDecoder;
-use miniquad::{conf, EventHandler};
+use miniquad::{conf, window, EventHandler, KeyCode};
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, MemoryView, Module, Store, Value,
     ValueType, WasmPtr, WasmRef,
@@ -19,6 +19,7 @@ use super::help::{
 
 pub struct App {
     env: FunctionEnv<Platform>,
+    fullscreen: bool,
     instance: Instance,
     listen: Function,
     store: Store,
@@ -29,6 +30,7 @@ impl App {
         let listen = instance.exports.get_function("listen").unwrap().clone();
         Self {
             env,
+            fullscreen: false,
             instance,
             listen,
             store,
@@ -52,6 +54,23 @@ impl<'a> EventHandler for App {
 
     fn draw(&mut self) {
         self.listen.call(&mut self.store, &[Value::I32(0)]).unwrap();
+    }
+
+    fn key_down_event(
+        &mut self,
+        keycode: miniquad::KeyCode,
+        _keymods: miniquad::KeyMods,
+        repeat: bool,
+    ) {
+        match keycode {
+            KeyCode::F11 => {
+                if !repeat {
+                    self.fullscreen = !self.fullscreen;
+                    window::set_fullscreen(self.fullscreen);
+                }
+            }
+            _ => {}
+        }
     }
 
     fn mouse_motion_event(&mut self, x: f32, y: f32) {

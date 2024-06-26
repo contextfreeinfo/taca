@@ -23,6 +23,7 @@ pub fn main() void {
         .immutable,
         taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     );
+    // TODO Can any languages run command line tools from their source?
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
     stage = .{ .ctx = ctx };
 }
