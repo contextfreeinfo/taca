@@ -44,10 +44,10 @@ class App {
     const stringPtr = spanView.getUint32(0, true);
     const stringLen = spanView.getUint32(4, true);
     const chunk = memoryBytes.slice(stringPtr, stringPtr + stringLen);
-    return new TextDecoder("utf-8").decode(chunk);
+    return textDecoder.decode(chunk);
   }
 
-  start!: () => void;
+  _start!: () => void;
 }
 
 async function loadApp() {
@@ -61,7 +61,7 @@ async function loadApp() {
   if (app.config) {
     app.config();
   }
-  app.start();
+  app._start();
 }
 
 async function loadAppData() {
