@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build-docs": "tsc && vite build --config vite-docs.config.ts",
-    "build": "tsc && vite build",
+    "build": "wasm-pack build --target web && tsc && vite build && npm run pack-dev",
+    "pack-dev": "wasm-pack build --target web --dev",
     "preview": "vite preview"
   },
   "devDependencies": {

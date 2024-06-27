@@ -4,14 +4,19 @@ members = [ "cana",
     "taca",
 ]
 
-[profile.release-lto]
-inherits = "release"
-lto = true
-panic = 'abort'
-opt-level = "s"
-overflow-checks = false
+# I want this to apply just to wasm-pack, but how to do that?
+[profile.release]
+codegen-units = 1
 debug-assertions = false
 incremental = false
+lto = true
+opt-level = "s"
+# overflow-checks = false
+panic = 'abort'
 rpath = false
-codegen-units = 1
 strip = true
+
+# Instead, provide a faster release build for quicker native testing.
+[profile.release-quick]
+inherits = "release"
+lto = false

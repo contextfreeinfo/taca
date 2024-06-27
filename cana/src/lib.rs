@@ -1,8 +1,9 @@
 use lz4_flex::frame::FrameDecoder;
 use naga::{
     back::glsl::{self, WriterFlags},
+    front::spv::{self, Options},
     proc::{BoundsCheckPolicies, BoundsCheckPolicy},
-    valid::ModuleInfo,
+    valid::{Capabilities, ModuleInfo, ValidationFlags, Validator},
     Module, ShaderStage,
 };
 use std::io::Read;
@@ -24,6 +25,26 @@ pub fn lz4_decompress(source: &[u8]) -> Vec<u8> {
 #[wasm_bindgen]
 pub fn greet(name: &str) {
     alert(&format!("Hello, {}!", name));
+}
+
+#[wasm_bindgen]
+pub struct Shader {
+    module: Module,
+    info: ModuleInfo,
+}
+
+impl Shader {
+    pub fn new(bytes: &[u8]) -> Shader {
+        let module = spv::parse_u8_slice(bytes, &Options::default()).unwrap();
+        let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
+        let info = validator.validate(&module).unwrap();
+        Shader { module, info }
+    }
+}
+
+#[wasm_bindgen(js_name = "shaderNew")]
+pub fn shader_new(bytes: &[u8]) -> Shader {
+    Shader::new(bytes)
 }
 
 #[no_mangle]
