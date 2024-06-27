@@ -1,23 +1,14 @@
-// import "./style.css";
-// import logo from "../../taca-logo.svg";
-// document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-//   <div>
-//     <a href="https://vitejs.dev" target="_blank">
-//       <img src="${logo}" class="logo" alt="Vite logo" />
-//     </a>
-//   </div>
-// `;
 import { default as cana, lz4Decompress } from "../pkg/cana";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
-  data?: ArrayBuffer | Promise<ArrayBuffer>;
+  wasm?: ArrayBuffer | Promise<ArrayBuffer>;
 }
 
 export async function runApp(config: AppConfig) {
-  const [appData] = await Promise.all([config.data ?? loadAppData(), cana()]);
+  const [appData] = await Promise.all([config.wasm ?? loadAppData(), cana()]);
   if (appData) {
-    await loadApp({ ...config, data: appData });
+    await loadApp({ ...config, wasm: appData });
   }
 }
 
@@ -25,15 +16,18 @@ export async function runApp(config: AppConfig) {
 class App {
   constructor(config: AppConfig) {
     this.config = config;
+    this.gl = config.canvas.getContext("webgl2")!;
+    // Resize will fail if we couldn't get a context.
+    this.resizeCanvas();
     // TODO Track for deregistration needs?
     new ResizeObserver(() => this.resizeCanvas()).observe(config.canvas);
   }
 
   config: AppConfig;
 
-  context: WebGL2RenderingContext | null = null;
-
   exports: AppExports | null = null;
+
+  gl: WebGL2RenderingContext;
 
   init(instance: WebAssembly.Instance) {
     this.exports = instance.exports as any;
@@ -69,7 +63,7 @@ class App {
     const canvas = this.config.canvas;
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
-    this.context?.viewport(0, 0, canvas.width, canvas.height);
+    this.gl.viewport(0, 0, canvas.width, canvas.height);
   }
 }
 
@@ -80,8 +74,8 @@ interface AppExports {
 }
 
 async function loadApp(config: AppConfig) {
-  const appData = config.data as ArrayBuffer;
-  config.data = undefined;
+  const appData = config.wasm as ArrayBuffer;
+  config.wasm = undefined;
   const appBytes = new Uint8Array(appData);
   const actualData =
     appBytes[0] == 4
@@ -137,16 +131,7 @@ function makeAppEnv(app: App) {
       console.log("taca_RenderingContext_newShader");
     },
     taca_Window_newRenderingContext() {
-      // TODO Rename to *get*RenderingContext.
-      if (app.context) {
-        return 1;
-      }
-      app.resizeCanvas();
-      const context = app.config.canvas.getContext("webgl2");
-      if (!context) {
-        return 0;
-      }
-      app.context = context;
+      // TODO If we only have one, we don't need it at all, right?
       return 1;
     },
     taca_Window_print(text: number) {
