@@ -7,25 +7,41 @@
 //     </a>
 //   </div>
 // `;
+import { default as cana, lz4Decompress } from "../pkg/cana";
 
-async function main() {
-  await loadApp();
+export interface AppConfig {
+  canvas: HTMLCanvasElement;
+  data?: ArrayBuffer | Promise<ArrayBuffer>;
+}
+
+export async function runApp(config: AppConfig) {
+  const [appData] = await Promise.all([config.data ?? loadAppData(), cana()]);
+  if (appData) {
+    await loadApp({ ...config, data: appData });
+  }
 }
 
 /** Allows for additional custom properties. */
 class App {
-  config: (() => void) | undefined;
-
-  init(instance: WebAssembly.Instance) {
-    Object.assign(this, instance.exports as any);
+  constructor(config: AppConfig) {
+    this.config = config;
   }
 
-  listen: ((event: number) => void) | undefined;
+  config: AppConfig;
 
-  memory!: WebAssembly.Memory;
+  context: WebGL2RenderingContext | null = null;
 
-  #memoryBuffer: ArrayBuffer | undefined;
-  #memoryBufferBytes: Uint8Array | undefined;
+  exports: AppExports | null = null;
+
+  init(instance: WebAssembly.Instance) {
+    this.exports = instance.exports as any;
+    this.memory = instance.exports.memory as any;
+  }
+
+  memory: WebAssembly.Memory = undefined as any;
+
+  #memoryBuffer: ArrayBuffer | null = null;
+  #memoryBufferBytes: Uint8Array | null = null;
 
   memoryBytes() {
     if (this.#memoryBuffer != this.memory.buffer) {
@@ -46,22 +62,32 @@ class App {
     const chunk = memoryBytes.slice(stringPtr, stringPtr + stringLen);
     return textDecoder.decode(chunk);
   }
-
-  _start!: () => void;
 }
 
-async function loadApp() {
-  const appData = await loadAppData();
-  if (!appData) return;
-  let app = new App();
+interface AppExports {
+  config: (() => void) | undefined;
+  listen: ((event: number) => void) | undefined;
+  _start: () => void;
+}
+
+async function loadApp(config: AppConfig) {
+  const appData = config.data as ArrayBuffer;
+  config.data = undefined;
+  const appBytes = new Uint8Array(appData);
+  const actualData =
+    appBytes[0] == 4
+      ? // Presume lz4 because wasm starts with 0.
+        lz4Decompress(appBytes).buffer
+      : appData;
+  let app = new App(config);
   const env = makeAppEnv(app);
-  let { instance } = await WebAssembly.instantiate(appData, { env });
+  let { instance } = await WebAssembly.instantiate(actualData, { env });
   app.init(instance);
   // TODO Fold config into start once we get fully off miniquad.
-  if (app.config) {
-    app.config();
+  if (app.exports!.config) {
+    app.exports!.config();
   }
-  app._start();
+  app.exports!._start();
 }
 
 async function loadAppData() {
@@ -95,8 +121,23 @@ function makeAppEnv(app: App) {
     ) {},
     taca_RenderingContext_newPipeline(context: number, bytes: number) {},
     taca_RenderingContext_newShader(context: number, bytes: number) {},
-    taca_Window_newRenderingContext() {},
-    taca_Window_print(text: number) {},
+    taca_Window_newRenderingContext() {
+      // TODO Rename to *get*RenderingContext.
+      if (app.context) {
+        return 1;
+      }
+      const context = app.config.canvas.getContext("webgl2");
+      if (!context) {
+        return 0;
+      }
+      // TODO Change canvas size based on screen pixel area.
+      console.log(context);
+      app.context = context;
+      return 1;
+    },
+    taca_Window_print(text: number) {
+      console.log(app.readString(text));
+    },
     taca_Window_setTitle(title: number) {
       // TODO Abstract to provide callbacks for these things?
       document.title = app.readString(title);
@@ -106,5 +147,3 @@ function makeAppEnv(app: App) {
 }
 
 const textDecoder = new TextDecoder();
-
-main();

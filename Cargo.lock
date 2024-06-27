@@ -220,6 +220,7 @@ dependencies = [
 name = "cana"
 version = "0.1.0"
 dependencies = [
+ "lz4_flex",
  "naga",
  "wasm-bindgen",
 ]
