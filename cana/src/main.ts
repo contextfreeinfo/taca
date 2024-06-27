@@ -25,6 +25,8 @@ export async function runApp(config: AppConfig) {
 class App {
   constructor(config: AppConfig) {
     this.config = config;
+    // TODO Track for deregistration needs?
+    new ResizeObserver(() => this.resizeCanvas()).observe(config.canvas);
   }
 
   config: AppConfig;
@@ -61,6 +63,13 @@ class App {
     const stringLen = spanView.getUint32(4, true);
     const chunk = memoryBytes.slice(stringPtr, stringPtr + stringLen);
     return textDecoder.decode(chunk);
+  }
+
+  resizeCanvas() {
+    const canvas = this.config.canvas;
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    this.context?.viewport(0, 0, canvas.width, canvas.height);
   }
 }
 
@@ -118,20 +127,25 @@ function makeAppEnv(app: App) {
       typ: number,
       usage: number,
       info: number
-    ) {},
-    taca_RenderingContext_newPipeline(context: number, bytes: number) {},
-    taca_RenderingContext_newShader(context: number, bytes: number) {},
+    ) {
+      console.log("taca_RenderingContext_newBuffer");
+    },
+    taca_RenderingContext_newPipeline(context: number, bytes: number) {
+      console.log("taca_RenderingContext_newPipeline");
+    },
+    taca_RenderingContext_newShader(context: number, bytes: number) {
+      console.log("taca_RenderingContext_newShader");
+    },
     taca_Window_newRenderingContext() {
       // TODO Rename to *get*RenderingContext.
       if (app.context) {
         return 1;
       }
+      app.resizeCanvas();
       const context = app.config.canvas.getContext("webgl2");
       if (!context) {
         return 0;
       }
-      // TODO Change canvas size based on screen pixel area.
-      console.log(context);
       app.context = context;
       return 1;
     },
