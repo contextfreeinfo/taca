@@ -4,7 +4,7 @@ use naga::{
     front::spv::{self, Options},
     proc::{BoundsCheckPolicies, BoundsCheckPolicy},
     valid::{Capabilities, ModuleInfo, ValidationFlags, Validator},
-    Module, ShaderStage,
+    Module,
 };
 use std::io::Read;
 use wasm_bindgen::prelude::*;
@@ -33,25 +33,37 @@ pub struct Shader {
     info: ModuleInfo,
 }
 
-impl Shader {
-    pub fn new(bytes: &[u8]) -> Shader {
-        let module = spv::parse_u8_slice(bytes, &Options::default()).unwrap();
-        let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
-        let info = validator.validate(&module).unwrap();
-        Shader { module, info }
-    }
+#[wasm_bindgen]
+pub enum ShaderStage {
+    Vertex,
+    Fragment,
 }
 
 #[wasm_bindgen(js_name = "shaderNew")]
 pub fn shader_new(bytes: &[u8]) -> Shader {
-    Shader::new(bytes)
+    let module = spv::parse_u8_slice(bytes, &Options::default()).unwrap();
+    let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
+    let info = validator.validate(&module).unwrap();
+    Shader { module, info }
 }
 
-#[no_mangle]
-pub fn translate_to_glsl(
+#[wasm_bindgen(js_name = "shaderToGlsl")]
+pub fn shader_to_glsl(shader: &Shader, stage: ShaderStage, entry_point: &str) -> String {
+    translate_to_glsl(
+        &shader.module,
+        &shader.info,
+        match stage {
+            ShaderStage::Vertex => naga::ShaderStage::Vertex,
+            ShaderStage::Fragment => naga::ShaderStage::Fragment,
+        },
+        entry_point.into(),
+    )
+}
+
+fn translate_to_glsl(
     module: &Module,
     info: &ModuleInfo,
-    shader_stage: ShaderStage,
+    shader_stage: naga::ShaderStage,
     entry_point: String,
 ) -> String {
     let options = glsl::Options {

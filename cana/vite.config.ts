@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
@@ -12,8 +12,23 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: "separate-wasm",
-      apply: "build",
+      name: "remove-wasm",
+      apply({ mode }) {
+        return mode != "split";
+      },
+      async buildStart() {
+        try {
+          await unlink(resolve(__dirname, "public/taca.wasm"));
+        } catch {
+          // That's fine.
+        }
+      },
+    },
+    {
+      name: "split-wasm",
+      apply(_, { command, mode }) {
+        return command == "build" && mode == "split";
+      },
       async buildStart() {
         // This works for build but not for preview.
         const jsPath = resolve(__dirname, "pkg/cana.js");
