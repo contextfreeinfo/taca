@@ -45,18 +45,31 @@ class App {
   config: AppConfig;
 
   ensurePipeline() {
-    if (this.pipelines.length) {
-      return;
-    }
-    const vertex = shaderToGlsl(this.shaders[0], ShaderStage.Vertex, "vs_main");
-    const fragment = shaderToGlsl(
-      this.shaders[0],
-      ShaderStage.Fragment,
-      "fs_main"
-    );
+    const {
+      gl,
+      pipelines,
+      shaders: [shader],
+    } = this;
+    if (pipelines.length) return;
+    const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vs_main");
+    const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fs_main");
+    const program = gl.createProgram() ?? fail();
+    const addShader = (type: number, source: string) => {
+      const shader = gl.createShader(type) ?? fail();
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      gl.getShaderParameter(shader, gl.COMPILE_STATUS) ??
+        fail(gl.getShaderInfoLog(shader));
+      gl.attachShader(program, shader);
+    };
+    addShader(gl.VERTEX_SHADER, vertex);
+    addShader(gl.FRAGMENT_SHADER, fragment);
+    gl.linkProgram(program);
+    gl.getProgramParameter(program, gl.LINK_STATUS) ??
+      fail(gl.getProgramInfoLog(program));
     console.log(vertex);
     console.log(fragment);
-    this.pipelines.push(1);
+    pipelines.push(1);
   }
 
   exports: AppExports = undefined as any;
@@ -138,8 +151,8 @@ interface AppExports {
   _start: () => void;
 }
 
-function fail(): never {
-  throw Error();
+function fail(message?: string | null): never {
+  throw Error(message ?? undefined);
 }
 
 function getU32(view: DataView, byteOffset: number) {
