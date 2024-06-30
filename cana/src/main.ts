@@ -42,13 +42,14 @@ class App {
     const infoBytes = this.memoryView(info, 3 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
-    // TODO Store for later?: const itemSize = viewU32(infoBytes, 8);
+    const itemSize = getU32(infoBytes, 8);
     const data = this.memoryBytes().subarray(ptr, ptr + size);
     const gl = this.gl;
     const buffer = gl.createBuffer();
     buffer || fail();
     this.buffers.push({
       buffer: buffer!,
+      itemSize,
       kind: ["vertex", "index"][type] as "vertex" | "index",
     });
     const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
@@ -66,7 +67,7 @@ class App {
   config: AppConfig;
 
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
-    this.pipelinedEnsure();
+    this.#pipelinedEnsure();
   }
 
   exports: AppExports = undefined as any;
@@ -117,7 +118,7 @@ class App {
     gl.useProgram(pipeline.program);
   }
 
-  pipelineEnsure() {
+  #pipelineEnsure() {
     const {
       gl,
       pipelines,
@@ -142,25 +143,29 @@ class App {
       fail(gl.getProgramInfoLog(program));
     console.log(vertex);
     console.log(fragment);
+    const attributes: Attribute[] = [];
     {
       const attribCount = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
       for (let i = 0; i < attribCount; i += 1) {
-        const info = gl.getActiveAttrib(program, i);
-        if (!info) continue;
+        const info = gl.getActiveAttrib(program, i) ?? fail();
         const loc = gl.getAttribLocation(program, info.name);
-        const type = {
-          [gl.FLOAT_VEC2]: "vec2f",
-          [gl.FLOAT_VEC4]: "vec4f",
-        }[info.type];
-        console.log(`attrib ${loc}: ${info.size} x ${type}`);
+        // const type = {
+        //   [gl.FLOAT_VEC2]: "vec2f",
+        //   [gl.FLOAT_VEC4]: "vec4f",
+        // }[info.type];
+        attributes.push({ count: info.size, loc, type: info.type });
       }
+      attributes.sort((a, b) => a.loc - b.loc);
+      // TODO Change taca api to work around vertex arrays.
+      this.#vertexArrayCreate(attributes);
+      // console.log(attributes);
     }
-    pipelines.push({ program });
+    pipelines.push({ attributes, program });
   }
 
-  pipelinedEnsure() {
+  #pipelinedEnsure() {
     if (!this.pipeline) {
-      this.pipelineEnsure();
+      this.#pipelineEnsure();
       if (!this.passBegun) this.passBegin();
       if (this.pipelines.length == 1) this.pipelineApply(1);
     }
@@ -196,6 +201,34 @@ class App {
   uniformsApply(uniforms: number) {
     // throw new Error("Method not implemented.");
   }
+
+  #vertexArrayCreate(attributes: Attribute[]) {
+    const { buffers, gl } = this;
+    if (buffers.length == 2) {
+      const vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      // attributes.find((attr) => attr.)
+      const vertex =
+        buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+      let offset = 0;
+      for (const attr of attributes) {
+        const { loc } = attr;
+        gl.enableVertexAttribArray(loc);
+        const [size, type] =
+          {
+            [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+            [gl.FLOAT_VEC4]: [4, gl.FLOAT],
+          }[attr.type] ?? fail();
+        // Pad for alignment.
+        offset = Math.ceil(offset / size) * size;
+        console.log(size, vertex.itemSize, offset);
+        // TODO Item size vs alignment seems very off.
+        gl.vertexAttribPointer(loc, size, type, false, vertex.itemSize, offset);
+        offset += size;
+      }
+    }
+  }
 }
 
 interface AppExports {
@@ -204,8 +237,15 @@ interface AppExports {
   _start: () => void;
 }
 
+interface Attribute {
+  count: number;
+  loc: number;
+  type: number;
+}
+
 interface Buffer {
   buffer: WebGLBuffer;
+  itemSize: number;
   kind: "index" | "vertex";
 }
 
@@ -313,6 +353,7 @@ function makeAppEnv(app: App) {
 }
 
 interface Pipeline {
+  attributes: Attribute[];
   program: WebGLProgram;
 }
 

@@ -9,6 +9,7 @@ export default defineConfig({
       name: "Taca",
       fileName: "taca",
     },
+    target: "es2022",
   },
   plugins: [
     {
