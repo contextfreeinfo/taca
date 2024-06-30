@@ -25,17 +25,35 @@ class App {
     const canvas = (this.canvas = config.canvas);
     canvas.addEventListener("mousemove", (event) => {
       const rect = canvas.getBoundingClientRect();
-      this.pointerPos = [
-        event.clientX - rect.left,
-        event.clientY - rect.height,
-      ];
+      this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
     });
     this.config = config;
     this.gl = config.canvas.getContext("webgl2")!;
     // Resize will fail if we couldn't get a context.
     this.resizeCanvas();
     // TODO Track for deregistration needs?
-    new ResizeObserver(() => this.resizeCanvas()).observe(config.canvas);
+    new ResizeObserver(() => (this.resizeNeeded = true)).observe(config.canvas);
+  }
+
+  #attributesBuild(program: WebGLProgram) {
+    const attributes: Attribute[] = [];
+    const { gl } = this;
+    const attribCount = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+    for (let i = 0; i < attribCount; i += 1) {
+      const info = gl.getActiveAttrib(program, i) ?? fail();
+      const loc = gl.getAttribLocation(program, info.name);
+      // const type = {
+      //   [gl.FLOAT_VEC2]: "vec2f",
+      //   [gl.FLOAT_VEC4]: "vec4f",
+      // }[info.type];
+      attributes.push({ count: info.size, loc, type: info.type });
+    }
+    attributes.sort((a, b) => a.loc - b.loc);
+    // TODO Buffer handling doesn't belong here in program construction!
+    // TODO Change taca api to work around vertex arrays.
+    this.#vertexArrayCreate(attributes);
+    // console.log(attributes);
+    return attributes;
   }
 
   bufferNew(type: number, usage: number, info: number) {
@@ -44,7 +62,7 @@ class App {
     const size = getU32(infoBytes, 4);
     const itemSize = getU32(infoBytes, 8);
     const data = this.memoryBytes().subarray(ptr, ptr + size);
-    const gl = this.gl;
+    const { gl } = this;
     const buffer = gl.createBuffer();
     buffer || fail();
     this.buffers.push({
@@ -68,13 +86,19 @@ class App {
 
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
     this.#pipelinedEnsure();
+    const { gl } = this;
+    if (!this.vertexArray) {
+      this.vertexArray = this.vertexArrays[0] ?? fail();
+      gl.bindVertexArray(this.vertexArray);
+    }
+    gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
   }
 
   exports: AppExports = undefined as any;
 
   frameCommit() {
     this.passBegun = false;
-    this.pipeline = null;
+    this.pipeline = this.vertexArray = null;
   }
 
   gl: WebGL2RenderingContext;
@@ -103,9 +127,10 @@ class App {
   }
 
   passBegin() {
-    let { gl } = this;
+    let { gl, resizeNeeded } = this;
+    if (resizeNeeded) this.resizeCanvas();
     gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   }
 
   passBegun = false;
@@ -141,26 +166,11 @@ class App {
     gl.linkProgram(program);
     gl.getProgramParameter(program, gl.LINK_STATUS) ??
       fail(gl.getProgramInfoLog(program));
-    console.log(vertex);
-    console.log(fragment);
-    const attributes: Attribute[] = [];
-    {
-      const attribCount = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
-      for (let i = 0; i < attribCount; i += 1) {
-        const info = gl.getActiveAttrib(program, i) ?? fail();
-        const loc = gl.getAttribLocation(program, info.name);
-        // const type = {
-        //   [gl.FLOAT_VEC2]: "vec2f",
-        //   [gl.FLOAT_VEC4]: "vec4f",
-        // }[info.type];
-        attributes.push({ count: info.size, loc, type: info.type });
-      }
-      attributes.sort((a, b) => a.loc - b.loc);
-      // TODO Change taca api to work around vertex arrays.
-      this.#vertexArrayCreate(attributes);
-      // console.log(attributes);
-    }
-    pipelines.push({ attributes, program });
+    // console.log(vertex);
+    // console.log(fragment);
+    const attributes = this.#attributesBuild(program);
+    const uniforms = this.#uniformsBuild(program);
+    pipelines.push({ attributes, program, uniforms });
   }
 
   #pipelinedEnsure() {
@@ -194,41 +204,94 @@ class App {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
     this.gl.viewport(0, 0, canvas.width, canvas.height);
+    this.resizeNeeded = false;
   }
+
+  resizeNeeded = false;
 
   shaders: Shader[] = [];
 
   uniformsApply(uniforms: number) {
-    // throw new Error("Method not implemented.");
+    this.#pipelinedEnsure();
+    const { gl } = this;
+    if (!this.uniformsBuffer) {
+      const { pipeline } = this;
+      const uniformsBuffer = gl.createBuffer() ?? fail();
+      const { uniforms } = pipeline!;
+      gl.bindBuffer(gl.UNIFORM_BUFFER, uniformsBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.size, gl.DYNAMIC_DRAW);
+      for (let i = 0; i < uniforms.count; i += 1) {
+        gl.bindBufferBase(gl.UNIFORM_BUFFER, i, uniformsBuffer);
+      }
+      this.uniformsBuffer = uniformsBuffer;
+    }
+    const uniformsBytes = this.readBytes(uniforms);
+    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, uniformsBytes);
   }
+
+  uniformsBuffer: WebGLBuffer | null = null;
+
+  #uniformsBuild(program: WebGLProgram): Uniforms {
+    const { gl } = this;
+    const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORM_BLOCKS);
+    let size = 0;
+    for (let i = 0; i < count; i += 1) {
+      let nextSize =
+        gl.getActiveUniformBlockParameter(
+          program,
+          i,
+          gl.UNIFORM_BLOCK_DATA_SIZE
+        ) ?? fail();
+      if (i > 0 && nextSize != size) fail();
+      size = nextSize;
+      gl.uniformBlockBinding(program, i, i);
+    }
+    return { count, size };
+  }
+
+  vertexArray: WebGLVertexArrayObject | null = null;
 
   #vertexArrayCreate(attributes: Attribute[]) {
     const { buffers, gl } = this;
     if (buffers.length == 2) {
-      const vao = gl.createVertexArray();
-      gl.bindVertexArray(vao);
-      // attributes.find((attr) => attr.)
-      const vertex =
-        buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
-      gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
-      let offset = 0;
-      for (const attr of attributes) {
-        const { loc } = attr;
-        gl.enableVertexAttribArray(loc);
-        const [size, type] =
-          {
-            [gl.FLOAT_VEC2]: [2, gl.FLOAT],
-            [gl.FLOAT_VEC4]: [4, gl.FLOAT],
-          }[attr.type] ?? fail();
-        // Pad for alignment.
-        offset = Math.ceil(offset / size) * size;
-        console.log(size, vertex.itemSize, offset);
-        // TODO Item size vs alignment seems very off.
-        gl.vertexAttribPointer(loc, size, type, false, vertex.itemSize, offset);
-        offset += size;
+      const vertexArray = gl.createVertexArray() ?? fail();
+      gl.bindVertexArray(vertexArray);
+      try {
+        // Vertex buffer.
+        const vertex =
+          buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+        let offset = 0;
+        for (const attr of attributes) {
+          const { loc } = attr;
+          gl.enableVertexAttribArray(loc);
+          const [size, type] =
+            {
+              [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+              [gl.FLOAT_VEC4]: [4, gl.FLOAT],
+            }[attr.type] ?? fail();
+          const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
+          // Pad for alignment.
+          offset = Math.ceil(offset / typeSize) * typeSize;
+          // console.log(size, vertex.itemSize, offset);
+          // TODO Item size vs alignment seems very off.
+          let { itemSize } = vertex;
+          gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
+          offset += size * typeSize;
+        }
+        // TODO Instance buffer.
+        // Index buffer.
+        const index =
+          buffers.find((buffer) => buffer.kind == "index") ?? fail();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
+      } finally {
+        gl.bindVertexArray(null);
       }
+      this.vertexArrays.push(vertexArray);
     }
   }
+
+  vertexArrays: WebGLVertexArrayObject[] = [];
 }
 
 interface AppExports {
@@ -344,10 +407,10 @@ function makeAppEnv(app: App) {
       const { clientWidth, clientHeight } = app.canvas;
       const [pointerX, pointerY] = app.pointerPos;
       const view = app.memoryView(result, 4 * 4);
-      setU32(view, 0, pointerX);
-      setU32(view, 4, pointerY);
-      setU32(view, 8, clientWidth);
-      setU32(view, 12, clientHeight);
+      setF32(view, 0, pointerX);
+      setF32(view, 4, pointerY);
+      setF32(view, 8, clientWidth);
+      setF32(view, 12, clientHeight);
     },
   };
 }
@@ -355,10 +418,20 @@ function makeAppEnv(app: App) {
 interface Pipeline {
   attributes: Attribute[];
   program: WebGLProgram;
+  uniforms: Uniforms;
 }
+
+function setF32(view: DataView, byteOffset: number, value: number) {
+  return view.setFloat32(byteOffset, value, true);
+}
+
+// function setU32(view: DataView, byteOffset: number, value: number) {
+//   return view.setUint32(byteOffset, value, true);
+// }
 
 const textDecoder = new TextDecoder();
 
-function setU32(view: DataView, byteOffset: number, value: number) {
-  return view.setUint32(byteOffset, value, true);
+interface Uniforms {
+  count: number;
+  size: number;
 }
