@@ -1,8 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "cana",
-    "taca",
-]
+members = ["cana", "taca", "waca"]
 
 # I want this to apply just to wasm-pack, but how to do that?
 [profile.release]

@@ -1,0 +1,11 @@
+[package]
+name = "waca"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pollster = "0.3.0"
+wasmer = "4.3.2"
+wasmer-types = "4.3.2"
+wgpu = "0.20.1"
+winit = "0.30.3"
