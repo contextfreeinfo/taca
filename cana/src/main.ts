@@ -38,41 +38,43 @@ class App {
     new ResizeObserver(() => this.resizeCanvas()).observe(config.canvas);
   }
 
-  buffers: WebGLBuffer[] = [];
+  bufferNew(type: number, usage: number, info: number) {
+    const infoBytes = this.memoryView(info, 3 * 4);
+    const ptr = getU32(infoBytes, 0);
+    const size = getU32(infoBytes, 4);
+    // TODO Store for later?: const itemSize = viewU32(infoBytes, 8);
+    const data = this.memoryBytes().subarray(ptr, ptr + size);
+    const gl = this.gl;
+    const buffer = gl.createBuffer();
+    buffer || fail();
+    this.buffers.push({
+      buffer: buffer!,
+      kind: ["vertex", "index"][type] as "vertex" | "index",
+    });
+    const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
+    gl.bindBuffer(target, buffer);
+    const usageValue =
+      [gl.STATIC_DRAW, gl.DYNAMIC_DRAW, gl.STREAM_DRAW][usage] ?? fail();
+    gl.bufferData(target, data, usageValue);
+    return this.buffers.length;
+  }
+
+  buffers: Buffer[] = [];
 
   canvas: HTMLCanvasElement;
 
   config: AppConfig;
 
-  ensurePipeline() {
-    const {
-      gl,
-      pipelines,
-      shaders: [shader],
-    } = this;
-    if (pipelines.length) return;
-    const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vs_main");
-    const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fs_main");
-    const program = gl.createProgram() ?? fail();
-    const addShader = (type: number, source: string) => {
-      const shader = gl.createShader(type) ?? fail();
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      gl.getShaderParameter(shader, gl.COMPILE_STATUS) ??
-        fail(gl.getShaderInfoLog(shader));
-      gl.attachShader(program, shader);
-    };
-    addShader(gl.VERTEX_SHADER, vertex);
-    addShader(gl.FRAGMENT_SHADER, fragment);
-    gl.linkProgram(program);
-    gl.getProgramParameter(program, gl.LINK_STATUS) ??
-      fail(gl.getProgramInfoLog(program));
-    console.log(vertex);
-    console.log(fragment);
-    pipelines.push(1);
+  draw(itemBegin: number, itemCount: number, instanceCount: number) {
+    this.pipelinedEnsure();
   }
 
   exports: AppExports = undefined as any;
+
+  frameCommit() {
+    this.passBegun = false;
+    this.pipeline = null;
+  }
 
   gl: WebGL2RenderingContext;
 
@@ -99,25 +101,72 @@ class App {
     return new DataView(this.memory.buffer, ptr, len);
   }
 
-  newBuffer(type: number, usage: number, info: number) {
-    const infoBytes = this.memoryView(info, 3 * 4);
-    const ptr = getU32(infoBytes, 0);
-    const size = getU32(infoBytes, 4);
-    // TODO Store for later?: const itemSize = viewU32(infoBytes, 8);
-    const data = this.memoryBytes().subarray(ptr, ptr + size);
-    const gl = this.gl;
-    const buffer = gl.createBuffer();
-    buffer || fail();
-    this.buffers.push(buffer!);
-    const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
-    gl.bindBuffer(target, buffer);
-    const usageValue =
-      [gl.STATIC_DRAW, gl.DYNAMIC_DRAW, gl.STREAM_DRAW][usage] ?? fail();
-    gl.bufferData(target, data, usageValue);
-    return this.buffers.length;
+  passBegin() {
+    let { gl } = this;
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  pipelines: number[] = [];
+  passBegun = false;
+
+  pipeline: Pipeline | null = null;
+
+  pipelineApply(pipelinePtr: number) {
+    let { gl, pipelines } = this;
+    const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
+    gl.useProgram(pipeline.program);
+  }
+
+  pipelineEnsure() {
+    const {
+      gl,
+      pipelines,
+      shaders: [shader],
+    } = this;
+    if (pipelines.length) return;
+    const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vs_main");
+    const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fs_main");
+    const program = gl.createProgram() ?? fail();
+    const addShader = (type: number, source: string) => {
+      const shader = gl.createShader(type) ?? fail();
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      gl.getShaderParameter(shader, gl.COMPILE_STATUS) ??
+        fail(gl.getShaderInfoLog(shader));
+      gl.attachShader(program, shader);
+    };
+    addShader(gl.VERTEX_SHADER, vertex);
+    addShader(gl.FRAGMENT_SHADER, fragment);
+    gl.linkProgram(program);
+    gl.getProgramParameter(program, gl.LINK_STATUS) ??
+      fail(gl.getProgramInfoLog(program));
+    console.log(vertex);
+    console.log(fragment);
+    {
+      const attribCount = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+      for (let i = 0; i < attribCount; i += 1) {
+        const info = gl.getActiveAttrib(program, i);
+        if (!info) continue;
+        const loc = gl.getAttribLocation(program, info.name);
+        const type = {
+          [gl.FLOAT_VEC2]: "vec2f",
+          [gl.FLOAT_VEC4]: "vec4f",
+        }[info.type];
+        console.log(`attrib ${loc}: ${info.size} x ${type}`);
+      }
+    }
+    pipelines.push({ program });
+  }
+
+  pipelinedEnsure() {
+    if (!this.pipeline) {
+      this.pipelineEnsure();
+      if (!this.passBegun) this.passBegin();
+      if (this.pipelines.length == 1) this.pipelineApply(1);
+    }
+  }
+
+  pipelines: Pipeline[] = [];
 
   pointerPos: [x: number, y: number] = [0, 0];
 
@@ -143,12 +192,21 @@ class App {
   }
 
   shaders: Shader[] = [];
+
+  uniformsApply(uniforms: number) {
+    // throw new Error("Method not implemented.");
+  }
 }
 
 interface AppExports {
   config: (() => void) | undefined;
   listen: ((event: number) => void) | undefined;
   _start: () => void;
+}
+
+interface Buffer {
+  buffer: WebGLBuffer;
+  kind: "index" | "vertex";
 }
 
 function fail(message?: string | null): never {
@@ -201,17 +259,19 @@ function makeAppEnv(app: App) {
     taca_RenderingContext_applyBindings(context: number, bindings: number) {},
     taca_RenderingContext_applyPipeline(context: number, pipeline: number) {},
     taca_RenderingContext_applyUniforms(context: number, uniforms: number) {
-      // TODO
+      app.uniformsApply(uniforms);
     },
     taca_RenderingContext_beginPass(context: number) {},
-    taca_RenderingContext_commitFrame(context: number) {},
+    taca_RenderingContext_commitFrame(context: number) {
+      app.frameCommit();
+    },
     taca_RenderingContext_draw(
       context: number,
-      item_begin: number,
-      item_count: number,
-      instance_count: number
+      itemBegin: number,
+      itemCount: number,
+      instanceCount: number
     ) {
-      app.ensurePipeline();
+      app.draw(itemBegin, itemCount, instanceCount);
     },
     taca_RenderingContext_endPass(context: number) {},
     taca_RenderingContext_newBuffer(
@@ -220,7 +280,7 @@ function makeAppEnv(app: App) {
       usage: number,
       info: number
     ) {
-      return app.newBuffer(type, usage, info);
+      return app.bufferNew(type, usage, info);
     },
     taca_RenderingContext_newPipeline(context: number, bytes: number) {
       console.log("taca_RenderingContext_newPipeline");
@@ -250,6 +310,10 @@ function makeAppEnv(app: App) {
       setU32(view, 12, clientHeight);
     },
   };
+}
+
+interface Pipeline {
+  program: WebGLProgram;
 }
 
 const textDecoder = new TextDecoder();
