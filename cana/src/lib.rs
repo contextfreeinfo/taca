@@ -9,10 +9,15 @@ use naga::{
 use std::io::Read;
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
-}
+// #[wasm_bindgen]
+// extern "C" {
+//     fn alert(s: &str);
+// }
+
+// #[wasm_bindgen]
+// pub fn greet(name: &str) {
+//     alert(&format!("Hello, {}!", name));
+// }
 
 // TODO Rename this for js access?
 #[wasm_bindgen(js_name = "lz4Decompress")]
@@ -20,11 +25,6 @@ pub fn lz4_decompress(source: &[u8]) -> Vec<u8> {
     let mut dest = vec![0u8; 0];
     FrameDecoder::new(source).read_to_end(&mut dest).unwrap();
     dest
-}
-
-#[wasm_bindgen]
-pub fn greet(name: &str) {
-    alert(&format!("Hello, {}!", name));
 }
 
 #[wasm_bindgen]

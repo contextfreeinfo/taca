@@ -1,4 +1,4 @@
-use std::{borrow::Cow, future::Future, sync::Arc};
+use std::{borrow::Cow, future::Future, ptr::null_mut, sync::Arc};
 use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use winit::{
     application::ApplicationHandler,
@@ -8,17 +8,17 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::app::Wrap;
+use crate::app::AppPtr;
 
 pub struct Display {
-    app: Wrap,
+    pub app: AppPtr,
     graphics: MaybeGraphics,
 }
 
 impl Display {
-    pub fn new(event_loop: &EventLoop<Graphics>, app: Wrap) -> Self {
+    pub fn new(event_loop: &EventLoop<Graphics>) -> Self {
         Self {
-            app,
+            app: AppPtr(null_mut()),
             graphics: MaybeGraphics::Builder(GraphicsBuilder::new(event_loop.create_proxy())),
         }
     }
@@ -66,9 +66,13 @@ impl Display {
         gfx.surface_config.height = size.height;
         gfx.surface.configure(&gfx.device, &gfx.surface_config);
     }
+
+    pub fn run(&mut self, event_loop: EventLoop<Graphics>) {
+        event_loop.run_app(self).unwrap();
+    }
 }
 
-impl ApplicationHandler<Graphics> for Display {
+impl<'a> ApplicationHandler<Graphics> for Display {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -91,7 +95,7 @@ impl ApplicationHandler<Graphics> for Display {
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, graphics: Graphics) {
         self.graphics = MaybeGraphics::Graphics(graphics);
-        // TODO wasm init here?
+        unsafe { &mut *self.app.0 }.start();
     }
 }
 

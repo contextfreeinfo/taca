@@ -1,9 +1,10 @@
+use app::AppPtr;
 use clap::{Args, Parser, Subcommand};
 use winit::event_loop::EventLoop;
 
 mod app;
 mod display;
-use crate::app::Wrap;
+use crate::app::App;
 use crate::display::Display;
 
 #[derive(Parser)]
@@ -34,8 +35,11 @@ fn main() {
 
 fn run(app: String) {
     // Setup based on: https://github.com/erer1243/wgpu-0.20-winit-0.30-web-example
-    let app = Wrap::load(&app);
     let event_loop = EventLoop::with_user_event().build().unwrap();
-    let mut display = Display::new(&event_loop, app);
-    event_loop.run_app(&mut display).unwrap();
+    let display = Display::new(&event_loop);
+    let mut app = Box::new(App::load(&app, display));
+    // This should be safe because we only initiate app activity from display itself.
+    // TODO Ensure that all event handling is on a single thread.
+    let ptr = &mut *app as *mut App;
+    app.run(event_loop, ptr);
 }

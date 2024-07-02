@@ -1,32 +1,32 @@
+#![allow(non_snake_case)]
+
 use std::{fs::File, io::Read};
 
+use cana::{shader_new, Shader};
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
     ValueType, WasmPtr,
 };
+use winit::event_loop::EventLoop;
+
+use crate::display::{Display, Graphics};
 
 pub struct App {
-    pub memory: Option<Memory>,
+    pub env: FunctionEnv<System>,
+    pub instance: Instance,
+    pub store: Store,
 }
+
+pub struct AppPtr(pub *mut App);
+
+unsafe impl Send for AppPtr {}
 
 impl App {
-    fn new() -> App {
-        App { memory: None }
-    }
-}
-
-pub struct Wrap {
-    env: FunctionEnv<App>,
-    instance: Instance,
-    store: Store,
-}
-
-impl Wrap {
-    fn init(wasm: &[u8]) -> Wrap {
+    fn init(wasm: &[u8], display: Display) -> App {
         let mut store = Store::default();
         let module = Module::new(&store, wasm).unwrap();
-        let env = FunctionEnv::new(&mut store, App::new());
+        let env = FunctionEnv::new(&mut store, System::new(display));
         let import_object = imports! {
             "env" => {
                 "taca_RenderingContext_applyBindings" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_applyBindings),
@@ -52,14 +52,14 @@ impl Wrap {
         if let Ok(config) = instance.exports.get_function("config") {
             config.call(&mut store, &[]).unwrap();
         }
-        Wrap {
+        App {
             env,
             instance,
             store,
         }
     }
 
-    pub fn load(path: &str) -> Wrap {
+    pub fn load(path: &str, display: Display) -> App {
         let mut buf = Vec::<u8>::new();
         File::open(path)
             .expect("Bad open")
@@ -73,7 +73,35 @@ impl Wrap {
                 .unwrap();
             buf = dest;
         }
-        Wrap::init(&buf)
+        App::init(&buf, display)
+    }
+
+    pub fn run(&mut self, event_loop: EventLoop<Graphics>, ptr: *mut App) {
+        let system = self.env.as_mut(&mut self.store);
+        system.display.app = AppPtr(ptr);
+        system.display.run(event_loop);
+    }
+
+    pub fn start(&mut self) {
+        // let system = self.env.as_mut(&mut self.store);
+        let start = self.instance.exports.get_function("_start").unwrap();
+        start.call(&mut self.store, &[]).unwrap();
+    }
+}
+
+pub struct System {
+    pub display: Display,
+    pub memory: Option<Memory>,
+    pub shaders: Vec<Shader>,
+}
+
+impl System {
+    fn new(display: Display) -> System {
+        System {
+            display,
+            memory: None,
+            shaders: vec![],
+        }
     }
 }
 
@@ -84,13 +112,28 @@ pub struct Span {
     pub len: u32,
 }
 
+fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
+where
+    T: Copy + ValueType,
+{
+    WasmPtr::<T>::new(span.ptr)
+        .slice(&view, span.len)
+        .unwrap()
+        .read_to_vec()
+        .unwrap()
+}
+
 fn read_string(view: &MemoryView, span: Span) -> String {
     WasmPtr::<u8>::new(span.ptr)
         .read_utf8_string(&view, span.len)
         .unwrap()
 }
 
-fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<App>, context: u32, bindings: u32) {
+fn taca_RenderingContext_applyBindings(
+    mut env: FunctionEnvMut<System>,
+    context: u32,
+    bindings: u32,
+) {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // let bindings = WasmPtr::<ExternBindings>::new(bindings)
@@ -103,12 +146,16 @@ fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<App>, context: u3
     // apply_bindings(platform, context, bindings);
 }
 
-fn taca_RenderingContext_applyPipeline(mut env: FunctionEnvMut<App>, context: u32, pipeline: u32) {
+fn taca_RenderingContext_applyPipeline(
+    mut env: FunctionEnvMut<System>,
+    context: u32,
+    pipeline: u32,
+) {
     // let platform = env.data_mut();
     // apply_pipeline(platform, context, pipeline)
 }
 
-fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<App>, context: u32, bytes: u32) {
+fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, context: u32, bytes: u32) {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
@@ -116,18 +163,18 @@ fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<App>, context: u3
     // apply_uniforms(platform, context, &uniforms);
 }
 
-fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<App>, context: u32) {
+fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, context: u32) {
     // let platform = env.data_mut();
     // begin_pass(platform, context)
 }
 
-fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<App>, context: u32) {
+fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, context: u32) {
     // let platform = env.data_mut();
     // commit_frame(platform, context)
 }
 
 fn taca_RenderingContext_draw(
-    mut env: FunctionEnvMut<App>,
+    mut env: FunctionEnvMut<System>,
     context: u32,
     item_begin: i32,
     item_count: i32,
@@ -137,13 +184,13 @@ fn taca_RenderingContext_draw(
     // draw(platform, context, item_begin, item_count, instance_count);
 }
 
-fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<App>, context: u32) {
+fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, context: u32) {
     // let platform = env.data_mut();
     // end_pass(platform, context)
 }
 
 fn taca_RenderingContext_newBuffer(
-    mut env: FunctionEnvMut<App>,
+    mut env: FunctionEnvMut<System>,
     context: u32,
     typ: u32,
     usage: u32,
@@ -166,7 +213,11 @@ fn taca_RenderingContext_newBuffer(
     0
 }
 
-fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<App>, context: u32, info: u32) -> u32 {
+fn taca_RenderingContext_newPipeline(
+    mut env: FunctionEnvMut<System>,
+    context: u32,
+    info: u32,
+) -> u32 {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // let info = WasmPtr::<ExternPipelineInfo>::new(info)
@@ -188,25 +239,30 @@ fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<App>, context: u32,
     0
 }
 
-fn taca_RenderingContext_newShader(mut env: FunctionEnvMut<App>, _context: u32, bytes: u32) -> u32 {
-    // let (platform, store) = env.data_and_store_mut();
-    // let view = platform.memory.as_ref().unwrap().view(&store);
-    // let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
-    // let bytes = read_span(&view, bytes);
-    // new_shader(platform, &bytes)
-    0
+fn taca_RenderingContext_newShader(
+    mut env: FunctionEnvMut<System>,
+    _context: u32,
+    bytes: u32,
+) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let bytes = read_span(&view, bytes);
+    let shader = shader_new(&bytes);
+    system.shaders.push(shader);
+    system.shaders.len() as u32
 }
 
-fn taca_Window_get(mut _env: FunctionEnvMut<App>) -> u32 {
+fn taca_Window_get(mut _env: FunctionEnvMut<System>) -> u32 {
     1
 }
 
-fn taca_Window_newRenderingContext(mut env: FunctionEnvMut<App>) -> u32 {
+fn taca_Window_newRenderingContext(mut env: FunctionEnvMut<System>) -> u32 {
     // new_rendering_context(env.data_mut())
     0
 }
 
-fn taca_Window_print(mut env: FunctionEnvMut<App>, text: u32) {
+fn taca_Window_print(mut env: FunctionEnvMut<System>, text: u32) {
     let (platform, store) = env.data_and_store_mut();
     let view = platform.memory.as_ref().unwrap().view(&store);
     let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
@@ -214,7 +270,7 @@ fn taca_Window_print(mut env: FunctionEnvMut<App>, text: u32) {
     println!("{text}");
 }
 
-fn taca_Window_setTitle(mut env: FunctionEnvMut<App>, text: u32) {
+fn taca_Window_setTitle(mut env: FunctionEnvMut<System>, text: u32) {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
@@ -222,7 +278,7 @@ fn taca_Window_setTitle(mut env: FunctionEnvMut<App>, text: u32) {
     // platform.title = Some(text);
 }
 
-fn taca_Window_state(mut env: FunctionEnvMut<App>, result: u32) {
+fn taca_Window_state(mut env: FunctionEnvMut<System>, result: u32) {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // WasmRef::<WindowState>::new(&view, result as u64)
