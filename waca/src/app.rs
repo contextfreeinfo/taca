@@ -10,7 +10,7 @@ use wasmer::{
 };
 use winit::event_loop::EventLoop;
 
-use crate::display::{Display, Graphics};
+use crate::display::{Display, Graphics, MaybeGraphics};
 
 pub struct App {
     pub env: FunctionEnv<System>,
@@ -49,9 +49,6 @@ impl App {
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
         let app = env.as_mut(&mut store);
         app.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
-        if let Ok(config) = instance.exports.get_function("config") {
-            config.call(&mut store, &[]).unwrap();
-        }
         App {
             env,
             instance,
@@ -83,7 +80,9 @@ impl App {
     }
 
     pub fn start(&mut self) {
-        // let system = self.env.as_mut(&mut self.store);
+        if let Ok(config) = self.instance.exports.get_function("config") {
+            config.call(&mut self.store, &[]).unwrap();
+        }
         let start = self.instance.exports.get_function("_start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
@@ -258,8 +257,7 @@ fn taca_Window_get(mut _env: FunctionEnvMut<System>) -> u32 {
 }
 
 fn taca_Window_newRenderingContext(mut env: FunctionEnvMut<System>) -> u32 {
-    // new_rendering_context(env.data_mut())
-    0
+    1
 }
 
 fn taca_Window_print(mut env: FunctionEnvMut<System>, text: u32) {
@@ -271,11 +269,14 @@ fn taca_Window_print(mut env: FunctionEnvMut<System>, text: u32) {
 }
 
 fn taca_Window_setTitle(mut env: FunctionEnvMut<System>, text: u32) {
-    // let (platform, store) = env.data_and_store_mut();
-    // let view = platform.memory.as_ref().unwrap().view(&store);
-    // let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
-    // let text = read_string(&view, text);
-    // platform.title = Some(text);
+    let (system, store) = env.data_and_store_mut();
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let title = WasmPtr::<Span>::new(text).read(&view).unwrap();
+    let title = read_string(&view, title);
+    gfx.window.as_ref().set_title(&title);
 }
 
 fn taca_Window_state(mut env: FunctionEnvMut<System>, result: u32) {

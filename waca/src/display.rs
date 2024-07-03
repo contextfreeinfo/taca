@@ -12,7 +12,7 @@ use crate::app::AppPtr;
 
 pub struct Display {
     pub app: AppPtr,
-    graphics: MaybeGraphics,
+    pub graphics: MaybeGraphics,
 }
 
 impl Display {
@@ -94,6 +94,7 @@ impl<'a> ApplicationHandler<Graphics> for Display {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, graphics: Graphics) {
+        graphics.window.as_ref().set_title("Taca");
         self.graphics = MaybeGraphics::Graphics(graphics);
         unsafe { &mut *self.app.0 }.start();
     }
@@ -101,7 +102,7 @@ impl<'a> ApplicationHandler<Graphics> for Display {
 
 #[allow(dead_code)]
 pub struct Graphics {
-    window: Arc<Window>,
+    pub window: Arc<Window>,
     instance: Instance,
     surface: Surface<'static>,
     surface_config: SurfaceConfiguration,
@@ -168,7 +169,7 @@ impl Graphics {
     }
 }
 
-struct GraphicsBuilder {
+pub struct GraphicsBuilder {
     event_loop_proxy: Option<EventLoopProxy<Graphics>>,
 }
 
@@ -189,7 +190,7 @@ impl GraphicsBuilder {
     }
 }
 
-enum MaybeGraphics {
+pub enum MaybeGraphics {
     Builder(GraphicsBuilder),
     Graphics(Graphics),
 }
