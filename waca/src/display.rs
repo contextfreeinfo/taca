@@ -107,7 +107,7 @@ pub struct Graphics {
     surface: Surface<'static>,
     surface_config: SurfaceConfiguration,
     adapter: Adapter,
-    device: Device,
+    pub device: Device,
     queue: Queue,
     render_pipeline: Option<RenderPipeline>,
 }

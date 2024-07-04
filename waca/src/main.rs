@@ -4,6 +4,7 @@ use winit::event_loop::EventLoop;
 
 mod app;
 mod display;
+mod gpu;
 use crate::app::App;
 use crate::display::Display;
 

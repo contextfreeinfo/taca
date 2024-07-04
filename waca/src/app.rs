@@ -10,7 +10,13 @@ use wasmer::{
 };
 use winit::event_loop::EventLoop;
 
-use crate::display::{Display, Graphics, MaybeGraphics};
+use crate::{
+    display::{Display, Graphics, MaybeGraphics},
+    gpu::{
+        create_buffer, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo,
+        Span,
+    },
+};
 
 pub struct App {
     pub env: FunctionEnv<System>,
@@ -89,6 +95,7 @@ impl App {
 }
 
 pub struct System {
+    pub buffers: Vec<Buffer>,
     pub display: Display,
     pub memory: Option<Memory>,
     pub shaders: Vec<Shader>,
@@ -97,18 +104,12 @@ pub struct System {
 impl System {
     fn new(display: Display) -> System {
         System {
+            buffers: vec![],
             display,
             memory: None,
             shaders: vec![],
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, ValueType)]
-#[repr(C)]
-pub struct Span {
-    pub ptr: u32,
-    pub len: u32,
 }
 
 fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
@@ -190,26 +191,19 @@ fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, context: u32) 
 
 fn taca_RenderingContext_newBuffer(
     mut env: FunctionEnvMut<System>,
-    context: u32,
+    _context: u32,
     typ: u32,
     usage: u32,
     slice: u32,
 ) -> u32 {
-    // let (platform, store) = env.data_and_store_mut();
-    // let view = platform.memory.as_ref().unwrap().view(&store);
-    // let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
-    // let buffer = view
-    //     .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
-    //     .unwrap();
-    // new_buffer(
-    //     platform,
-    //     context,
-    //     typ,
-    //     usage,
-    //     &buffer,
-    //     slice.item_size as usize,
-    // )
-    0
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
+    let contents = view
+        .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
+        .unwrap();
+    create_buffer(system, &contents, typ, usage, slice.item_size as usize);
+    system.buffers.len() as u32
 }
 
 fn taca_RenderingContext_newPipeline(
@@ -217,24 +211,24 @@ fn taca_RenderingContext_newPipeline(
     context: u32,
     info: u32,
 ) -> u32 {
-    // let (platform, store) = env.data_and_store_mut();
-    // let view = platform.memory.as_ref().unwrap().view(&store);
-    // let info = WasmPtr::<ExternPipelineInfo>::new(info)
-    //     .read(&view)
-    //     .unwrap();
-    // let attributes = read_span(&view, info.attributes);
-    // let info = PipelineInfo {
-    //     attributes,
-    //     fragment: PipelineShaderInfo {
-    //         entry_point: read_string(&view, info.fragment.entry_point),
-    //         shader: info.fragment.shader,
-    //     },
-    //     vertex: PipelineShaderInfo {
-    //         entry_point: read_string(&view, info.vertex.entry_point),
-    //         shader: info.vertex.shader,
-    //     },
-    // };
-    // new_pipeline(platform, context, info)
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let info = WasmPtr::<ExternPipelineInfo>::new(info)
+        .read(&view)
+        .unwrap();
+    let attributes = read_span(&view, info.attributes);
+    let info = PipelineInfo {
+        attributes,
+        fragment: PipelineShaderInfo {
+            entry_point: read_string(&view, info.fragment.entry_point),
+            shader: info.fragment.shader,
+        },
+        vertex: PipelineShaderInfo {
+            entry_point: read_string(&view, info.vertex.entry_point),
+            shader: info.vertex.shader,
+        },
+    };
+    // new_pipeline(system, context, info)
     0
 }
 
@@ -252,11 +246,11 @@ fn taca_RenderingContext_newShader(
     system.shaders.len() as u32
 }
 
-fn taca_Window_get(mut _env: FunctionEnvMut<System>) -> u32 {
+fn taca_Window_get(_env: FunctionEnvMut<System>) -> u32 {
     1
 }
 
-fn taca_Window_newRenderingContext(mut env: FunctionEnvMut<System>) -> u32 {
+fn taca_Window_newRenderingContext(_env: FunctionEnvMut<System>) -> u32 {
     1
 }
 
