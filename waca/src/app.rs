@@ -2,19 +2,19 @@
 
 use std::{fs::File, io::Read};
 
-use cana::{shader_new, Shader};
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
     ValueType, WasmPtr,
 };
+use wgpu::ShaderModule;
 use winit::event_loop::EventLoop;
 
 use crate::{
     display::{Display, Graphics, MaybeGraphics},
     gpu::{
-        create_buffer, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo,
-        Span,
+        create_buffer, create_pipeline, shader_create, Buffer, BufferSlice, ExternPipelineInfo,
+        PipelineInfo, PipelineShaderInfo, Span,
     },
 };
 
@@ -98,7 +98,7 @@ pub struct System {
     pub buffers: Vec<Buffer>,
     pub display: Display,
     pub memory: Option<Memory>,
-    pub shaders: Vec<Shader>,
+    pub shaders: Vec<ShaderModule>,
 }
 
 impl System {
@@ -208,7 +208,7 @@ fn taca_RenderingContext_newBuffer(
 
 fn taca_RenderingContext_newPipeline(
     mut env: FunctionEnvMut<System>,
-    context: u32,
+    _context: u32,
     info: u32,
 ) -> u32 {
     let (system, store) = env.data_and_store_mut();
@@ -228,7 +228,7 @@ fn taca_RenderingContext_newPipeline(
             shader: info.vertex.shader,
         },
     };
-    // new_pipeline(system, context, info)
+    create_pipeline(system, info);
     0
 }
 
@@ -241,7 +241,7 @@ fn taca_RenderingContext_newShader(
     let view = system.memory.as_ref().unwrap().view(&store);
     let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
     let bytes = read_span(&view, bytes);
-    let shader = shader_new(&bytes);
+    let shader = shader_create(system, &bytes);
     system.shaders.push(shader);
     system.shaders.len() as u32
 }

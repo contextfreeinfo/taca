@@ -1,7 +1,8 @@
+use bytemuck::PodCastError;
 use wasmer::ValueType;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BufferUsages,
+    BufferUsages, ShaderModule, ShaderModuleDescriptor, ShaderSource,
 };
 
 use crate::{app::System, display::MaybeGraphics};
@@ -90,5 +91,27 @@ pub fn create_buffer(
 }
 
 pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
-    //
+    // let shader = &system.shaders[info.vertex.shader as usize];
+}
+
+pub fn shader_create(system: &mut System, bytes: &[u8]) -> ShaderModule {
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        panic!();
+    };
+    let mut spirv_buffer = Vec::<u32>::new();
+    let spirv: &[u32] = bytemuck::try_cast_slice(bytes).unwrap_or_else(|err| match err {
+        PodCastError::AlignmentMismatch => {
+            // Copy into an aligned buffer if not already aligned.
+            for chunk in bytes.chunks_exact(4) {
+                let word = u32::from_le_bytes(chunk.try_into().unwrap());
+                spirv_buffer.push(word);
+            }
+            &spirv_buffer
+        }
+        _ => panic!(),
+    });
+    gfx.device.create_shader_module(ShaderModuleDescriptor {
+        label: None,
+        source: ShaderSource::SpirV(std::borrow::Cow::Borrowed(spirv)),
+    })
 }
