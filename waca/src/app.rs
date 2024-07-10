@@ -1,25 +1,26 @@
 #![allow(non_snake_case)]
 
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, mem::transmute};
 
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
-    ValueType, WasmPtr,
+    Value, ValueType, WasmPtr, WasmRef,
 };
-use wgpu::ShaderModule;
+use wgpu::{CommandEncoder, ShaderModule, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
-    display::{Display, Graphics, MaybeGraphics},
+    display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
         create_buffer, create_pipeline, shader_create, Buffer, BufferSlice, ExternPipelineInfo,
-        PipelineInfo, PipelineShaderInfo, Span,
+        PipelineInfo, PipelineShaderInfo, RenderFrame, Span,
     },
 };
 
 pub struct App {
     pub env: FunctionEnv<System>,
+    listen: Function,
     pub instance: Instance,
     pub store: Store,
 }
@@ -53,13 +54,21 @@ impl App {
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
+        let listen = instance.exports.get_function("listen").unwrap().clone();
         let app = env.as_mut(&mut store);
         app.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
         App {
             env,
             instance,
+            listen,
             store,
         }
+    }
+
+    pub fn listen(&mut self) {
+        // TODO Any way to scope lifetimes of any render passes from here?
+        self.listen.call(&mut self.store, &[Value::I32(0)]).unwrap();
+        // TODO Terminate any remaining passes?
     }
 
     pub fn load(path: &str, display: Display) -> App {
@@ -97,6 +106,7 @@ impl App {
 pub struct System {
     pub buffers: Vec<Buffer>,
     pub display: Display,
+    pub frame: Option<RenderFrame>,
     pub memory: Option<Memory>,
     pub shaders: Vec<ShaderModule>,
 }
@@ -107,6 +117,7 @@ impl System {
             buffers: vec![],
             display,
             memory: None,
+            frame: None,
             shaders: vec![],
         }
     }
@@ -164,8 +175,32 @@ fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, context:
 }
 
 fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, context: u32) {
-    // let platform = env.data_mut();
-    // begin_pass(platform, context)
+    let system = env.data_mut();
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let frame = gfx.surface.get_current_texture().unwrap();
+    let view = frame.texture.create_view(&Default::default());
+    let mut encoder = gfx.device.create_command_encoder(&Default::default());
+    let pass = unsafe { &mut *(&mut encoder as *mut CommandEncoder) }.begin_render_pass(
+        &wgpu::RenderPassDescriptor {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: unsafe { &*(&view as *const TextureView) },
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        },
+    );
+    let frame = RenderFrame {
+        encoder,
+        frame,
+        pass: Some(unsafe { transmute(pass) }),
+        view,
+    };
 }
 
 fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, context: u32) {
@@ -274,9 +309,18 @@ fn taca_Window_setTitle(mut env: FunctionEnvMut<System>, text: u32) {
 }
 
 fn taca_Window_state(mut env: FunctionEnvMut<System>, result: u32) {
-    // let (platform, store) = env.data_and_store_mut();
-    // let view = platform.memory.as_ref().unwrap().view(&store);
-    // WasmRef::<WindowState>::new(&view, result as u64)
-    //     .write(platform.window_state)
-    //     .unwrap();
+    let (system, store) = env.data_and_store_mut();
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let pointer = system.display.pointer_pos.unwrap_or(Default::default());
+    let size = gfx.window.inner_size();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let state = WindowState {
+        pointer: [pointer.x as f32, pointer.y as f32],
+        size: [size.width as f32, size.height as f32],
+    };
+    WasmRef::<WindowState>::new(&view, result as u64)
+        .write(state)
+        .unwrap();
 }

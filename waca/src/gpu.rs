@@ -2,7 +2,8 @@ use bytemuck::PodCastError;
 use wasmer::ValueType;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BufferUsages, ShaderModule, ShaderModuleDescriptor, ShaderSource,
+    BufferUsages, CommandEncoder, ShaderModule, ShaderModuleDescriptor, ShaderSource,
+    SurfaceTexture, TextureView,
 };
 
 use crate::{app::System, display::MaybeGraphics};
@@ -47,6 +48,21 @@ pub struct PipelineInfo {
 pub struct PipelineShaderInfo {
     pub entry_point: String,
     pub shader: u32,
+}
+
+pub struct RenderFrame {
+    pub encoder: CommandEncoder,
+    pub frame: SurfaceTexture,
+    pub pass: Option<wgpu::RenderPass<'static>>,
+    pub view: TextureView,
+}
+
+impl Drop for RenderFrame {
+    fn drop(&mut self) {
+        if let Some(pass) = self.pass.take() {
+            drop(pass);
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]

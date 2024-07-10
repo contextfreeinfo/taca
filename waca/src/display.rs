@@ -1,11 +1,13 @@
 use std::{borrow::Cow, future::Future, ptr::null_mut, sync::Arc};
+use wasmer::ValueType;
 use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
 use winit::{
     application::ApplicationHandler,
-    dpi::PhysicalSize,
-    event::WindowEvent,
+    dpi::{PhysicalPosition, PhysicalSize},
+    event::{KeyEvent, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
-    window::{Window, WindowId},
+    keyboard::Key,
+    window::{Fullscreen, Window, WindowId},
 };
 
 use crate::app::AppPtr;
@@ -13,6 +15,7 @@ use crate::app::AppPtr;
 pub struct Display {
     pub app: AppPtr,
     pub graphics: MaybeGraphics,
+    pub pointer_pos: Option<PhysicalPosition<f64>>,
 }
 
 impl Display {
@@ -20,6 +23,7 @@ impl Display {
         Self {
             app: AppPtr(null_mut()),
             graphics: MaybeGraphics::Builder(GraphicsBuilder::new(event_loop.create_proxy())),
+            pointer_pos: None,
         }
     }
 
@@ -28,6 +32,8 @@ impl Display {
             // draw call rejected because graphics doesn't exist yet
             return;
         };
+        // TODO Event.
+        unsafe { &mut *self.app.0 }.listen();
 
         if gfx.render_pipeline.is_none() {
             gfx.build_render_pipeline();
@@ -56,6 +62,7 @@ impl Display {
         let command_buffer = encoder.finish();
         gfx.queue.submit([command_buffer]);
         frame.present();
+        gfx.window.request_redraw();
     }
 
     fn resized(&mut self, size: PhysicalSize<u32>) {
@@ -79,7 +86,43 @@ impl<'a> ApplicationHandler<Graphics> for Display {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
+        let MaybeGraphics::Graphics(gfx) = &mut self.graphics else {
+            // draw call rejected because graphics doesn't exist yet
+            return;
+        };
         match event {
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: _,
+                        logical_key,
+                        text: _,
+                        location: _,
+                        state,
+                        repeat,
+                        ..
+                    },
+                ..
+            } => match logical_key {
+                Key::Named(key) => match key {
+                    winit::keyboard::NamedKey::F11 => {
+                        if state.is_pressed() && !repeat {
+                            let fullscreen = match gfx.window.fullscreen() {
+                                Some(_) => None,
+                                None => Some(Fullscreen::Borderless(None)),
+                            };
+                            gfx.window.set_fullscreen(fullscreen);
+                        }
+                    }
+                    _ => {}
+                },
+                Key::Character(_) => {}
+                Key::Unidentified(_) => {}
+                Key::Dead(_) => {}
+            },
+            WindowEvent::CursorMoved { position, .. } => {
+                self.pointer_pos = Some(position);
+            }
             WindowEvent::Resized(size) => self.resized(size),
             WindowEvent::RedrawRequested => self.draw(),
             WindowEvent::CloseRequested => event_loop.exit(),
@@ -104,7 +147,7 @@ impl<'a> ApplicationHandler<Graphics> for Display {
 pub struct Graphics {
     pub window: Arc<Window>,
     instance: Instance,
-    surface: Surface<'static>,
+    pub surface: Surface<'static>,
     surface_config: SurfaceConfiguration,
     adapter: Adapter,
     pub device: Device,
@@ -193,6 +236,13 @@ impl GraphicsBuilder {
 pub enum MaybeGraphics {
     Builder(GraphicsBuilder),
     Graphics(Graphics),
+}
+
+#[derive(Clone, Copy, Debug, Default, ValueType)]
+#[repr(C)]
+pub struct WindowState {
+    pub pointer: [f32; 2],
+    pub size: [f32; 2],
 }
 
 fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphics> + 'static {
