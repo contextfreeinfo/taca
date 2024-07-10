@@ -59,14 +59,6 @@ pub struct RenderFrame {
     pub view: TextureView,
 }
 
-// impl Drop for RenderFrame {
-//     fn drop(&mut self) {
-//         if let Some(pass) = self.pass.take() {
-//             drop(pass);
-//         }
-//     }
-// }
-
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct Span {

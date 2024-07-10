@@ -201,14 +201,20 @@ fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, _context: 
 fn taca_RenderingContext_draw(
     mut env: FunctionEnvMut<System>,
     _context: u32,
-    item_begin: i32,
-    item_count: i32,
-    instance_count: i32,
+    item_begin: u32,
+    item_count: u32,
+    instance_count: u32,
 ) {
     let system = env.data_mut();
     ensure_pass(system);
-    // let platform = env.data_mut();
-    // draw(platform, context, item_begin, item_count, instance_count);
+    let Some(RenderFrame {
+        pass: Some(pass), ..
+    }) = &mut system.frame
+    else {
+        return;
+    };
+    // TODO Ensure pipelined and buffered.
+    // pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
 }
 
 fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, _context: u32) {
