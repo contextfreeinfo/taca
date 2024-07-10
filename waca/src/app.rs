@@ -13,8 +13,8 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        create_buffer, create_pipeline, shader_create, Buffer, BufferSlice, ExternPipelineInfo,
-        PipelineInfo, PipelineShaderInfo, RenderFrame, Span,
+        create_buffer, create_pipeline, end_pass, ensure_pass, shader_create, Buffer, BufferSlice,
+        ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, RenderFrame, Span,
     },
 };
 
@@ -66,9 +66,13 @@ impl App {
     }
 
     pub fn listen(&mut self) {
-        // TODO Any way to scope lifetimes of any render passes from here?
         self.listen.call(&mut self.store, &[Value::I32(0)]).unwrap();
-        // TODO Terminate any remaining passes?
+        // Drop any remaining frame work.
+        let app = self.env.as_mut(&mut self.store);
+        if let Some(mut frame) = app.frame.take() {
+            // Finish any pass before letting the rest of the frame drop.
+            frame.pass.take();
+        }
     }
 
     pub fn load(path: &str, display: Display) -> App {
@@ -174,54 +178,42 @@ fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, context:
     // apply_uniforms(platform, context, &uniforms);
 }
 
-fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, context: u32) {
+fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, _context: u32) {
+    ensure_pass(env.data_mut());
+}
+
+fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, _context: u32) {
     let system = env.data_mut();
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;
     };
-    let frame = gfx.surface.get_current_texture().unwrap();
-    let view = frame.texture.create_view(&Default::default());
-    let mut encoder = gfx.device.create_command_encoder(&Default::default());
-    let pass = unsafe { &mut *(&mut encoder as *mut CommandEncoder) }.begin_render_pass(
-        &wgpu::RenderPassDescriptor {
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: unsafe { &*(&view as *const TextureView) },
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            ..Default::default()
-        },
-    );
-    let frame = RenderFrame {
-        encoder,
-        frame,
-        pass: Some(unsafe { transmute(pass) }),
-        view,
+    let Some(mut frame) = system.frame.take() else {
+        return;
     };
-}
-
-fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, context: u32) {
-    // let platform = env.data_mut();
-    // commit_frame(platform, context)
+    // First finish any pass.
+    frame.pass.take();
+    // Then commit frame.
+    let command_buffer = frame.encoder.finish();
+    gfx.queue.submit([command_buffer]);
+    frame.frame.present();
 }
 
 fn taca_RenderingContext_draw(
     mut env: FunctionEnvMut<System>,
-    context: u32,
+    _context: u32,
     item_begin: i32,
     item_count: i32,
     instance_count: i32,
 ) {
+    let system = env.data_mut();
+    ensure_pass(system);
     // let platform = env.data_mut();
     // draw(platform, context, item_begin, item_count, instance_count);
 }
 
-fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, context: u32) {
-    // let platform = env.data_mut();
-    // end_pass(platform, context)
+fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, _context: u32) {
+    let system = env.data_mut();
+    end_pass(system);
 }
 
 fn taca_RenderingContext_newBuffer(

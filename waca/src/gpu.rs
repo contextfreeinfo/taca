@@ -1,3 +1,5 @@
+use std::mem::transmute;
+
 use bytemuck::PodCastError;
 use wasmer::ValueType;
 use wgpu::{
@@ -57,13 +59,13 @@ pub struct RenderFrame {
     pub view: TextureView,
 }
 
-impl Drop for RenderFrame {
-    fn drop(&mut self) {
-        if let Some(pass) = self.pass.take() {
-            drop(pass);
-        }
-    }
-}
+// impl Drop for RenderFrame {
+//     fn drop(&mut self) {
+//         if let Some(pass) = self.pass.take() {
+//             drop(pass);
+//         }
+//     }
+// }
 
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
@@ -108,6 +110,57 @@ pub fn create_buffer(
 
 pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
     // let shader = &system.shaders[info.vertex.shader as usize];
+}
+
+pub fn end_pass(system: &mut System) {
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    if let Some(pass) = frame.pass.take() {
+        drop(pass);
+    }
+}
+
+pub fn ensure_pass(system: &mut System) {
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    if system.frame.is_none() {
+        let frame = gfx.surface.get_current_texture().unwrap();
+        let view = frame.texture.create_view(&Default::default());
+        let encoder = gfx.device.create_command_encoder(&Default::default());
+        system.frame = Some(RenderFrame {
+            encoder,
+            frame,
+            pass: None,
+            view,
+        });
+    }
+    let Some(frame) = system.frame.as_mut() else {
+        panic!()
+    };
+    if frame.pass.is_some() {
+        return;
+    }
+    let view = &frame.view;
+    let encoder = &mut frame.encoder;
+    let pass = unsafe { &mut *(encoder as *mut CommandEncoder) }.begin_render_pass(
+        &wgpu::RenderPassDescriptor {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: unsafe { &*(view as *const TextureView) },
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        },
+    );
+    frame.pass = Some(unsafe { transmute(pass) });
 }
 
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> ShaderModule {

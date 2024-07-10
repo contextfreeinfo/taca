@@ -39,29 +39,29 @@ impl Display {
             gfx.build_render_pipeline();
         }
 
-        let frame = gfx.surface.get_current_texture().unwrap();
-        let view = frame.texture.create_view(&Default::default());
-        let mut encoder = gfx.device.create_command_encoder(&Default::default());
+        // let frame = gfx.surface.get_current_texture().unwrap();
+        // let view = frame.texture.create_view(&Default::default());
+        // let mut encoder = gfx.device.create_command_encoder(&Default::default());
 
-        {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                ..Default::default()
-            });
-            rpass.set_pipeline(gfx.render_pipeline.as_ref().unwrap());
-            rpass.draw(0..3, 0..1);
-        }
+        // {
+        //     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+        //             view: &view,
+        //             resolve_target: None,
+        //             ops: wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+        //                 store: wgpu::StoreOp::Store,
+        //             },
+        //         })],
+        //         ..Default::default()
+        //     });
+        //     rpass.set_pipeline(gfx.render_pipeline.as_ref().unwrap());
+        //     rpass.draw(0..3, 0..1);
+        // }
 
-        let command_buffer = encoder.finish();
-        gfx.queue.submit([command_buffer]);
-        frame.present();
+        // let command_buffer = encoder.finish();
+        // gfx.queue.submit([command_buffer]);
+        // frame.present();
         gfx.window.request_redraw();
     }
 
@@ -151,7 +151,7 @@ pub struct Graphics {
     surface_config: SurfaceConfiguration,
     adapter: Adapter,
     pub device: Device,
-    queue: Queue,
+    pub queue: Queue,
     render_pipeline: Option<RenderPipeline>,
 }
 
