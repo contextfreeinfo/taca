@@ -1,11 +1,16 @@
 use std::mem::transmute;
 
 use bytemuck::PodCastError;
+use naga::{
+    front::spv,
+    valid::{Capabilities, ValidationFlags, Validator},
+    Binding, ScalarKind, VectorSize,
+};
 use wasmer::ValueType;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BufferUsages, CommandEncoder, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    SurfaceTexture, TextureView,
+    BufferUsages, CommandEncoder, MultisampleState, PrimitiveState, RenderPipelineDescriptor,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture, TextureView, VertexFormat,
 };
 
 use crate::{app::System, display::MaybeGraphics};
@@ -59,6 +64,12 @@ pub struct RenderFrame {
     pub view: TextureView,
 }
 
+pub struct Shader {
+    compiled: ShaderModule,
+    info: naga::valid::ModuleInfo,
+    module: naga::Module,
+}
+
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct Span {
@@ -71,6 +82,11 @@ pub struct Span {
 pub struct VertexAttribute {
     pub format: u32,
     pub buffer_index: u32,
+}
+
+struct VertexAttributesInfo {
+    attributes: Vec<wgpu::VertexAttribute>,
+    stride: u64,
 }
 
 pub fn create_buffer(
@@ -105,9 +121,6 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
 }
 
 pub fn end_pass(system: &mut System) {
-    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
-        return;
-    };
     let Some(frame) = system.frame.as_mut() else {
         return;
     };
@@ -155,10 +168,85 @@ pub fn ensure_pass(system: &mut System) {
     frame.pass = Some(unsafe { transmute(pass) });
 }
 
-pub fn shader_create(system: &mut System, bytes: &[u8]) -> ShaderModule {
+fn pipeline_ensure(system: &mut System) {
+    if !system.pipelines.is_empty() {
+        return;
+    }
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let Some(shader) = system.shaders.get(0) else {
+        return;
+    };
+    let device = &gfx.device;
+    // gfx.surface.get_default_config(gfx., width, height)
+    // let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+    //     label: None,
+    //     entries: &[BindGroupLayoutEntry {
+    //         binding: 0,
+    //         visibility: ShaderStages::VERTEX_FRAGMENT,
+    //         ty: wgpu::BindingType::Buffer {
+    //             ty: wgpu::BufferBindingType::Uniform,
+    //             has_dynamic_offset: false,
+    //             min_binding_size: None, // wgpu::BufferSize::new(64),
+    //         },
+    //         count: None,
+    //     }],
+    // });
+    // let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+    //     label: None,
+    //     bind_group_layouts: &[&bind_group_layout],
+    //     push_constant_ranges: &[],
+    // });
+    let vertex_entry_point = "vs_main";
+    let attr_info = vertex_attributes_build(shader, vertex_entry_point);
+    let vertex_attr_layout = wgpu::VertexBufferLayout {
+        array_stride: attr_info.stride,
+        // TODO Which vertex and which instance?
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &attr_info.attributes,
+    };
+    let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
+    let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: None,
+        // layout: Some(&pipeline_layout),
+        layout: None,
+        vertex: wgpu::VertexState {
+            module: &shader.compiled,
+            entry_point: vertex_entry_point,
+            compilation_options: Default::default(),
+            buffers: &[vertex_attr_layout],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader.compiled,
+            entry_point: "fs_main",
+            compilation_options: Default::default(),
+            targets: &[Some(surface_formats[0].into())],
+        }),
+        primitive: PrimitiveState {
+            cull_mode: Some(wgpu::Face::Back),
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: MultisampleState::default(),
+        multiview: None,
+    });
+    system.pipelines.push(pipeline);
+}
+
+fn pipelined_ensure(system: &mut System) {
+    pipeline_ensure(system);
+}
+
+pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
+    let module = spv::parse_u8_slice(bytes, &Default::default()).unwrap();
+    let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
+    let info = validator
+        .validate(&module)
+        .expect("Shader validation failed");
     let mut spirv_buffer = Vec::<u32>::new();
     let spirv: &[u32] = bytemuck::try_cast_slice(bytes).unwrap_or_else(|err| match err {
         PodCastError::AlignmentMismatch => {
@@ -171,8 +259,79 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> ShaderModule {
         }
         _ => panic!(),
     });
-    gfx.device.create_shader_module(ShaderModuleDescriptor {
+    let compiled = gfx.device.create_shader_module(ShaderModuleDescriptor {
         label: None,
         source: ShaderSource::SpirV(std::borrow::Cow::Borrowed(spirv)),
-    })
+    });
+    Shader {
+        compiled,
+        info,
+        module,
+    }
+}
+
+pub fn uniforms_apply(system: &mut System, bytes: &[u8]) {
+    pipelined_ensure(system);
+    //
+}
+
+fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttributesInfo {
+    let entry = shader
+        .module
+        .entry_points
+        .iter()
+        .find(|it| it.name == entry_point)
+        .unwrap();
+    let types = &shader.module.types;
+    let mut offset = 0;
+    let attributes: Vec<_> = entry
+        .function
+        .arguments
+        .iter()
+        .filter_map(|arg| {
+            let Some(Binding::Location { location, .. }) = arg.binding else {
+                return None;
+            };
+            let format = match &types[arg.ty].inner {
+                naga::TypeInner::Scalar(naga::Scalar { kind, width }) => match (kind, width) {
+                    (ScalarKind::Sint, 4) => VertexFormat::Sint32,
+                    (ScalarKind::Uint, 4) => VertexFormat::Uint32,
+                    (ScalarKind::Float, 4) => VertexFormat::Float32,
+                    _ => todo!(),
+                },
+                naga::TypeInner::Vector {
+                    size,
+                    scalar: naga::Scalar { kind, width },
+                } => match (kind, width, size) {
+                    (ScalarKind::Float, 4, VectorSize::Bi) => VertexFormat::Float32x2,
+                    (ScalarKind::Float, 4, VectorSize::Tri) => VertexFormat::Float32x3,
+                    (ScalarKind::Float, 4, VectorSize::Quad) => VertexFormat::Float32x4,
+                    _ => todo!(),
+                },
+                naga::TypeInner::Matrix { .. } => todo!(),
+                naga::TypeInner::Atomic(_) => todo!(),
+                naga::TypeInner::Pointer { .. } => todo!(),
+                naga::TypeInner::ValuePointer { .. } => todo!(),
+                naga::TypeInner::Array { .. } => todo!(),
+                naga::TypeInner::Struct { .. } => todo!(),
+                naga::TypeInner::Image { .. } => todo!(),
+                naga::TypeInner::Sampler { .. } => todo!(),
+                naga::TypeInner::AccelerationStructure => todo!(),
+                naga::TypeInner::RayQuery => todo!(),
+                naga::TypeInner::BindingArray { .. } => todo!(),
+            };
+            let attr = wgpu::VertexAttribute {
+                format,
+                offset,
+                shader_location: location,
+            };
+            offset += format.size();
+            Some(attr)
+        })
+        .collect();
+    VertexAttributesInfo {
+        attributes,
+        // TODO Padding/alignment above and here.
+        stride: offset,
+    }
 }

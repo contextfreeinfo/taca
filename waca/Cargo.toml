@@ -12,3 +12,8 @@ wasmer = "4.3.2"
 wasmer-types = "4.3.2"
 wgpu = { version = "0.20.1", features = ["spirv"] }
 winit = "0.30.3"
+
+[dependencies.naga]
+version = "0.20.0"
+default-features = false
+features = ["spv-in"]

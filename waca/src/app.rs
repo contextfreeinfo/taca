@@ -7,14 +7,13 @@ use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
     Value, ValueType, WasmPtr, WasmRef,
 };
-use wgpu::{CommandEncoder, ShaderModule, TextureView};
+use wgpu::{CommandEncoder, RenderPipeline, ShaderModule, TextureView};
 use winit::event_loop::EventLoop;
 
 use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        create_buffer, create_pipeline, end_pass, ensure_pass, shader_create, Buffer, BufferSlice,
-        ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, RenderFrame, Span,
+        create_buffer, create_pipeline, end_pass, ensure_pass, shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span
     },
 };
 
@@ -112,7 +111,8 @@ pub struct System {
     pub display: Display,
     pub frame: Option<RenderFrame>,
     pub memory: Option<Memory>,
-    pub shaders: Vec<ShaderModule>,
+    pub pipelines: Vec<RenderPipeline>,
+    pub shaders: Vec<Shader>,
 }
 
 impl System {
@@ -122,6 +122,7 @@ impl System {
             display,
             memory: None,
             frame: None,
+            pipelines: vec![],
             shaders: vec![],
         }
     }
@@ -170,12 +171,12 @@ fn taca_RenderingContext_applyPipeline(
     // apply_pipeline(platform, context, pipeline)
 }
 
-fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, context: u32, bytes: u32) {
-    // let (platform, store) = env.data_and_store_mut();
-    // let view = platform.memory.as_ref().unwrap().view(&store);
-    // let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
-    // let uniforms = read_span::<u8>(&view, uniforms);
-    // apply_uniforms(platform, context, &uniforms);
+fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, _context: u32, bytes: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let uniforms = read_span::<u8>(&view, uniforms);
+    uniforms_apply(system, &uniforms);
 }
 
 fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, _context: u32) {

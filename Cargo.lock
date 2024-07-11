@@ -2889,6 +2889,7 @@ dependencies = [
  "bytemuck",
  "clap",
  "lz4_flex",
+ "naga",
  "pollster",
  "wasmer",
  "wasmer-types",

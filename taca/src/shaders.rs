@@ -30,6 +30,7 @@ impl Shader {
         let info = validator.validate(&module).unwrap();
         // TODO Some way to know the uniform name, but names are always invented on output. See naga::back::glsl::Writer::write_interface_block
         // TODO And type suffixes are also invented on output. See naga::proc::namer::call
+        // TODO Apparently you can just look up handle to value directly on the module.types arena.
         let mut types: Vec<Option<&Type>> = vec![
             None;
             module
