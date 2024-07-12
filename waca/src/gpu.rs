@@ -61,6 +61,7 @@ pub struct RenderFrame {
     pub encoder: CommandEncoder,
     pub frame: SurfaceTexture,
     pub pass: Option<wgpu::RenderPass<'static>>,
+    pub pipelined: bool,
     pub view: TextureView,
 }
 
@@ -87,6 +88,32 @@ pub struct VertexAttribute {
 struct VertexAttributesInfo {
     attributes: Vec<wgpu::VertexAttribute>,
     stride: u64,
+}
+
+pub fn buffered_ensure<'a>(system: &'a mut System) {
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    pass_ensure(system);
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    let Some(pass) = &mut frame.pass else {
+        return;
+    };
+    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
+    let index = system
+        .buffers
+        .iter()
+        .find(|it| it.usage == BufferUsages::INDEX)
+        .unwrap();
+    let vertex = system
+        .buffers
+        .iter()
+        .find(|it| it.usage == BufferUsages::VERTEX)
+        .unwrap();
+    pass.set_index_buffer(index.buffer.slice(..), wgpu::IndexFormat::Uint16);
+    pass.set_vertex_buffer(0, vertex.buffer.slice(..));
 }
 
 pub fn create_buffer(
@@ -129,7 +156,7 @@ pub fn end_pass(system: &mut System) {
     }
 }
 
-pub fn ensure_pass(system: &mut System) {
+pub fn pass_ensure(system: &mut System) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;
     };
@@ -141,6 +168,7 @@ pub fn ensure_pass(system: &mut System) {
             encoder,
             frame,
             pass: None,
+            pipelined: false,
             view,
         });
     }
@@ -234,8 +262,20 @@ fn pipeline_ensure(system: &mut System) {
     system.pipelines.push(pipeline);
 }
 
-fn pipelined_ensure(system: &mut System) {
+pub fn pipelined_ensure<'a>(system: &'a mut System) {
     pipeline_ensure(system);
+    pass_ensure(system);
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    if frame.pipelined {
+        return;
+    }
+    let Some(pass) = &mut frame.pass else {
+        return;
+    };
+    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
+    pass.set_pipeline(&system.pipelines[0]);
 }
 
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
@@ -272,7 +312,6 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
 
 pub fn uniforms_apply(system: &mut System, bytes: &[u8]) {
     pipelined_ensure(system);
-    //
 }
 
 fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttributesInfo {

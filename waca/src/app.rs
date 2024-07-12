@@ -13,7 +13,9 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        create_buffer, create_pipeline, end_pass, ensure_pass, shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span
+        buffered_ensure, create_buffer, create_pipeline, end_pass, pass_ensure, pipelined_ensure,
+        shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo,
+        PipelineShaderInfo, RenderFrame, Shader, Span,
     },
 };
 
@@ -180,7 +182,7 @@ fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, _context
 }
 
 fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, _context: u32) {
-    ensure_pass(env.data_mut());
+    pass_ensure(env.data_mut());
 }
 
 fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, _context: u32) {
@@ -207,7 +209,8 @@ fn taca_RenderingContext_draw(
     instance_count: u32,
 ) {
     let system = env.data_mut();
-    ensure_pass(system);
+    pipelined_ensure(system);
+    buffered_ensure(system);
     let Some(RenderFrame {
         pass: Some(pass), ..
     }) = &mut system.frame
