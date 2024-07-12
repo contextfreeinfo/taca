@@ -208,25 +208,26 @@ fn pipeline_ensure(system: &mut System) {
         return;
     };
     let device = &gfx.device;
-    // gfx.surface.get_default_config(gfx., width, height)
-    // let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-    //     label: None,
-    //     entries: &[BindGroupLayoutEntry {
-    //         binding: 0,
-    //         visibility: ShaderStages::VERTEX_FRAGMENT,
-    //         ty: wgpu::BindingType::Buffer {
-    //             ty: wgpu::BufferBindingType::Uniform,
-    //             has_dynamic_offset: false,
-    //             min_binding_size: None, // wgpu::BufferSize::new(64),
-    //         },
-    //         count: None,
-    //     }],
-    // });
-    // let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-    //     label: None,
-    //     bind_group_layouts: &[&bind_group_layout],
-    //     push_constant_ranges: &[],
-    // });
+    let min_binding_size = uniforms_binding_size_find(&system.shaders[0]);
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size,
+            },
+            count: None,
+        }],
+    });
+    system.uniforms_bind_group_layout = Some(bind_group_layout);
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
+        push_constant_ranges: &[],
+    });
     let vertex_entry_point = "vs_main";
     let attr_info = vertex_attributes_build(shader, vertex_entry_point);
     let vertex_attr_layout = wgpu::VertexBufferLayout {
@@ -238,8 +239,7 @@ fn pipeline_ensure(system: &mut System) {
     let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
     let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
         label: None,
-        // layout: Some(&pipeline_layout),
-        layout: None,
+        layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader.compiled,
             entry_point: vertex_entry_point,
@@ -311,29 +311,52 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     }
 }
 
-pub fn uniforms_apply(system: &mut System, bytes: &[u8]) {
+pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     pipelined_ensure(system);
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
+    let device = &gfx.device;
     if system.uniforms_buffer.is_none() {
-        system.uniforms_buffer = Some(gfx.device.create_buffer(&BufferDescriptor {
+        system.uniforms_buffer = Some(device.create_buffer(&BufferDescriptor {
             label: None,
             size: bytes.len() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         }));
-        // let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     layout: &bind_group_layout,
-        //     entries: &[
-        //         wgpu::BindGroupEntry {
-        //             binding: 0,
-        //             resource: uniform_buf.as_entire_binding(),
-        //         },
-        //     ],
-        //     label: None,
-        // });
+        system.uniforms_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: system.uniforms_bind_group_layout.as_ref().unwrap(),
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: system.uniforms_buffer.as_ref().unwrap().as_entire_binding(),
+            }],
+            label: None,
+        }));
     }
+    gfx.queue
+        .write_buffer(system.uniforms_buffer.as_ref().unwrap(), 0, bytes);
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    let Some(pass) = &mut frame.pass else {
+        return;
+    };
+    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
+    pass.set_bind_group(0, system.uniforms_bind_group.as_ref().unwrap(), &[]);
+}
+
+fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {
+    let types = &shader.module.types;
+    for var in shader.module.global_variables.iter() {
+        let var = var.1;
+        if var.space == naga::AddressSpace::Uniform {
+            let ty = &types[var.ty];
+            let size = ty.inner.size(shader.module.to_ctx()) as u64;
+            // println!("{var:?}: {ty:?}");
+            return wgpu::BufferSize::new(size);
+        }
+    }
+    None
 }
 
 fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttributesInfo {

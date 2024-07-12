@@ -115,6 +115,8 @@ pub struct System {
     pub memory: Option<Memory>,
     pub pipelines: Vec<RenderPipeline>,
     pub shaders: Vec<Shader>,
+    pub uniforms_bind_group: Option<wgpu::BindGroup>,
+    pub uniforms_bind_group_layout: Option<wgpu::BindGroupLayout>,
     pub uniforms_buffer: Option<wgpu::Buffer>,
 }
 
@@ -127,6 +129,8 @@ impl System {
             frame: None,
             pipelines: vec![],
             shaders: vec![],
+            uniforms_bind_group: None,
+            uniforms_bind_group_layout: None,
             uniforms_buffer: None,
         }
     }
@@ -220,7 +224,7 @@ fn taca_RenderingContext_draw(
         return;
     };
     // TODO Ensure pipelined and buffered.
-    // pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
+    pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
 }
 
 fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, _context: u32) {
