@@ -9,8 +9,9 @@ use naga::{
 use wasmer::ValueType;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BufferUsages, CommandEncoder, MultisampleState, PrimitiveState, RenderPipelineDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture, TextureView, VertexFormat,
+    BufferDescriptor, BufferUsages, CommandEncoder, MultisampleState, PrimitiveState,
+    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture,
+    TextureView, VertexFormat,
 };
 
 use crate::{app::System, display::MaybeGraphics};
@@ -312,6 +313,27 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
 
 pub fn uniforms_apply(system: &mut System, bytes: &[u8]) {
     pipelined_ensure(system);
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        panic!();
+    };
+    if system.uniforms_buffer.is_none() {
+        system.uniforms_buffer = Some(gfx.device.create_buffer(&BufferDescriptor {
+            label: None,
+            size: bytes.len() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        }));
+        // let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //     layout: &bind_group_layout,
+        //     entries: &[
+        //         wgpu::BindGroupEntry {
+        //             binding: 0,
+        //             resource: uniform_buf.as_entire_binding(),
+        //         },
+        //     ],
+        //     label: None,
+        // });
+    }
 }
 
 fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttributesInfo {

@@ -115,6 +115,7 @@ pub struct System {
     pub memory: Option<Memory>,
     pub pipelines: Vec<RenderPipeline>,
     pub shaders: Vec<Shader>,
+    pub uniforms_buffer: Option<wgpu::Buffer>,
 }
 
 impl System {
@@ -126,6 +127,7 @@ impl System {
             frame: None,
             pipelines: vec![],
             shaders: vec![],
+            uniforms_buffer: None,
         }
     }
 }
