@@ -86,6 +86,7 @@ pub struct VertexAttribute {
     pub buffer_index: u32,
 }
 
+#[derive(Debug)]
 struct VertexAttributesInfo {
     attributes: Vec<wgpu::VertexAttribute>,
     stride: u64,
@@ -137,6 +138,8 @@ pub fn create_buffer(
         contents,
         usage,
     });
+    // dbg!(&buffer);
+    // dbg!(&contents);
     system.buffers.push(Buffer {
         buffer,
         item_size,
@@ -230,6 +233,7 @@ fn pipeline_ensure(system: &mut System) {
     });
     let vertex_entry_point = "vs_main";
     let attr_info = vertex_attributes_build(shader, vertex_entry_point);
+    // dbg!(&attr_info);
     let vertex_attr_layout = wgpu::VertexBufferLayout {
         array_stride: attr_info.stride,
         // TODO Which vertex and which instance?

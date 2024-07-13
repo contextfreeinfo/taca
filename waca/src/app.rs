@@ -1,13 +1,13 @@
 #![allow(non_snake_case)]
 
-use std::{fs::File, io::Read, mem::transmute};
+use std::{fs::File, io::Read};
 
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
     Value, ValueType, WasmPtr, WasmRef,
 };
-use wgpu::{CommandEncoder, RenderPipeline, ShaderModule, TextureView};
+use wgpu::RenderPipeline;
 use winit::event_loop::EventLoop;
 
 use crate::{
@@ -203,6 +203,7 @@ fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, _context: 
     frame.pass.take();
     // Then commit frame.
     let command_buffer = frame.encoder.finish();
+    // dbg!(&command_buffer);
     gfx.queue.submit([command_buffer]);
     frame.frame.present();
 }
