@@ -45,6 +45,27 @@ pub struct ExternPipelineShaderInfo {
     pub shader: u32,
 }
 
+#[derive(Debug)]
+pub enum PassCommand {
+    Draw {
+        item_begin: u32,
+        item_count: u32,
+        instance_count: u32,
+    },
+    SetBindGroup {
+        index: usize,
+    },
+    SetIndexBuffer {
+        index: usize,
+    },
+    SetPipeline {
+        index: usize,
+    },
+    SetVertexBuffer {
+        index: usize,
+    },
+}
+
 #[derive(Clone, Debug)]
 pub struct PipelineInfo {
     pub attributes: Vec<VertexAttribute>,
@@ -61,7 +82,7 @@ pub struct PipelineShaderInfo {
 pub struct RenderFrame {
     pub encoder: CommandEncoder,
     pub frame: SurfaceTexture,
-    pub pass: Option<wgpu::RenderPass<'static>>,
+    pub pass: Vec<PassCommand>,
     pub pipelined: bool,
     pub view: TextureView,
 }
@@ -100,22 +121,20 @@ pub fn buffered_ensure<'a>(system: &'a mut System) {
     let Some(frame) = system.frame.as_mut() else {
         return;
     };
-    let Some(pass) = &mut frame.pass else {
-        return;
-    };
-    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
     let index = system
         .buffers
         .iter()
-        .find(|it| it.usage == BufferUsages::INDEX)
+        .position(|it| it.usage == BufferUsages::INDEX)
         .unwrap();
     let vertex = system
         .buffers
         .iter()
-        .find(|it| it.usage == BufferUsages::VERTEX)
+        .position(|it| it.usage == BufferUsages::VERTEX)
         .unwrap();
-    pass.set_index_buffer(index.buffer.slice(..), wgpu::IndexFormat::Uint16);
-    pass.set_vertex_buffer(0, vertex.buffer.slice(..));
+    frame.pass.push(PassCommand::SetIndexBuffer { index });
+    frame
+        .pass
+        .push(PassCommand::SetVertexBuffer { index: vertex });
 }
 
 pub fn create_buffer(
@@ -155,9 +174,46 @@ pub fn end_pass(system: &mut System) {
     let Some(frame) = system.frame.as_mut() else {
         return;
     };
-    if let Some(pass) = frame.pass.take() {
-        drop(pass);
+    if frame.pass.is_empty() {
+        // TODO Separate Option on pass to know if it ever got started?
+        return;
     }
+    let mut pass = frame
+        .encoder
+        .begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &frame.view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        });
+    // dbg!(&frame.pass);
+    for command in frame.pass.drain(..) {
+        match command {
+            PassCommand::Draw {
+                item_begin,
+                item_count,
+                instance_count,
+            } => pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count),
+            PassCommand::SetBindGroup { index: _ } => {
+                pass.set_bind_group(0, system.uniforms_bind_group.as_ref().unwrap(), &[])
+            }
+            PassCommand::SetIndexBuffer { index } => pass.set_index_buffer(
+                system.buffers[index].buffer.slice(..),
+                wgpu::IndexFormat::Uint16,
+            ),
+            PassCommand::SetPipeline { index } => pass.set_pipeline(&system.pipelines[index]),
+            PassCommand::SetVertexBuffer { index } => {
+                pass.set_vertex_buffer(0, system.buffers[index].buffer.slice(..))
+            }
+        }
+    }
+    // dbg!(&frame.pass);
+    // panic!();
 }
 
 pub fn pass_ensure(system: &mut System) {
@@ -171,33 +227,13 @@ pub fn pass_ensure(system: &mut System) {
         system.frame = Some(RenderFrame {
             encoder,
             frame,
-            pass: None,
+            pass: vec![],
             pipelined: false,
             view,
         });
     }
-    let Some(frame) = system.frame.as_mut() else {
-        panic!()
-    };
-    if frame.pass.is_some() {
-        return;
-    }
-    let view = &frame.view;
-    let encoder = &mut frame.encoder;
-    let pass = unsafe { &mut *(encoder as *mut CommandEncoder) }.begin_render_pass(
-        &wgpu::RenderPassDescriptor {
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: unsafe { &*(view as *const TextureView) },
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            ..Default::default()
-        },
-    );
-    frame.pass = Some(unsafe { transmute(pass) });
+    // TODO Make pass as Option and start it here?
+    // TODO Keep pass in a separate buffer on System to reduce allocations?
 }
 
 fn pipeline_ensure(system: &mut System) {
@@ -276,11 +312,8 @@ pub fn pipelined_ensure<'a>(system: &'a mut System) {
     if frame.pipelined {
         return;
     }
-    let Some(pass) = &mut frame.pass else {
-        return;
-    };
-    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
-    pass.set_pipeline(&system.pipelines[0]);
+    frame.pass.push(PassCommand::SetPipeline { index: 0 });
+    frame.pipelined = true;
 }
 
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
@@ -342,11 +375,7 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     let Some(frame) = system.frame.as_mut() else {
         return;
     };
-    let Some(pass) = &mut frame.pass else {
-        return;
-    };
-    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
-    pass.set_bind_group(0, system.uniforms_bind_group.as_ref().unwrap(), &[]);
+    frame.pass.push(PassCommand::SetBindGroup { index: 0 });
 }
 
 fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {

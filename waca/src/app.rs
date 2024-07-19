@@ -14,8 +14,8 @@ use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
         buffered_ensure, create_buffer, create_pipeline, end_pass, pass_ensure, pipelined_ensure,
-        shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo,
-        PipelineShaderInfo, RenderFrame, Shader, Span,
+        shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PassCommand,
+        PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
 };
 
@@ -72,7 +72,7 @@ impl App {
         let app = self.env.as_mut(&mut self.store);
         if let Some(mut frame) = app.frame.take() {
             // Finish any pass before letting the rest of the frame drop.
-            frame.pass.take();
+            // TODO Execute pass?
         }
     }
 
@@ -192,16 +192,16 @@ fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, _context: u3
 }
 
 fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, _context: u32) {
-    let system = env.data_mut();
+    let mut system = env.data_mut();
+    // Actually execute pass.
+    end_pass(&mut system);
+    // Then commit frame.
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;
     };
-    let Some(mut frame) = system.frame.take() else {
+    let Some(frame) = system.frame.take() else {
         return;
     };
-    // First finish any pass.
-    frame.pass.take();
-    // Then commit frame.
     let command_buffer = frame.encoder.finish();
     // dbg!(&command_buffer);
     gfx.queue.submit([command_buffer]);
@@ -218,14 +218,14 @@ fn taca_RenderingContext_draw(
     let system = env.data_mut();
     pipelined_ensure(system);
     buffered_ensure(system);
-    let Some(RenderFrame {
-        pass: Some(pass), ..
-    }) = &mut system.frame
-    else {
+    let Some(RenderFrame { pass, .. }) = &mut system.frame else {
         return;
     };
-    // TODO Ensure pipelined and buffered.
-    pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
+    pass.push(PassCommand::Draw {
+        item_begin,
+        item_count,
+        instance_count,
+    });
 }
 
 fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, _context: u32) {
