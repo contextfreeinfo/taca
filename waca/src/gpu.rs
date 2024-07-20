@@ -241,6 +241,7 @@ fn pipeline_ensure(system: &mut System) {
         attributes: &attr_info.attributes,
     };
     let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
+    // dbg!(&surface_formats);
     let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
         label: None,
         layout: Some(&pipeline_layout),
@@ -256,10 +257,7 @@ fn pipeline_ensure(system: &mut System) {
             compilation_options: Default::default(),
             targets: &[Some(surface_formats[0].into())],
         }),
-        primitive: PrimitiveState {
-            cull_mode: Some(wgpu::Face::Back),
-            ..Default::default()
-        },
+        primitive: Default::default(),
         depth_stencil: None,
         multisample: MultisampleState::default(),
         multiview: None,

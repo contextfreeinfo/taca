@@ -200,16 +200,34 @@ class App {
   }
 
   resizeCanvas() {
-    const canvas = this.config.canvas;
+    const { canvas } = this.config;
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
     this.gl.viewport(0, 0, canvas.width, canvas.height);
     this.resizeNeeded = false;
+    this.tacaBufferUpdate();
   }
 
   resizeNeeded = false;
 
   shaders: Shader[] = [];
+  tacaBuffer: WebGLBuffer | null = null;
+
+  tacaBufferUpdate() {
+    const { canvas } = this.config;
+    if (this.tacaBuffer) {
+      const { gl } = this;
+      for (const pipeline of this.pipelines) {
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.tacaBuffer);
+        const tacaBytes = new Uint8Array(pipeline.uniforms.tacaSize);
+        const tacaView = new DataView(tacaBytes.buffer);
+        tacaView.setFloat32(0, canvas.width, true);
+        tacaView.setFloat32(4, canvas.height, true);
+        // console.log(tacaBytes);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, tacaBytes);
+      }
+    }
+  }
 
   uniformsApply(uniforms: number) {
     this.#pipelinedEnsure();
@@ -221,11 +239,21 @@ class App {
       gl.bindBuffer(gl.UNIFORM_BUFFER, uniformsBuffer);
       gl.bufferData(gl.UNIFORM_BUFFER, uniforms.size, gl.DYNAMIC_DRAW);
       for (let i = 0; i < uniforms.count; i += 1) {
-        gl.bindBufferBase(gl.UNIFORM_BUFFER, i, uniformsBuffer);
+        if (i != uniforms.tacaIndex) {
+          gl.bindBufferBase(gl.UNIFORM_BUFFER, i, uniformsBuffer);
+        }
       }
       this.uniformsBuffer = uniformsBuffer;
+      // Custom taca uniforms.
+      const tacaBuffer = gl.createBuffer() ?? fail();
+      gl.bindBuffer(gl.UNIFORM_BUFFER, tacaBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.tacaSize, gl.DYNAMIC_DRAW);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, uniforms.tacaIndex, tacaBuffer);
+      this.tacaBuffer = tacaBuffer;
+      this.tacaBufferUpdate();
     }
     const uniformsBytes = this.readBytes(uniforms);
+    gl.bindBuffer(gl.UNIFORM_BUFFER, this.uniformsBuffer);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, uniformsBytes);
   }
 
@@ -235,18 +263,27 @@ class App {
     const { gl } = this;
     const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORM_BLOCKS);
     let size = 0;
+    let tacaIndex = 0;
+    let tacaSize = 0;
     for (let i = 0; i < count; i += 1) {
-      let nextSize =
+      const name = gl.getActiveUniformBlockName(program, i);
+      // console.log(`uniform: ${name}`);
+      const nextSize =
         gl.getActiveUniformBlockParameter(
           program,
           i,
           gl.UNIFORM_BLOCK_DATA_SIZE
         ) ?? fail();
-      if (i > 0 && nextSize != size) fail();
-      size = nextSize;
+      if (name == "taca_uniform_block") {
+        tacaIndex = i;
+        tacaSize = nextSize;
+      } else {
+        if (i > 0 && nextSize != size) fail();
+        size = nextSize;
+      }
       gl.uniformBlockBinding(program, i, i);
     }
-    return { count, size };
+    return { count, size, tacaIndex, tacaSize };
   }
 
   vertexArray: WebGLVertexArrayObject | null = null;
@@ -434,4 +471,7 @@ const textDecoder = new TextDecoder();
 interface Uniforms {
   count: number;
   size: number;
+  // TODO These are needed only once, not per pipeline.
+  tacaIndex: number;
+  tacaSize: number;
 }

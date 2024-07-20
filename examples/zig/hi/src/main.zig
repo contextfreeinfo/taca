@@ -13,9 +13,9 @@ pub fn main() void {
         .vertex,
         .immutable,
         taca.BufferSlice.new(&[_]Vertex{
-            .{ .pos = .{ -0.5, -y }, .color = .{ 1, 0, 0, 1 } },
-            .{ .pos = .{ 0.5, -y }, .color = .{ 0, 1, 0, 1 } },
-            .{ .pos = .{ 0.0, y }, .color = .{ 0, 0, 1, 1 } },
+            .{ .pos = .{ -0.5, y }, .color = .{ 1, 0, 0, 1 } },
+            .{ .pos = .{ 0.5, y }, .color = .{ 0, 1, 0, 1 } },
+            .{ .pos = .{ 0.0, -y }, .color = .{ 0, 0, 1, 1 } },
         }),
     );
     _ = ctx.newBuffer(
@@ -37,7 +37,7 @@ export fn listen(event: taca.EventKind) void {
     const aspect = size[0] / size[1];
     ctx.applyUniforms(&Uniforms{
         .aspect = if (aspect < 1) .{ 1 / aspect, 1 } else .{ 1, aspect },
-        .pointer = .{ state.pointer[0], size[1] - state.pointer[1] },
+        .pointer = .{ state.pointer[0], state.pointer[1] },
     });
     ctx.draw(0, 3, 1);
     ctx.commitFrame();

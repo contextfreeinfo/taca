@@ -1,6 +1,6 @@
 use lz4_flex::frame::FrameDecoder;
 use naga::{
-    back::glsl::{self, WriterFlags},
+    back::glsl,
     front::spv::{self, Options},
     proc::{BoundsCheckPolicies, BoundsCheckPolicy},
     valid::{Capabilities, ModuleInfo, ValidationFlags, Validator},
@@ -49,7 +49,7 @@ pub fn shader_new(bytes: &[u8]) -> Shader {
 
 #[wasm_bindgen(js_name = "shaderToGlsl")]
 pub fn shader_to_glsl(shader: &Shader, stage: ShaderStage, entry_point: &str) -> String {
-    translate_to_glsl(
+    let glsl = translate_to_glsl(
         &shader.module,
         &shader.info,
         match stage {
@@ -57,7 +57,30 @@ pub fn shader_to_glsl(shader: &Shader, stage: ShaderStage, entry_point: &str) ->
             ShaderStage::Fragment => naga::ShaderStage::Fragment,
         },
         entry_point.into(),
-    )
+    );
+    match stage {
+        ShaderStage::Vertex => glsl,
+        ShaderStage::Fragment => munge_fragment(&glsl),
+    }
+}
+
+fn munge_fragment(glsl: &str) -> String {
+    let mut result = String::new();
+    for line in glsl.split('\n') {
+        if line.starts_with("uniform ") {
+            // Put in our own uniform first.
+            result.push_str("struct taca_uniform_struct { vec2 size; };\n");
+            result.push_str("uniform taca_uniform_block { taca_uniform_struct taca; };\n");
+        }
+        // TODO Ensure word boundaries! Or figure out how to modify naga modules directly.
+        let line = line.replace(
+            "gl_FragCoord",
+            "vec4(gl_FragCoord.x, taca.size.y - gl_FragCoord.y, gl_FragCoord.zw)",
+        );
+        result.push_str(&line);
+        result.push('\n');
+    }
+    result
 }
 
 fn translate_to_glsl(
@@ -73,7 +96,6 @@ fn translate_to_glsl(
             version: 300,
             is_webgl: true,
         },
-        writer_flags: WriterFlags::empty(),
         ..glsl::Options::default()
     };
     let pipeline_options = glsl::PipelineOptions {
