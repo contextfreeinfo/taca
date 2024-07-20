@@ -47,6 +47,7 @@ impl App {
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
                 "taca_RenderingContext_newPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newPipeline),
                 "taca_RenderingContext_newShader" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newShader),
+                "taca_Text_draw" => Function::new_typed_with_env(&mut store, &env, taca_Text_draw),
                 "taca_Window_get" => Function::new_typed_with_env(&mut store, &env, taca_Window_get),
                 "taca_Window_newRenderingContext" => Function::new_typed_with_env(&mut store, &env, taca_Window_newRenderingContext),
                 "taca_Window_print" => Function::new_typed_with_env(&mut store, &env, taca_Window_print),
@@ -153,7 +154,7 @@ fn read_string(view: &MemoryView, span: Span) -> String {
         .unwrap()
 }
 
-fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings: u32) {
+fn taca_RenderingContext_applyBindings(mut _env: FunctionEnvMut<System>, _bindings: u32) {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // let bindings = WasmPtr::<ExternBindings>::new(bindings)
@@ -166,7 +167,7 @@ fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings
     // apply_bindings(platform, context, bindings);
 }
 
-fn taca_RenderingContext_applyPipeline(mut env: FunctionEnvMut<System>, pipeline: u32) {
+fn taca_RenderingContext_applyPipeline(mut _env: FunctionEnvMut<System>, _pipeline: u32) {
     // let platform = env.data_mut();
     // apply_pipeline(platform, context, pipeline)
 }
@@ -270,6 +271,10 @@ fn taca_RenderingContext_newShader(mut env: FunctionEnvMut<System>, bytes: u32) 
     let shader = shader_create(system, &bytes);
     system.shaders.push(shader);
     system.shaders.len() as u32
+}
+
+fn taca_Text_draw(_env: FunctionEnvMut<System>, _text: u32) -> u32 {
+    0
 }
 
 fn taca_Window_get(_env: FunctionEnvMut<System>) -> u32 {

@@ -1,4 +1,3 @@
-use app::AppPtr;
 use clap::{Args, Parser, Subcommand};
 use winit::event_loop::EventLoop;
 

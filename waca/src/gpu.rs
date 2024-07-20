@@ -9,9 +9,9 @@ use naga::{
 use wasmer::ValueType;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BufferDescriptor, BufferUsages, CommandEncoder, MultisampleState, PrimitiveState,
-    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture,
-    TextureFormat, TextureView, TextureViewDescriptor, VertexFormat,
+    BufferDescriptor, BufferUsages, CommandEncoder, MultisampleState, RenderPipelineDescriptor,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture, TextureFormat, TextureView,
+    TextureViewDescriptor, VertexFormat,
 };
 
 use crate::{app::System, display::MaybeGraphics};
@@ -68,7 +68,7 @@ pub struct RenderFrame {
 
 pub struct Shader {
     compiled: ShaderModule,
-    info: naga::valid::ModuleInfo,
+    // info: naga::valid::ModuleInfo,
     module: naga::Module,
 }
 
@@ -144,7 +144,7 @@ pub fn create_buffer(
     });
 }
 
-pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
+pub fn create_pipeline(_system: &mut System, _info: PipelineInfo) {
     // let shader = &system.shaders[info.vertex.shader as usize];
 }
 
@@ -288,7 +288,7 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     };
     let module = spv::parse_u8_slice(bytes, &Default::default()).unwrap();
     let mut validator = Validator::new(ValidationFlags::all(), Capabilities::empty());
-    let info = validator
+    let _info = validator
         .validate(&module)
         .expect("Shader validation failed");
     let mut spirv_buffer = Vec::<u32>::new();
@@ -309,7 +309,7 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     });
     Shader {
         compiled,
-        info,
+        // info,
         module,
     }
 }

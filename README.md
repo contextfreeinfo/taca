@@ -38,13 +38,13 @@ npm run build-split
 For native, either build faster:
 
 ```sh
-cargo run --bin waca --profile release-quick -- run docs/demo/apps/zig/hi.taca
+cargo run --bin waca --profile release-quick -- run cana/public/hi.taca
 ```
 
 Or build more optimized:
 
 ```sh
-cargo run --bin waca --release -- run docs/demo/apps/zig/hi.taca
+cargo run --bin waca --release -- run cana/public/hi.taca
 ```
 
 ## Old Dev Notes

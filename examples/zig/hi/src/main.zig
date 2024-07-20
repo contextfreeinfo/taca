@@ -1,14 +1,17 @@
 const taca = @import("taca.zig");
-const window = taca.Window;
 const ctx = taca.RenderingContext;
+const window = taca.Window;
+
+const title = "Hi from Zig!";
 
 export fn config() void {
-    window.setTitle("Hi from Zig!");
+    window.setTitle(title);
 }
 
 pub fn main() void {
     // TODO Render text to display.
-    window.print("Hi from Zig!");
+    window.print(title);
+    _ = taca.Text.draw(title);
     const y = @sqrt(3.0) / 4.0;
     _ = ctx.newBuffer(
         .vertex,

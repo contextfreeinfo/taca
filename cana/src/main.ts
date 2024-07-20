@@ -423,6 +423,9 @@ function makeAppEnv(app: App) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
+    taca_Text_draw(text: number) {
+      return 0;
+    },
     taca_Window_newRenderingContext() {
       // TODO If we only have one, we don't need it at all, right?
       return 1;
