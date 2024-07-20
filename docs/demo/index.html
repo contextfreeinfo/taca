@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./taca.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Loading Taca app ...</title>
     <style>
       html,
@@ -19,7 +21,18 @@
     </style>
   </head>
   <body>
-    <canvas id="glcanvas" tabindex="1"></canvas>
-    <script src="taca.js" type="module"></script>
+    <canvas id="app" tabindex="1"></canvas>
+    <script type="module">
+      const url = new URL(window.location.href);
+      const app = new URLSearchParams(url.search).get("app");
+      if (app) {
+        const appRequest = fetch(app);
+        const { runApp } = await import("./taca.js");
+        runApp({
+          canvas: document.getElementById("app"),
+          wasm: await (await appRequest).arrayBuffer(),
+        });
+      }
+    </script>
   </body>
 </html>

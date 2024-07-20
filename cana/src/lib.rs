@@ -65,6 +65,7 @@ pub fn shader_to_glsl(shader: &Shader, stage: ShaderStage, entry_point: &str) ->
 }
 
 fn munge_fragment(glsl: &str) -> String {
+    // TODO Move this munging to js?
     let mut result = String::new();
     for line in glsl.split('\n') {
         if line.starts_with("uniform ") {

@@ -18,6 +18,37 @@ combined, when everything is gzipped:
 
 ## Dev Notes
 
+Look at package.json under cana for web versions. For simple dev:
+
+```sh
+npm run dev
+# Separate tab on Rust code change:
+npm run pack-dev
+```
+
+Or for actual builds:
+
+```sh
+npm run preview
+# Separate tab, and pick your poison:
+npm run build
+npm run build-split
+```
+
+For native, either build faster:
+
+```sh
+cargo run --bin waca --profile release-quick -- run docs/demo/apps/zig/hi.taca
+```
+
+Or build more optimized:
+
+```sh
+cargo run --bin waca --release -- run docs/demo/apps/zig/hi.taca
+```
+
+## Old Dev Notes
+
 Build normal:
 
 ```sh

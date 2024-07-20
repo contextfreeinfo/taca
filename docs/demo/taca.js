@@ -1,1 +1,393 @@
-"use strict";const version=2;const canvas=document.querySelector("#glcanvas");var gl;var clipboard=null;var plugins=[];var wasm_memory;var animation_frame_timeout;var high_dpi=false;var blocking_event_loop=false;function init_webgl(version){if(version==1){gl=canvas.getContext("webgl");function acquireVertexArrayObjectExtension(ctx){var ext=ctx.getExtension("OES_vertex_array_object");if(ext){ctx["createVertexArray"]=function(){return ext["createVertexArrayOES"]()};ctx["deleteVertexArray"]=function(vao){ext["deleteVertexArrayOES"](vao)};ctx["bindVertexArray"]=function(vao){ext["bindVertexArrayOES"](vao)};ctx["isVertexArray"]=function(vao){return ext["isVertexArrayOES"](vao)}}else{alert("Unable to get OES_vertex_array_object extension")}}function acquireInstancedArraysExtension(ctx){var ext=ctx.getExtension("ANGLE_instanced_arrays");if(ext){ctx["vertexAttribDivisor"]=function(index,divisor){ext["vertexAttribDivisorANGLE"](index,divisor)};ctx["drawArraysInstanced"]=function(mode,first,count,primcount){ext["drawArraysInstancedANGLE"](mode,first,count,primcount)};ctx["drawElementsInstanced"]=function(mode,count,type,indices,primcount){ext["drawElementsInstancedANGLE"](mode,count,type,indices,primcount)}}}function acquireDisjointTimerQueryExtension(ctx){var ext=ctx.getExtension("EXT_disjoint_timer_query");if(ext){ctx["createQuery"]=function(){return ext["createQueryEXT"]()};ctx["beginQuery"]=function(target,query){return ext["beginQueryEXT"](target,query)};ctx["endQuery"]=function(target){return ext["endQueryEXT"](target)};ctx["deleteQuery"]=function(query){ext["deleteQueryEXT"](query)};ctx["getQueryObject"]=function(query,pname){return ext["getQueryObjectEXT"](query,pname)}}}function acquireDrawBuffers(ctx){var ext=ctx.getExtension("WEBGL_draw_buffers");if(ext){ctx["drawBuffers"]=function(bufs){return ext["drawBuffersWEBGL"](bufs)}}}try{gl.getExtension("EXT_shader_texture_lod");gl.getExtension("OES_standard_derivatives")}catch(e){console.warn(e)}acquireVertexArrayObjectExtension(gl);acquireInstancedArraysExtension(gl);acquireDisjointTimerQueryExtension(gl);acquireDrawBuffers(gl);if(gl.getExtension("WEBGL_depth_texture")==null){alert("Cant initialize WEBGL_depth_texture extension")}}else{gl=canvas.getContext("webgl2")}if(gl===null){alert("Unable to initialize WebGL. Your browser or machine may not support it.")}}canvas.focus();canvas.requestPointerLock=canvas.requestPointerLock||canvas.mozRequestPointerLock||function(){};document.exitPointerLock=document.exitPointerLock||document.mozExitPointerLock||function(){};function assert(flag,message){if(flag==false){alert(message)}}function getArray(ptr,arr,n){return new arr(wasm_memory.buffer,ptr,n)}function UTF8ToString(ptr,maxBytesToRead){let u8Array=new Uint8Array(wasm_memory.buffer,ptr);var idx=0;var endIdx=idx+maxBytesToRead;var str="";while(!(idx>=endIdx)){var u0=u8Array[idx++];if(!u0)return str;if(!(u0&128)){str+=String.fromCharCode(u0);continue}var u1=u8Array[idx++]&63;if((u0&224)==192){str+=String.fromCharCode((u0&31)<<6|u1);continue}var u2=u8Array[idx++]&63;if((u0&240)==224){u0=(u0&15)<<12|u1<<6|u2}else{if((u0&248)!=240)console.warn("Invalid UTF-8 leading byte 0x"+u0.toString(16)+" encountered when deserializing a UTF-8 string on the asm.js/wasm heap to a JS string!");u0=(u0&7)<<18|u1<<12|u2<<6|u8Array[idx++]&63}if(u0<65536){str+=String.fromCharCode(u0)}else{var ch=u0-65536;str+=String.fromCharCode(55296|ch>>10,56320|ch&1023)}}return str}function stringToUTF8(str,heap,outIdx,maxBytesToWrite){var startIdx=outIdx;var endIdx=outIdx+maxBytesToWrite;for(var i=0;i<str.length;++i){var u=str.charCodeAt(i);if(u>=55296&&u<=57343){var u1=str.charCodeAt(++i);u=65536+((u&1023)<<10)|u1&1023}if(u<=127){if(outIdx>=endIdx)break;heap[outIdx++]=u}else if(u<=2047){if(outIdx+1>=endIdx)break;heap[outIdx++]=192|u>>6;heap[outIdx++]=128|u&63}else if(u<=65535){if(outIdx+2>=endIdx)break;heap[outIdx++]=224|u>>12;heap[outIdx++]=128|u>>6&63;heap[outIdx++]=128|u&63}else{if(outIdx+3>=endIdx)break;if(u>=2097152)console.warn("Invalid Unicode code point 0x"+u.toString(16)+" encountered when serializing a JS string to an UTF-8 string on the asm.js/wasm heap! (Valid unicode code points should be in range 0-0x1FFFFF).");heap[outIdx++]=240|u>>18;heap[outIdx++]=128|u>>12&63;heap[outIdx++]=128|u>>6&63;heap[outIdx++]=128|u&63}}return outIdx-startIdx}var FS={loaded_files:[],unique_id:0};var GL={counter:1,buffers:[],mappedBuffers:{},programs:[],framebuffers:[],renderbuffers:[],textures:[],uniforms:[],shaders:[],vaos:[],timerQueries:[],contexts:{},programInfos:{},getNewId:function(table){var ret=GL.counter++;for(var i=table.length;i<ret;i++){table[i]=null}return ret},validateGLObjectID:function(objectHandleArray,objectID,callerFunctionName,objectReadableType){if(objectID!=0){if(objectHandleArray[objectID]===null){console.error(callerFunctionName+" called with an already deleted "+objectReadableType+" ID "+objectID+"!")}else if(!objectHandleArray[objectID]){console.error(callerFunctionName+" called with an invalid "+objectReadableType+" ID "+objectID+"!")}}},getSource:function(shader,count,string,length){var source="";for(var i=0;i<count;++i){var len=length==0?undefined:getArray(length+i*4,Uint32Array,1)[0];source+=UTF8ToString(getArray(string+i*4,Uint32Array,1)[0],len)}return source},populateUniformTable:function(program){GL.validateGLObjectID(GL.programs,program,"populateUniformTable","program");var p=GL.programs[program];var ptable=GL.programInfos[program]={uniforms:{},maxUniformLength:0,maxAttributeLength:-1,maxUniformBlockNameLength:-1};var utable=ptable.uniforms;var numUniforms=gl.getProgramParameter(p,35718);for(var i=0;i<numUniforms;++i){var u=gl.getActiveUniform(p,i);var name=u.name;ptable.maxUniformLength=Math.max(ptable.maxUniformLength,name.length+1);if(name.slice(-1)=="]"){name=name.slice(0,name.lastIndexOf("["))}var loc=gl.getUniformLocation(p,name);if(loc){var id=GL.getNewId(GL.uniforms);utable[name]=[u.size,id];GL.uniforms[id]=loc;for(var j=1;j<u.size;++j){var n=name+"["+j+"]";loc=gl.getUniformLocation(p,n);id=GL.getNewId(GL.uniforms);GL.uniforms[id]=loc}}}}};function _glGenObject(n,buffers,createFunction,objectTable,functionName){for(var i=0;i<n;i++){var buffer=gl[createFunction]();var id=buffer&&GL.getNewId(objectTable);if(buffer){buffer.name=id;objectTable[id]=buffer}else{console.error("GL_INVALID_OPERATION");GL.recordError(1282);alert("GL_INVALID_OPERATION in "+functionName+": GLctx."+createFunction+" returned null - most likely GL context is lost!")}getArray(buffers+i*4,Int32Array,1)[0]=id}}function _webglGet(name_,p,type){if(!p){console.error("GL_INVALID_VALUE in glGet"+type+"v(name="+name_+": Function called with null out pointer!");GL.recordError(1281);return}var ret=undefined;switch(name_){case 36346:ret=1;break;case 36344:if(type!="EM_FUNC_SIG_PARAM_I"&&type!="EM_FUNC_SIG_PARAM_I64"){GL.recordError(1280);err("GL_INVALID_ENUM in glGet"+type+"v(GL_SHADER_BINARY_FORMATS): Invalid parameter type!")}return;case 34814:case 36345:ret=0;break;case 34466:var formats=gl.getParameter(34467);ret=formats?formats.length:0;break;case 33309:assert(false,"unimplemented");break;case 33307:case 33308:assert(false,"unimplemented");break}if(ret===undefined){var result=gl.getParameter(name_);switch(typeof result){case"number":ret=result;break;case"boolean":ret=result?1:0;break;case"string":GL.recordError(1280);console.error("GL_INVALID_ENUM in glGet"+type+"v("+name_+") on a name which returns a string!");return;case"object":if(result===null){switch(name_){case 34964:case 35725:case 34965:case 36006:case 36007:case 32873:case 34229:case 35097:case 36389:case 34068:{ret=0;break}default:{GL.recordError(1280);console.error("GL_INVALID_ENUM in glGet"+type+"v("+name_+") and it returns null!");return}}}else if(result instanceof Float32Array||result instanceof Uint32Array||result instanceof Int32Array||result instanceof Array){for(var i=0;i<result.length;++i){assert(false,"unimplemented")}return}else{try{ret=result.name|0}catch(e){GL.recordError(1280);console.error("GL_INVALID_ENUM in glGet"+type+"v: Unknown object returned from WebGL getParameter("+name_+")! (error: "+e+")");return}}break;default:GL.recordError(1280);console.error("GL_INVALID_ENUM in glGet"+type+"v: Native code calling glGet"+type+"v("+name_+") and it returns "+result+" of type "+typeof result+"!");return}}switch(type){case"EM_FUNC_SIG_PARAM_I64":getArray(p,Int32Array,1)[0]=ret;case"EM_FUNC_SIG_PARAM_I":getArray(p,Int32Array,1)[0]=ret;break;case"EM_FUNC_SIG_PARAM_F":getArray(p,Float32Array,1)[0]=ret;break;case"EM_FUNC_SIG_PARAM_B":getArray(p,Int8Array,1)[0]=ret?1:0;break;default:throw"internal glGet error, bad type: "+type}}var Module;var wasm_exports;function resize(canvas,on_resize){var dpr=dpi_scale();var displayWidth=canvas.clientWidth*dpr;var displayHeight=canvas.clientHeight*dpr;if(canvas.width!=displayWidth||canvas.height!=displayHeight){canvas.width=displayWidth;canvas.height=displayHeight;if(on_resize!=undefined)on_resize(Math.floor(displayWidth),Math.floor(displayHeight))}}function animation(){wasm_exports.frame();if(!window.blocking_event_loop){if(animation_frame_timeout){window.cancelAnimationFrame(animation_frame_timeout)}animation_frame_timeout=window.requestAnimationFrame(animation)}}const SAPP_EVENTTYPE_TOUCHES_BEGAN=10;const SAPP_EVENTTYPE_TOUCHES_MOVED=11;const SAPP_EVENTTYPE_TOUCHES_ENDED=12;const SAPP_EVENTTYPE_TOUCHES_CANCELED=13;const SAPP_MODIFIER_SHIFT=1;const SAPP_MODIFIER_CTRL=2;const SAPP_MODIFIER_ALT=4;const SAPP_MODIFIER_SUPER=8;function into_sapp_mousebutton(btn){switch(btn){case 0:return 0;case 1:return 2;case 2:return 1;default:return btn}}function into_sapp_keycode(key_code){switch(key_code){case"Space":return 32;case"Quote":return 222;case"Comma":return 44;case"Minus":return 45;case"Period":return 46;case"Slash":return 189;case"Digit0":return 48;case"Digit1":return 49;case"Digit2":return 50;case"Digit3":return 51;case"Digit4":return 52;case"Digit5":return 53;case"Digit6":return 54;case"Digit7":return 55;case"Digit8":return 56;case"Digit9":return 57;case"Semicolon":return 59;case"Equal":return 61;case"KeyA":return 65;case"KeyB":return 66;case"KeyC":return 67;case"KeyD":return 68;case"KeyE":return 69;case"KeyF":return 70;case"KeyG":return 71;case"KeyH":return 72;case"KeyI":return 73;case"KeyJ":return 74;case"KeyK":return 75;case"KeyL":return 76;case"KeyM":return 77;case"KeyN":return 78;case"KeyO":return 79;case"KeyP":return 80;case"KeyQ":return 81;case"KeyR":return 82;case"KeyS":return 83;case"KeyT":return 84;case"KeyU":return 85;case"KeyV":return 86;case"KeyW":return 87;case"KeyX":return 88;case"KeyY":return 89;case"KeyZ":return 90;case"BracketLeft":return 91;case"Backslash":return 92;case"BracketRight":return 93;case"Backquote":return 96;case"Escape":return 256;case"Enter":return 257;case"Tab":return 258;case"Backspace":return 259;case"Insert":return 260;case"Delete":return 261;case"ArrowRight":return 262;case"ArrowLeft":return 263;case"ArrowDown":return 264;case"ArrowUp":return 265;case"PageUp":return 266;case"PageDown":return 267;case"Home":return 268;case"End":return 269;case"CapsLock":return 280;case"ScrollLock":return 281;case"NumLock":return 282;case"PrintScreen":return 283;case"Pause":return 284;case"F1":return 290;case"F2":return 291;case"F3":return 292;case"F4":return 293;case"F5":return 294;case"F6":return 295;case"F7":return 296;case"F8":return 297;case"F9":return 298;case"F10":return 299;case"F11":return 300;case"F12":return 301;case"F13":return 302;case"F14":return 303;case"F15":return 304;case"F16":return 305;case"F17":return 306;case"F18":return 307;case"F19":return 308;case"F20":return 309;case"F21":return 310;case"F22":return 311;case"F23":return 312;case"F24":return 313;case"Numpad0":return 320;case"Numpad1":return 321;case"Numpad2":return 322;case"Numpad3":return 323;case"Numpad4":return 324;case"Numpad5":return 325;case"Numpad6":return 326;case"Numpad7":return 327;case"Numpad8":return 328;case"Numpad9":return 329;case"NumpadDecimal":return 330;case"NumpadDivide":return 331;case"NumpadMultiply":return 332;case"NumpadSubtract":return 333;case"NumpadAdd":return 334;case"NumpadEnter":return 335;case"NumpadEqual":return 336;case"ShiftLeft":return 340;case"ControlLeft":return 341;case"AltLeft":return 342;case"OSLeft":return 343;case"ShiftRight":return 344;case"ControlRight":return 345;case"AltRight":return 346;case"OSRight":return 347;case"ContextMenu":return 348}console.log("Unsupported keyboard key: ",key_code)}function dpi_scale(){if(high_dpi){return window.devicePixelRatio||1}else{return 1}}function texture_size(internalFormat,width,height){if(internalFormat==gl.ALPHA){return width*height}else if(internalFormat==gl.RGB){return width*height*3}else if(internalFormat==gl.RGBA){return width*height*4}else{return width*height*3}}function mouse_relative_position(clientX,clientY){var targetRect=canvas.getBoundingClientRect();var x=(clientX-targetRect.left)*dpi_scale();var y=(clientY-targetRect.top)*dpi_scale();return{x:x,y:y}}var emscripten_shaders_hack=false;var importObject={env:{console_debug:function(ptr){console.debug(UTF8ToString(ptr))},console_log:function(ptr){console.log(UTF8ToString(ptr))},console_info:function(ptr){console.info(UTF8ToString(ptr))},console_warn:function(ptr){console.warn(UTF8ToString(ptr))},console_error:function(ptr){console.error(UTF8ToString(ptr))},set_emscripten_shader_hack:function(flag){emscripten_shaders_hack=flag},sapp_set_clipboard:function(ptr,len){clipboard=UTF8ToString(ptr,len)},dpi_scale:dpi_scale,rand:function(){return Math.floor(Math.random()*2147483647)},now:function(){return Date.now()/1e3},canvas_width:function(){return Math.floor(canvas.width)},canvas_height:function(){return Math.floor(canvas.height)},glClearDepthf:function(depth){gl.clearDepth(depth)},glClearColor:function(r,g,b,a){gl.clearColor(r,g,b,a)},glClearStencil:function(s){gl.clearStencil(s)},glColorMask:function(red,green,blue,alpha){gl.colorMask(red,green,blue,alpha)},glScissor:function(x,y,w,h){gl.scissor(x,y,w,h)},glClear:function(mask){gl.clear(mask)},glGenTextures:function(n,textures){_glGenObject(n,textures,"createTexture",GL.textures,"glGenTextures")},glActiveTexture:function(texture){gl.activeTexture(texture)},glBindTexture:function(target,texture){GL.validateGLObjectID(GL.textures,texture,"glBindTexture","texture");gl.bindTexture(target,GL.textures[texture])},glTexImage2D:function(target,level,internalFormat,width,height,border,format,type,pixels){gl.texImage2D(target,level,internalFormat,width,height,border,format,type,pixels?getArray(pixels,Uint8Array,texture_size(internalFormat,width,height)):null)},glTexSubImage2D:function(target,level,xoffset,yoffset,width,height,format,type,pixels){gl.texSubImage2D(target,level,xoffset,yoffset,width,height,format,type,pixels?getArray(pixels,Uint8Array,texture_size(format,width,height)):null)},glReadPixels:function(x,y,width,height,format,type,pixels){var pixelData=getArray(pixels,Uint8Array,texture_size(format,width,height));gl.readPixels(x,y,width,height,format,type,pixelData)},glTexParameteri:function(target,pname,param){gl.texParameteri(target,pname,param)},glUniform1fv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform1fv","location");assert((value&3)==0,"Pointer to float data passed to glUniform1fv must be aligned to four bytes!");var view=getArray(value,Float32Array,1*count);gl.uniform1fv(GL.uniforms[location],view)},glUniform2fv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform2fv","location");assert((value&3)==0,"Pointer to float data passed to glUniform2fv must be aligned to four bytes!");var view=getArray(value,Float32Array,2*count);gl.uniform2fv(GL.uniforms[location],view)},glUniform3fv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform3fv","location");assert((value&3)==0,"Pointer to float data passed to glUniform3fv must be aligned to four bytes!");var view=getArray(value,Float32Array,3*count);gl.uniform3fv(GL.uniforms[location],view)},glUniform4fv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform4fv","location");assert((value&3)==0,"Pointer to float data passed to glUniform4fv must be aligned to four bytes!");var view=getArray(value,Float32Array,4*count);gl.uniform4fv(GL.uniforms[location],view)},glUniform1iv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform1fv","location");assert((value&3)==0,"Pointer to i32 data passed to glUniform1iv must be aligned to four bytes!");var view=getArray(value,Int32Array,1*count);gl.uniform1iv(GL.uniforms[location],view)},glUniform2iv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform2fv","location");assert((value&3)==0,"Pointer to i32 data passed to glUniform2iv must be aligned to four bytes!");var view=getArray(value,Int32Array,2*count);gl.uniform2iv(GL.uniforms[location],view)},glUniform3iv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform3fv","location");assert((value&3)==0,"Pointer to i32 data passed to glUniform3iv must be aligned to four bytes!");var view=getArray(value,Int32Array,3*count);gl.uniform3iv(GL.uniforms[location],view)},glUniform4iv:function(location,count,value){GL.validateGLObjectID(GL.uniforms,location,"glUniform4fv","location");assert((value&3)==0,"Pointer to i32 data passed to glUniform4iv must be aligned to four bytes!");var view=getArray(value,Int32Array,4*count);gl.uniform4iv(GL.uniforms[location],view)},glBlendFunc:function(sfactor,dfactor){gl.blendFunc(sfactor,dfactor)},glBlendEquationSeparate:function(modeRGB,modeAlpha){gl.blendEquationSeparate(modeRGB,modeAlpha)},glDisable:function(cap){gl.disable(cap)},glDrawElements:function(mode,count,type,indices){gl.drawElements(mode,count,type,indices)},glGetIntegerv:function(name_,p){_webglGet(name_,p,"EM_FUNC_SIG_PARAM_I")},glUniform1f:function(location,v0){GL.validateGLObjectID(GL.uniforms,location,"glUniform1f","location");gl.uniform1f(GL.uniforms[location],v0)},glUniform1i:function(location,v0){GL.validateGLObjectID(GL.uniforms,location,"glUniform1i","location");gl.uniform1i(GL.uniforms[location],v0)},glGetAttribLocation:function(program,name){return gl.getAttribLocation(GL.programs[program],UTF8ToString(name))},glEnableVertexAttribArray:function(index){gl.enableVertexAttribArray(index)},glDisableVertexAttribArray:function(index){gl.disableVertexAttribArray(index)},glVertexAttribPointer:function(index,size,type,normalized,stride,ptr){gl.vertexAttribPointer(index,size,type,!!normalized,stride,ptr)},glGetUniformLocation:function(program,name){GL.validateGLObjectID(GL.programs,program,"glGetUniformLocation","program");name=UTF8ToString(name);var arrayIndex=0;if(name[name.length-1]=="]"){var leftBrace=name.lastIndexOf("[");arrayIndex=name[leftBrace+1]!="]"?parseInt(name.slice(leftBrace+1)):0;name=name.slice(0,leftBrace)}var uniformInfo=GL.programInfos[program]&&GL.programInfos[program].uniforms[name];if(uniformInfo&&arrayIndex>=0&&arrayIndex<uniformInfo[0]){return uniformInfo[1]+arrayIndex}else{return-1}},glUniformMatrix4fv:function(location,count,transpose,value){GL.validateGLObjectID(GL.uniforms,location,"glUniformMatrix4fv","location");assert((value&3)==0,"Pointer to float data passed to glUniformMatrix4fv must be aligned to four bytes!");var view=getArray(value,Float32Array,16);gl.uniformMatrix4fv(GL.uniforms[location],!!transpose,view)},glUseProgram:function(program){GL.validateGLObjectID(GL.programs,program,"glUseProgram","program");gl.useProgram(GL.programs[program])},glGenVertexArrays:function(n,arrays){_glGenObject(n,arrays,"createVertexArray",GL.vaos,"glGenVertexArrays")},glGenFramebuffers:function(n,ids){_glGenObject(n,ids,"createFramebuffer",GL.framebuffers,"glGenFramebuffers")},glBindVertexArray:function(vao){gl.bindVertexArray(GL.vaos[vao])},glBindFramebuffer:function(target,framebuffer){GL.validateGLObjectID(GL.framebuffers,framebuffer,"glBindFramebuffer","framebuffer");gl.bindFramebuffer(target,GL.framebuffers[framebuffer])},glGenBuffers:function(n,buffers){_glGenObject(n,buffers,"createBuffer",GL.buffers,"glGenBuffers")},glBindBuffer:function(target,buffer){GL.validateGLObjectID(GL.buffers,buffer,"glBindBuffer","buffer");gl.bindBuffer(target,GL.buffers[buffer])},glBufferData:function(target,size,data,usage){gl.bufferData(target,data?getArray(data,Uint8Array,size):size,usage)},glBufferSubData:function(target,offset,size,data){gl.bufferSubData(target,offset,data?getArray(data,Uint8Array,size):size)},glEnable:function(cap){gl.enable(cap)},glFlush:function(){gl.flush()},glFinish:function(){gl.finish()},glDepthFunc:function(func){gl.depthFunc(func)},glBlendFuncSeparate:function(sfactorRGB,dfactorRGB,sfactorAlpha,dfactorAlpha){gl.blendFuncSeparate(sfactorRGB,dfactorRGB,sfactorAlpha,dfactorAlpha)},glViewport:function(x,y,width,height){gl.viewport(x,y,width,height)},glDrawArrays:function(mode,first,count){gl.drawArrays(mode,first,count)},glDrawBuffers:function(n,bufs){gl.drawBuffers(getArray(bufs,Int32Array,n))},glCreateProgram:function(){var id=GL.getNewId(GL.programs);var program=gl.createProgram();program.name=id;GL.programs[id]=program;return id},glAttachShader:function(program,shader){GL.validateGLObjectID(GL.programs,program,"glAttachShader","program");GL.validateGLObjectID(GL.shaders,shader,"glAttachShader","shader");gl.attachShader(GL.programs[program],GL.shaders[shader])},glDetachShader:function(program,shader){GL.validateGLObjectID(GL.programs,program,"glDetachShader","program");GL.validateGLObjectID(GL.shaders,shader,"glDetachShader","shader");gl.detachShader(GL.programs[program],GL.shaders[shader])},glLinkProgram:function(program){GL.validateGLObjectID(GL.programs,program,"glLinkProgram","program");gl.linkProgram(GL.programs[program]);GL.populateUniformTable(program)},glPixelStorei:function(pname,param){gl.pixelStorei(pname,param)},glFramebufferTexture2D:function(target,attachment,textarget,texture,level){GL.validateGLObjectID(GL.textures,texture,"glFramebufferTexture2D","texture");gl.framebufferTexture2D(target,attachment,textarget,GL.textures[texture],level)},glGetProgramiv:function(program,pname,p){assert(p);GL.validateGLObjectID(GL.programs,program,"glGetProgramiv","program");if(program>=GL.counter){console.error("GL_INVALID_VALUE in glGetProgramiv");return}var ptable=GL.programInfos[program];if(!ptable){console.error("GL_INVALID_OPERATION in glGetProgramiv(program="+program+", pname="+pname+", p=0x"+p.toString(16)+"): The specified GL object name does not refer to a program object!");return}if(pname==35716){var log=gl.getProgramInfoLog(GL.programs[program]);assert(log!==null);getArray(p,Int32Array,1)[0]=log.length+1}else if(pname==35719){console.error("unsupported operation");return}else if(pname==35722){console.error("unsupported operation");return}else if(pname==35381){console.error("unsupported operation");return}else{getArray(p,Int32Array,1)[0]=gl.getProgramParameter(GL.programs[program],pname)}},glCreateShader:function(shaderType){var id=GL.getNewId(GL.shaders);GL.shaders[id]=gl.createShader(shaderType);return id},glStencilFuncSeparate:function(face,func,ref_,mask){gl.stencilFuncSeparate(face,func,ref_,mask)},glStencilMaskSeparate:function(face,mask){gl.stencilMaskSeparate(face,mask)},glStencilOpSeparate:function(face,fail,zfail,zpass){gl.stencilOpSeparate(face,fail,zfail,zpass)},glFrontFace:function(mode){gl.frontFace(mode)},glCullFace:function(mode){gl.cullFace(mode)},glCopyTexImage2D:function(target,level,internalformat,x,y,width,height,border){gl.copyTexImage2D(target,level,internalformat,x,y,width,height,border)},glShaderSource:function(shader,count,string,length){GL.validateGLObjectID(GL.shaders,shader,"glShaderSource","shader");var source=GL.getSource(shader,count,string,length);if(emscripten_shaders_hack){source=source.replace(/#extension GL_OES_standard_derivatives : enable/g,"");source=source.replace(/#extension GL_EXT_shader_texture_lod : enable/g,"");var prelude="";if(source.indexOf("gl_FragColor")!=-1){prelude+="out mediump vec4 GL_FragColor;\n";source=source.replace(/gl_FragColor/g,"GL_FragColor")}if(source.indexOf("attribute")!=-1){source=source.replace(/attribute/g,"in");source=source.replace(/varying/g,"out")}else{source=source.replace(/varying/g,"in")}source=source.replace(/textureCubeLodEXT/g,"textureCubeLod");source=source.replace(/texture2DLodEXT/g,"texture2DLod");source=source.replace(/texture2DProjLodEXT/g,"texture2DProjLod");source=source.replace(/texture2DGradEXT/g,"texture2DGrad");source=source.replace(/texture2DProjGradEXT/g,"texture2DProjGrad");source=source.replace(/textureCubeGradEXT/g,"textureCubeGrad");source=source.replace(/textureCube/g,"texture");source=source.replace(/texture1D/g,"texture");source=source.replace(/texture2D/g,"texture");source=source.replace(/texture3D/g,"texture");source=source.replace(/#version 100/g,"#version 300 es\n"+prelude)}gl.shaderSource(GL.shaders[shader],source)},glGetProgramInfoLog:function(program,maxLength,length,infoLog){GL.validateGLObjectID(GL.programs,program,"glGetProgramInfoLog","program");var log=gl.getProgramInfoLog(GL.programs[program]);assert(log!==null);let array=getArray(infoLog,Uint8Array,maxLength);for(var i=0;i<maxLength;i++){array[i]=log.charCodeAt(i)}},glGetString:function(id){var parameter=gl.getParameter(id).toString();var len=parameter.length+1;var msg=wasm_exports.allocate_vec_u8(len);var array=new Uint8Array(wasm_memory.buffer,msg,len);array[parameter.length]=0;stringToUTF8(parameter,array,0,len);return msg},glCompileShader:function(shader,count,string,length){GL.validateGLObjectID(GL.shaders,shader,"glCompileShader","shader");gl.compileShader(GL.shaders[shader])},glGetShaderiv:function(shader,pname,p){assert(p);GL.validateGLObjectID(GL.shaders,shader,"glGetShaderiv","shader");if(pname==35716){var log=gl.getShaderInfoLog(GL.shaders[shader]);assert(log!==null);getArray(p,Int32Array,1)[0]=log.length+1}else if(pname==35720){var source=gl.getShaderSource(GL.shaders[shader]);var sourceLength=source===null||source.length==0?0:source.length+1;getArray(p,Int32Array,1)[0]=sourceLength}else{getArray(p,Int32Array,1)[0]=gl.getShaderParameter(GL.shaders[shader],pname)}},glGetShaderInfoLog:function(shader,maxLength,length,infoLog){GL.validateGLObjectID(GL.shaders,shader,"glGetShaderInfoLog","shader");var log=gl.getShaderInfoLog(GL.shaders[shader]);assert(log!==null);let array=getArray(infoLog,Uint8Array,maxLength);for(var i=0;i<maxLength;i++){array[i]=log.charCodeAt(i)}},glVertexAttribDivisor:function(index,divisor){gl.vertexAttribDivisor(index,divisor)},glDrawArraysInstanced:function(mode,first,count,primcount){gl.drawArraysInstanced(mode,first,count,primcount)},glDrawElementsInstanced:function(mode,count,type,indices,primcount){gl.drawElementsInstanced(mode,count,type,indices,primcount)},glDeleteShader:function(shader){var id=GL.shaders[shader];if(id==null){return}gl.deleteShader(id);GL.shaders[shader]=null},glDeleteProgram:function(program){var id=GL.programs[program];if(id==null){return}gl.deleteProgram(id);GL.programs[program]=null},glDeleteBuffers:function(n,buffers){for(var i=0;i<n;i++){var id=getArray(buffers+i*4,Uint32Array,1)[0];var buffer=GL.buffers[id];if(!buffer)continue;gl.deleteBuffer(buffer);buffer.name=0;GL.buffers[id]=null}},glDeleteFramebuffers:function(n,buffers){for(var i=0;i<n;i++){var id=getArray(buffers+i*4,Uint32Array,1)[0];var buffer=GL.framebuffers[id];if(!buffer)continue;gl.deleteFramebuffer(buffer);buffer.name=0;GL.framebuffers[id]=null}},glDeleteTextures:function(n,textures){for(var i=0;i<n;i++){var id=getArray(textures+i*4,Uint32Array,1)[0];var texture=GL.textures[id];if(!texture)continue;gl.deleteTexture(texture);texture.name=0;GL.textures[id]=null}},glGenQueries:function(n,ids){_glGenObject(n,ids,"createQuery",GL.timerQueries,"glGenQueries")},glDeleteQueries:function(n,ids){for(var i=0;i<n;i++){var id=getArray(textures+i*4,Uint32Array,1)[0];var query=GL.timerQueries[id];if(!query){continue}gl.deleteQuery(query);query.name=0;GL.timerQueries[id]=null}},glBeginQuery:function(target,id){GL.validateGLObjectID(GL.timerQueries,id,"glBeginQuery","id");gl.beginQuery(target,GL.timerQueries[id])},glEndQuery:function(target){gl.endQuery(target)},glGetQueryObjectiv:function(id,pname,ptr){GL.validateGLObjectID(GL.timerQueries,id,"glGetQueryObjectiv","id");let result=gl.getQueryObject(GL.timerQueries[id],pname);getArray(ptr,Uint32Array,1)[0]=result},glGetQueryObjectui64v:function(id,pname,ptr){GL.validateGLObjectID(GL.timerQueries,id,"glGetQueryObjectui64v","id");let result=gl.getQueryObject(GL.timerQueries[id],pname);let heap=getArray(ptr,Uint32Array,2);heap[0]=result;heap[1]=(result-heap[0])/4294967296},glGenerateMipmap:function(index){gl.generateMipmap(index)},setup_canvas_size:function(high_dpi){window.high_dpi=high_dpi;resize(canvas)},run_animation_loop:function(blocking){canvas.onmousemove=function(event){var relative_position=mouse_relative_position(event.clientX,event.clientY);var x=relative_position.x;var y=relative_position.y;wasm_exports.mouse_move(Math.floor(x),Math.floor(y));if(event.movementX!=0||event.movementY!=0){wasm_exports.raw_mouse_move(Math.floor(event.movementX),Math.floor(event.movementY))}};canvas.onmousedown=function(event){var relative_position=mouse_relative_position(event.clientX,event.clientY);var x=relative_position.x;var y=relative_position.y;var btn=into_sapp_mousebutton(event.button);wasm_exports.mouse_down(x,y,btn)};canvas.addEventListener("wheel",function(event){event.preventDefault();wasm_exports.mouse_wheel(-event.deltaX,-event.deltaY)});canvas.onmouseup=function(event){var relative_position=mouse_relative_position(event.clientX,event.clientY);var x=relative_position.x;var y=relative_position.y;var btn=into_sapp_mousebutton(event.button);wasm_exports.mouse_up(x,y,btn)};canvas.onkeydown=function(event){var sapp_key_code=into_sapp_keycode(event.code);switch(sapp_key_code){case 32:case 262:case 263:case 264:case 265:case 290:case 291:case 292:case 293:case 294:case 295:case 296:case 297:case 298:case 299:case 259:case 258:case 39:case 47:event.preventDefault();break}var modifiers=0;if(event.ctrlKey){modifiers|=SAPP_MODIFIER_CTRL}if(event.shiftKey){modifiers|=SAPP_MODIFIER_SHIFT}if(event.altKey){modifiers|=SAPP_MODIFIER_ALT}wasm_exports.key_down(sapp_key_code,modifiers,event.repeat);if(sapp_key_code==32||sapp_key_code==39||sapp_key_code==47){wasm_exports.key_press(sapp_key_code)}};canvas.onkeyup=function(event){var sapp_key_code=into_sapp_keycode(event.code);var modifiers=0;if(event.ctrlKey){modifiers|=SAPP_MODIFIER_CTRL}if(event.shiftKey){modifiers|=SAPP_MODIFIER_SHIFT}if(event.altKey){modifiers|=SAPP_MODIFIER_ALT}wasm_exports.key_up(sapp_key_code,modifiers)};canvas.onkeypress=function(event){var sapp_key_code=into_sapp_keycode(event.code);let chrome_only=sapp_key_code==261||event.ctrlKey;if(chrome_only==false){wasm_exports.key_press(event.charCode)}};canvas.addEventListener("touchstart",function(event){event.preventDefault();for(const touch of event.changedTouches){let relative_position=mouse_relative_position(touch.clientX,touch.clientY);wasm_exports.touch(SAPP_EVENTTYPE_TOUCHES_BEGAN,touch.identifier,relative_position.x,relative_position.y)}});canvas.addEventListener("touchend",function(event){event.preventDefault();for(const touch of event.changedTouches){let relative_position=mouse_relative_position(touch.clientX,touch.clientY);wasm_exports.touch(SAPP_EVENTTYPE_TOUCHES_ENDED,touch.identifier,relative_position.x,relative_position.y)}});canvas.addEventListener("touchcancel",function(event){event.preventDefault();for(const touch of event.changedTouches){let relative_position=mouse_relative_position(touch.clientX,touch.clientY);wasm_exports.touch(SAPP_EVENTTYPE_TOUCHES_CANCELED,touch.identifier,relative_position.x,relative_position.y)}});canvas.addEventListener("touchmove",function(event){event.preventDefault();for(const touch of event.changedTouches){let relative_position=mouse_relative_position(touch.clientX,touch.clientY);wasm_exports.touch(SAPP_EVENTTYPE_TOUCHES_MOVED,touch.identifier,relative_position.x,relative_position.y)}});window.onresize=function(){resize(canvas,wasm_exports.resize)};window.addEventListener("copy",function(e){if(clipboard!=null){event.clipboardData.setData("text/plain",clipboard);event.preventDefault()}});window.addEventListener("cut",function(e){if(clipboard!=null){event.clipboardData.setData("text/plain",clipboard);event.preventDefault()}});window.addEventListener("paste",function(e){e.stopPropagation();e.preventDefault();var clipboardData=e.clipboardData||window.clipboardData;var pastedData=clipboardData.getData("Text");if(pastedData!=undefined&&pastedData!=null&&pastedData.length!=0){var len=(new TextEncoder).encode(pastedData).length;var msg=wasm_exports.allocate_vec_u8(len);var heap=new Uint8Array(wasm_memory.buffer,msg,len);stringToUTF8(pastedData,heap,0,len);wasm_exports.on_clipboard_paste(msg,len)}});window.ondragover=function(e){e.preventDefault()};window.ondrop=async function(e){e.preventDefault();wasm_exports.on_files_dropped_start();for(let file of e.dataTransfer.files){const nameLen=file.name.length;const nameVec=wasm_exports.allocate_vec_u8(nameLen);const nameHeap=new Uint8Array(wasm_memory.buffer,nameVec,nameLen);stringToUTF8(file.name,nameHeap,0,nameLen);const fileBuf=await file.arrayBuffer();const fileLen=fileBuf.byteLength;const fileVec=wasm_exports.allocate_vec_u8(fileLen);const fileHeap=new Uint8Array(wasm_memory.buffer,fileVec,fileLen);fileHeap.set(new Uint8Array(fileBuf),0);wasm_exports.on_file_dropped(nameVec,nameLen,fileVec,fileLen)}wasm_exports.on_files_dropped_finish()};let lastFocus=document.hasFocus();var checkFocus=function(){let hasFocus=document.hasFocus();if(lastFocus==hasFocus){wasm_exports.focus(hasFocus);lastFocus=hasFocus}};document.addEventListener("visibilitychange",checkFocus);window.addEventListener("focus",checkFocus);window.addEventListener("blur",checkFocus);window.blocking_event_loop=blocking;window.requestAnimationFrame(animation)},fs_load_file:function(ptr,len){var url=UTF8ToString(ptr,len);var file_id=FS.unique_id;FS.unique_id+=1;var xhr=new XMLHttpRequest;xhr.open("GET",url,true);xhr.responseType="arraybuffer";xhr.onreadystatechange=function(){if(this.readyState===4){if(this.status===200){var uInt8Array=new Uint8Array(this.response);FS.loaded_files[file_id]=uInt8Array;wasm_exports.file_loaded(file_id)}else{FS.loaded_files[file_id]=null;wasm_exports.file_loaded(file_id)}}};xhr.send();return file_id},fs_get_buffer_size:function(file_id){if(FS.loaded_files[file_id]==null){return-1}else{return FS.loaded_files[file_id].length}},fs_take_buffer:function(file_id,ptr,max_length){var file=FS.loaded_files[file_id];console.assert(file.length<=max_length);var dest=new Uint8Array(wasm_memory.buffer,ptr,max_length);for(var i=0;i<file.length;i++){dest[i]=file[i]}delete FS.loaded_files[file_id]},sapp_set_cursor_grab:function(grab){if(grab){canvas.requestPointerLock()}else{document.exitPointerLock()}},sapp_set_cursor:function(ptr,len){canvas.style.cursor=UTF8ToString(ptr,len)},sapp_is_fullscreen:function(){let fullscreenElement=document.fullscreenElement;return fullscreenElement!=null&&fullscreenElement.id==canvas.id},sapp_set_fullscreen:function(fullscreen){if(!fullscreen){document.exitFullscreen()}else{canvas.requestFullscreen()}},sapp_set_window_size:function(new_width,new_height){canvas.width=new_width;canvas.height=new_height;resize(canvas,wasm_exports.resize)},sapp_schedule_update:function(){if(animation_frame_timeout){window.cancelAnimationFrame(animation_frame_timeout)}animation_frame_timeout=window.requestAnimationFrame(animation)},init_webgl:init_webgl}};function register_plugins(plugins){if(plugins==undefined)return;for(var i=0;i<plugins.length;i++){if(plugins[i].register_plugin!=undefined&&plugins[i].register_plugin!=null){plugins[i].register_plugin(importObject)}}}function init_plugins(plugins){if(plugins==undefined)return;for(var i=0;i<plugins.length;i++){if(plugins[i].on_init!=undefined&&plugins[i].on_init!=null){plugins[i].on_init()}if(plugins[i].name==undefined||plugins[i].name==null||plugins[i].version==undefined||plugins[i].version==null){console.warn("Some of the registred plugins do not have name or version");console.warn("Probably old version of the plugin used")}else{var version_func=plugins[i].name+"_crate_version";if(wasm_exports[version_func]==undefined){console.log("Plugin "+plugins[i].name+" is present in JS bundle, but is not used in the rust code.")}else{var crate_version=wasm_exports[version_func]();if(plugins[i].version!=crate_version){console.error("Plugin "+plugins[i].name+" version mismatch"+"js version: "+plugins[i].version+", crate version: "+crate_version)}}}}}function miniquad_add_plugin(plugin){plugins.push(plugin)}function add_missing_functions_stabs(obj){var imports=WebAssembly.Module.imports(obj);for(const i in imports){if(importObject["env"][imports[i].name]==undefined){console.warn("No "+imports[i].name+" function in gl.js");importObject["env"][imports[i].name]=function(){console.warn("Missed function: "+imports[i].name)}}}}function load(wasm_path){var req=fetch(wasm_path);register_plugins(plugins);if(typeof WebAssembly.compileStreaming==="function"){WebAssembly.compileStreaming(req).then(obj=>{add_missing_functions_stabs(obj);return WebAssembly.instantiate(obj,importObject)}).then(obj=>{wasm_memory=obj.exports.memory;wasm_exports=obj.exports;var crate_version=wasm_exports.crate_version();if(version!=crate_version){console.error("Version mismatch: gl.js version is: "+version+", miniquad crate version is: "+crate_version)}init_plugins(plugins);obj.exports.main()}).catch(err=>{console.error(err)})}else{req.then(function(x){return x.arrayBuffer()}).then(function(bytes){return WebAssembly.compile(bytes)}).then(function(obj){add_missing_functions_stabs(obj);return WebAssembly.instantiate(obj,importObject)}).then(function(obj){wasm_memory=obj.exports.memory;wasm_exports=obj.exports;var crate_version=wasm_exports.crate_version();if(version!=crate_version){console.error("Version mismatch: gl.js version is: "+version+", rust sapp-wasm crate version is: "+crate_version)}init_plugins(plugins);obj.exports.main()}).catch(err=>{console.error("WASM failed to load, probably incompatible gl.js version");console.error(err)})}}function print(memory,text,length){const chunk=memory.buffer.slice(text,text+length);const decoded=new TextDecoder("utf-8").decode(chunk);console.log(decoded)}let appExports;let appMemory;let engineExports;let engineMemory;miniquad_add_plugin({name:"taca",version:0,register_plugin(importObject){Object.assign(importObject.env,{print(text,length){print(wasm_memory,text,length)},loadApp(platform,bufferPtr,bufferLen){loadApp(platform,wasm_exports,wasm_memory,bufferPtr,bufferLen)},readAppMemory(engineDest,appSrc,count){new Uint8Array(engineMemory.buffer).set(appMemoryBytes().slice(appSrc,appSrc+count),engineDest)},sendEvent(kind){appExports?.listen(kind)},startApp(){appExports._start()}})}});load("taca.wasm");function appMemoryBytes(){return new Uint8Array(appMemory.buffer)}function engineMemoryBytes(){return new Uint8Array(engineMemory.buffer)}const appRequest=(()=>{const url=new URL(window.location.href);const params=new URLSearchParams(url.search);const app=params.get("app");if(app){return fetch(app)}})();async function loadApp(platform,engine,memory,bufferPtr,bufferLen){engineExports=wasm_exports;engineMemory=memory;if(!appRequest){return}const bufferBytes=()=>new Uint8Array(memory.buffer,bufferPtr,bufferLen);const env={taca_RenderingContext_applyBindings(context,bindings){bufferBytes().set(appMemoryBytes().slice(bindings,bindings+3*4));engine.taca_RenderingContext_applyBindings(platform,context,0)},taca_RenderingContext_applyPipeline(context,pipeline){engine.taca_RenderingContext_applyPipeline(platform,context,pipeline)},taca_RenderingContext_applyUniforms(context,uniforms){bufferBytes().set(appMemoryBytes().slice(uniforms,uniforms+2*4));return engine.taca_RenderingContext_applyUniforms(platform,context,0)},taca_RenderingContext_beginPass(context){engine.taca_RenderingContext_beginPass(platform,context)},taca_RenderingContext_commitFrame(context){engine.taca_RenderingContext_commitFrame(platform,context)},taca_RenderingContext_draw(context,item_begin,item_count,instance_count){engine.taca_RenderingContext_draw(platform,context,item_begin,item_count,instance_count)},taca_RenderingContext_endPass(context){engine.taca_RenderingContext_endPass(platform,context)},taca_RenderingContext_newBuffer(context,typ,usage,info){bufferBytes().set(appMemoryBytes().slice(info,info+5*4));return engine.taca_RenderingContext_newBuffer(platform,context,typ,usage,0)},taca_RenderingContext_newPipeline(context,bytes){bufferBytes().set(appMemoryBytes().slice(bytes,bytes+8*4));return engine.taca_RenderingContext_newPipeline(platform,context,0)},taca_RenderingContext_newShader(context,bytes){bufferBytes().set(appMemoryBytes().slice(bytes,bytes+2*4));return engine.taca_RenderingContext_newShader(platform,context,0)},taca_Window_newRenderingContext(){return engine.taca_Window_newRenderingContext(platform)},taca_Window_print(text){bufferBytes().set(appMemoryBytes().slice(text,text+2*4));engine.taca_Window_print(platform,text)},taca_Window_setTitle(title){const titleSlice=appMemoryBytes().slice(title,title+2*4);const titleView=new DataView(titleSlice.buffer,titleSlice.byteOffset,titleSlice.byteLength);const titlePtr=titleView.getUint32(0,true);const titleLen=titleView.getUint32(4,true);const chunk=appMemoryBytes().slice(titlePtr,titlePtr+titleLen);const decoded=new TextDecoder("utf-8").decode(chunk);document.title=decoded;engine.taca_Window_setTitle(platform,titlePtr,titleLen)},taca_Window_state(result){engine.taca_Window_state(platform,0);appMemoryBytes().set(bufferBytes().slice(0,4*4),result)}};let mustFree=null;let appContent=await(await appRequest).arrayBuffer();if(new DataView(appContent).getUint32(0,false)==69356824){const seeInfo=info=>{const view=new DataView(engineMemory.buffer,info,2*4);return{ptr:view.getUint32(0,true),len:view.getUint32(4,true)}};const engineBytes=engineExports.taca_alloc(appContent.byteLength);try{const engineBytesInfo=seeInfo(engineBytes);const engineBytesArray=new Uint8Array(engineMemory.buffer,engineBytesInfo.ptr,engineBytesInfo.len);engineBytesArray.set(new Uint8Array(appContent));mustFree=engineExports.taca_decompress(engineBytesInfo.ptr,engineBytesInfo.len);const decompressed=seeInfo(mustFree);appContent=new ArrayBuffer(decompressed.len);new Uint8Array(appContent).set(new Uint8Array(engineMemory.buffer,decompressed.ptr,decompressed.len))}finally{engineExports.taca_free(engineBytes)}}let instance;try{instance=(await WebAssembly.instantiate(appContent,{env:env})).instance}finally{if(mustFree){engineExports.taca_free(mustFree)}}appExports=instance.exports;appMemory=appExports.memory;if(appExports.config){appExports.config()}engine.taca_start(platform)}
+let f;
+const v = typeof TextDecoder < "u" ? new TextDecoder("utf-8", { ignoreBOM: !0, fatal: !0 }) : { decode: () => {
+  throw Error("TextDecoder not available");
+} };
+typeof TextDecoder < "u" && v.decode();
+let y = null;
+function m() {
+  return (y === null || y.byteLength === 0) && (y = new Uint8Array(f.memory.buffer)), y;
+}
+function U(n, e) {
+  return n = n >>> 0, v.decode(m().subarray(n, n + e));
+}
+let g = 0;
+function S(n, e) {
+  const t = e(n.length * 1, 1) >>> 0;
+  return m().set(n, t / 1), g = n.length, t;
+}
+let w = null;
+function x() {
+  return (w === null || w.byteLength === 0) && (w = new Int32Array(f.memory.buffer)), w;
+}
+function I(n, e) {
+  return n = n >>> 0, m().subarray(n / 1, n / 1 + e);
+}
+function D(n) {
+  try {
+    const i = f.__wbindgen_add_to_stack_pointer(-16), o = S(n, f.__wbindgen_export_0), s = g;
+    f.lz4Decompress(i, o, s);
+    var e = x()[i / 4 + 0], t = x()[i / 4 + 1], r = I(e, t).slice();
+    return f.__wbindgen_export_1(e, t * 1, 1), r;
+  } finally {
+    f.__wbindgen_add_to_stack_pointer(16);
+  }
+}
+function N(n) {
+  const e = S(n, f.__wbindgen_export_0), t = g, r = f.shaderNew(e, t);
+  return B.__wrap(r);
+}
+function M(n, e) {
+  if (!(n instanceof e))
+    throw new Error(`expected instance of ${e.name}`);
+  return n.ptr;
+}
+const A = typeof TextEncoder < "u" ? new TextEncoder("utf-8") : { encode: () => {
+  throw Error("TextEncoder not available");
+} }, O = typeof A.encodeInto == "function" ? function(n, e) {
+  return A.encodeInto(n, e);
+} : function(n, e) {
+  const t = A.encode(n);
+  return e.set(t), {
+    read: n.length,
+    written: t.length
+  };
+};
+function z(n, e, t) {
+  if (t === void 0) {
+    const a = A.encode(n), c = e(a.length, 1) >>> 0;
+    return m().subarray(c, c + a.length).set(a), g = a.length, c;
+  }
+  let r = n.length, i = e(r, 1) >>> 0;
+  const o = m();
+  let s = 0;
+  for (; s < r; s++) {
+    const a = n.charCodeAt(s);
+    if (a > 127) break;
+    o[i + s] = a;
+  }
+  if (s !== r) {
+    s !== 0 && (n = n.slice(s)), i = t(i, r, r = s + n.length * 3, 1) >>> 0;
+    const a = m().subarray(i + s, i + r), c = O(n, a);
+    s += c.written, i = t(i, r, s, 1) >>> 0;
+  }
+  return g = s, i;
+}
+function R(n, e, t) {
+  let r, i;
+  try {
+    const a = f.__wbindgen_add_to_stack_pointer(-16);
+    M(n, B);
+    const c = z(t, f.__wbindgen_export_0, f.__wbindgen_export_2), u = g;
+    f.shaderToGlsl(a, n.__wbg_ptr, e, c, u);
+    var o = x()[a / 4 + 0], s = x()[a / 4 + 1];
+    return r = o, i = s, U(o, s);
+  } finally {
+    f.__wbindgen_add_to_stack_pointer(16), f.__wbindgen_export_1(r, i, 1);
+  }
+}
+const F = Object.freeze({ Vertex: 0, 0: "Vertex", Fragment: 1, 1: "Fragment" }), E = typeof FinalizationRegistry > "u" ? { register: () => {
+}, unregister: () => {
+} } : new FinalizationRegistry((n) => f.__wbg_shader_free(n >>> 0));
+class B {
+  static __wrap(e) {
+    e = e >>> 0;
+    const t = Object.create(B.prototype);
+    return t.__wbg_ptr = e, E.register(t, t.__wbg_ptr, t), t;
+  }
+  __destroy_into_raw() {
+    const e = this.__wbg_ptr;
+    return this.__wbg_ptr = 0, E.unregister(this), e;
+  }
+  free() {
+    const e = this.__destroy_into_raw();
+    f.__wbg_shader_free(e);
+  }
+}
+async function L(n, e) {
+  if (typeof Response == "function" && n instanceof Response) {
+    if (typeof WebAssembly.instantiateStreaming == "function")
+      try {
+        return await WebAssembly.instantiateStreaming(n, e);
+      } catch (r) {
+        if (n.headers.get("Content-Type") != "application/wasm")
+          console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", r);
+        else
+          throw r;
+      }
+    const t = await n.arrayBuffer();
+    return await WebAssembly.instantiate(t, e);
+  } else {
+    const t = await WebAssembly.instantiate(n, e);
+    return t instanceof WebAssembly.Instance ? { instance: t, module: n } : t;
+  }
+}
+function P() {
+  const n = {};
+  return n.wbg = {}, n.wbg.__wbindgen_throw = function(e, t) {
+    throw new Error(U(e, t));
+  }, n;
+}
+function W(n, e) {
+  return f = n.exports, T.__wbindgen_wasm_module = e, w = null, y = null, f;
+}
+async function T(n) {
+  if (f !== void 0) return f;
+  typeof n > "u" && (n = new URL("taca.wasm", import.meta.url));
+  const e = P();
+  (typeof n == "string" || typeof Request == "function" && n instanceof Request || typeof URL == "function" && n instanceof URL) && (n = fetch(n));
+  const { instance: t, module: r } = await L(await n, e);
+  return W(t, r);
+}
+async function q(n) {
+  const [e] = await Promise.all([n.wasm ?? Y(), T()]);
+  e && await k({ ...n, wasm: e });
+}
+class V {
+  constructor(e) {
+    const t = this.canvas = e.canvas;
+    t.addEventListener("mousemove", (r) => {
+      const i = t.getBoundingClientRect();
+      this.pointerPos = [r.clientX - i.left, r.clientY - i.top];
+    }), this.config = e, this.gl = e.canvas.getContext("webgl2"), this.resizeCanvas(), new ResizeObserver(() => this.resizeNeeded = !0).observe(e.canvas);
+  }
+  #r(e) {
+    const t = [], { gl: r } = this, i = r.getProgramParameter(e, r.ACTIVE_ATTRIBUTES);
+    for (let o = 0; o < i; o += 1) {
+      const s = r.getActiveAttrib(e, o) ?? l(), a = r.getAttribLocation(e, s.name);
+      t.push({ count: s.size, loc: a, type: s.type });
+    }
+    return t.sort((o, s) => o.loc - s.loc), this.#a(t), t;
+  }
+  bufferNew(e, t, r) {
+    const i = this.memoryView(r, 12), o = p(i, 0), s = p(i, 4), a = p(i, 8), c = this.memoryBytes().subarray(o, o + s), { gl: u } = this, _ = u.createBuffer();
+    _ || l(), this.buffers.push({
+      buffer: _,
+      itemSize: a,
+      kind: ["vertex", "index"][e]
+    });
+    const h = [u.ARRAY_BUFFER, u.ELEMENT_ARRAY_BUFFER][e] ?? l();
+    u.bindBuffer(h, _);
+    const d = [u.STATIC_DRAW, u.DYNAMIC_DRAW, u.STREAM_DRAW][t] ?? l();
+    return u.bufferData(h, c, d), this.buffers.length;
+  }
+  buffers = [];
+  canvas;
+  config;
+  draw(e, t, r) {
+    this.#n();
+    const { gl: i } = this;
+    this.vertexArray || (this.vertexArray = this.vertexArrays[0] ?? l(), i.bindVertexArray(this.vertexArray)), i.drawElements(i.TRIANGLES, t, i.UNSIGNED_SHORT, e);
+  }
+  exports = void 0;
+  frameCommit() {
+    this.passBegun = !1, this.pipeline = this.vertexArray = null;
+  }
+  gl;
+  init(e) {
+    this.exports = e.exports, this.memory = e.exports.memory;
+  }
+  memory = void 0;
+  #e = null;
+  #t = null;
+  memoryBytes() {
+    return this.#e != this.memory.buffer && (this.#e = this.memory.buffer, this.#t = new Uint8Array(this.#e)), this.#t;
+  }
+  memoryView(e, t) {
+    return new DataView(this.memory.buffer, e, t);
+  }
+  passBegin() {
+    let { gl: e, resizeNeeded: t } = this;
+    t && this.resizeCanvas(), e.clearColor(0, 0, 0, 1), e.clear(e.COLOR_BUFFER_BIT | e.DEPTH_BUFFER_BIT);
+  }
+  passBegun = !1;
+  pipeline = null;
+  pipelineApply(e) {
+    let { gl: t, pipelines: r } = this;
+    const i = this.pipeline = r[e - 1] ?? l();
+    t.useProgram(i.program);
+  }
+  #i() {
+    const {
+      gl: e,
+      pipelines: t,
+      shaders: [r]
+    } = this;
+    if (t.length) return;
+    const i = R(r, F.Vertex, "vs_main"), o = R(r, F.Fragment, "fs_main"), s = e.createProgram() ?? l(), a = (_, h) => {
+      const d = e.createShader(_) ?? l();
+      e.shaderSource(d, h), e.compileShader(d), e.getShaderParameter(d, e.COMPILE_STATUS) ?? l(e.getShaderInfoLog(d)), e.attachShader(s, d);
+    };
+    a(e.VERTEX_SHADER, i), a(e.FRAGMENT_SHADER, o), e.linkProgram(s), e.getProgramParameter(s, e.LINK_STATUS) ?? l(e.getProgramInfoLog(s));
+    const c = this.#r(s), u = this.#s(s);
+    t.push({ attributes: c, program: s, uniforms: u });
+  }
+  #n() {
+    this.pipeline || (this.#i(), this.passBegun || this.passBegin(), this.pipelines.length == 1 && this.pipelineApply(1));
+  }
+  pipelines = [];
+  pointerPos = [0, 0];
+  readBytes(e) {
+    const t = this.memoryBytes(), r = new DataView(t.buffer, e, 2 * 4), i = p(r, 0), o = p(r, 4);
+    return t.subarray(i, i + o);
+  }
+  readString(e) {
+    return G.decode(this.readBytes(e));
+  }
+  resizeCanvas() {
+    const { canvas: e } = this.config;
+    e.width = e.clientWidth, e.height = e.clientHeight, this.gl.viewport(0, 0, e.width, e.height), this.resizeNeeded = !1, this.tacaBufferUpdate();
+  }
+  resizeNeeded = !1;
+  shaders = [];
+  tacaBuffer = null;
+  tacaBufferUpdate() {
+    const { canvas: e } = this.config;
+    if (this.tacaBuffer) {
+      const { gl: t } = this;
+      for (const r of this.pipelines) {
+        t.bindBuffer(t.UNIFORM_BUFFER, this.tacaBuffer);
+        const i = new Uint8Array(r.uniforms.tacaSize), o = new DataView(i.buffer);
+        o.setFloat32(0, e.width, !0), o.setFloat32(4, e.height, !0), t.bufferSubData(t.UNIFORM_BUFFER, 0, i);
+      }
+    }
+  }
+  uniformsApply(e) {
+    this.#n();
+    const { gl: t } = this;
+    if (!this.uniformsBuffer) {
+      const { pipeline: i } = this, o = t.createBuffer() ?? l(), { uniforms: s } = i;
+      t.bindBuffer(t.UNIFORM_BUFFER, o), t.bufferData(t.UNIFORM_BUFFER, s.size, t.DYNAMIC_DRAW);
+      for (let c = 0; c < s.count; c += 1)
+        c != s.tacaIndex && t.bindBufferBase(t.UNIFORM_BUFFER, c, o);
+      this.uniformsBuffer = o;
+      const a = t.createBuffer() ?? l();
+      t.bindBuffer(t.UNIFORM_BUFFER, a), t.bufferData(t.UNIFORM_BUFFER, s.tacaSize, t.DYNAMIC_DRAW), t.bindBufferBase(t.UNIFORM_BUFFER, s.tacaIndex, a), this.tacaBuffer = a, this.tacaBufferUpdate();
+    }
+    const r = this.readBytes(e);
+    t.bindBuffer(t.UNIFORM_BUFFER, this.uniformsBuffer), t.bufferSubData(t.UNIFORM_BUFFER, 0, r);
+  }
+  uniformsBuffer = null;
+  #s(e) {
+    const { gl: t } = this, r = t.getProgramParameter(e, t.ACTIVE_UNIFORM_BLOCKS);
+    let i = 0, o = 0, s = 0;
+    for (let a = 0; a < r; a += 1) {
+      const c = t.getActiveUniformBlockName(e, a), u = t.getActiveUniformBlockParameter(
+        e,
+        a,
+        t.UNIFORM_BLOCK_DATA_SIZE
+      ) ?? l();
+      c == "taca_uniform_block" ? (o = a, s = u) : (a > 0 && u != i && l(), i = u), t.uniformBlockBinding(e, a, a);
+    }
+    return { count: r, size: i, tacaIndex: o, tacaSize: s };
+  }
+  vertexArray = null;
+  #a(e) {
+    const { buffers: t, gl: r } = this;
+    if (t.length == 2) {
+      const i = r.createVertexArray() ?? l();
+      r.bindVertexArray(i);
+      try {
+        const o = t.find((c) => c.kind == "vertex") ?? l();
+        r.bindBuffer(r.ARRAY_BUFFER, o.buffer);
+        let s = 0;
+        for (const c of e) {
+          const { loc: u } = c;
+          r.enableVertexAttribArray(u);
+          const [_, h] = {
+            [r.FLOAT_VEC2]: [2, r.FLOAT],
+            [r.FLOAT_VEC4]: [4, r.FLOAT]
+          }[c.type] ?? l(), d = { [r.FLOAT]: 4 }[h] ?? l();
+          s = Math.ceil(s / d) * d;
+          let { itemSize: C } = o;
+          r.vertexAttribPointer(u, _, h, !1, C, s), s += _ * d;
+        }
+        const a = t.find((c) => c.kind == "index") ?? l();
+        r.bindBuffer(r.ELEMENT_ARRAY_BUFFER, a.buffer);
+      } finally {
+        r.bindVertexArray(null);
+      }
+      this.vertexArrays.push(i);
+    }
+  }
+  vertexArrays = [];
+}
+function l(n) {
+  throw Error(n ?? void 0);
+}
+function p(n, e) {
+  return n.getUint32(e, !0);
+}
+async function k(n) {
+  const e = n.wasm;
+  n.wasm = void 0;
+  const t = new Uint8Array(e), r = t[0] == 4 ? (
+    // Presume lz4 because wasm starts with 0.
+    D(t).buffer
+  ) : e;
+  let i = new V(n);
+  const o = H(i);
+  let { instance: s } = await WebAssembly.instantiate(r, { env: o });
+  i.init(s);
+  const a = i.exports;
+  if (a.config && a.config(), a._start(), a.listen) {
+    const c = () => {
+      a.listen(0), requestAnimationFrame(c);
+    };
+    requestAnimationFrame(c);
+  }
+}
+async function Y() {
+  const n = new URL(window.location.href), t = new URLSearchParams(n.search).get("app");
+  if (t)
+    return await (await fetch(t)).arrayBuffer();
+}
+function H(n) {
+  return {
+    taca_RenderingContext_applyBindings(e, t) {
+    },
+    taca_RenderingContext_applyPipeline(e, t) {
+    },
+    taca_RenderingContext_applyUniforms(e, t) {
+      n.uniformsApply(t);
+    },
+    taca_RenderingContext_beginPass(e) {
+    },
+    taca_RenderingContext_commitFrame(e) {
+      n.frameCommit();
+    },
+    taca_RenderingContext_draw(e, t, r, i) {
+      n.draw(t, r, i);
+    },
+    taca_RenderingContext_endPass(e) {
+    },
+    taca_RenderingContext_newBuffer(e, t, r, i) {
+      return n.bufferNew(t, r, i);
+    },
+    taca_RenderingContext_newPipeline(e, t) {
+      console.log("taca_RenderingContext_newPipeline");
+    },
+    taca_RenderingContext_newShader(e, t) {
+      return n.shaders.push(N(n.readBytes(t))), n.shaders.length;
+    },
+    taca_Window_newRenderingContext() {
+      return 1;
+    },
+    taca_Window_print(e) {
+      console.log(n.readString(e));
+    },
+    taca_Window_setTitle(e) {
+      document.title = n.readString(e);
+    },
+    taca_Window_state(e) {
+      const { clientWidth: t, clientHeight: r } = n.canvas, [i, o] = n.pointerPos, s = n.memoryView(e, 4 * 4);
+      b(s, 0, i), b(s, 4, o), b(s, 8, t), b(s, 12, r);
+    }
+  };
+}
+function b(n, e, t) {
+  return n.setFloat32(e, t, !0);
+}
+const G = new TextDecoder();
+export {
+  q as runApp
+};
