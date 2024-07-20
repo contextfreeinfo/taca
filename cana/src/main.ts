@@ -396,36 +396,30 @@ async function loadAppData() {
 
 function makeAppEnv(app: App) {
   return {
-    taca_RenderingContext_applyBindings(context: number, bindings: number) {},
-    taca_RenderingContext_applyPipeline(context: number, pipeline: number) {},
-    taca_RenderingContext_applyUniforms(context: number, uniforms: number) {
+    taca_RenderingContext_applyBindings(bindings: number) {},
+    taca_RenderingContext_applyPipeline(pipeline: number) {},
+    taca_RenderingContext_applyUniforms(uniforms: number) {
       app.uniformsApply(uniforms);
     },
-    taca_RenderingContext_beginPass(context: number) {},
-    taca_RenderingContext_commitFrame(context: number) {
+    taca_RenderingContext_beginPass() {},
+    taca_RenderingContext_commitFrame() {
       app.frameCommit();
     },
     taca_RenderingContext_draw(
-      context: number,
       itemBegin: number,
       itemCount: number,
       instanceCount: number
     ) {
       app.draw(itemBegin, itemCount, instanceCount);
     },
-    taca_RenderingContext_endPass(context: number) {},
-    taca_RenderingContext_newBuffer(
-      context: number,
-      type: number,
-      usage: number,
-      info: number
-    ) {
+    taca_RenderingContext_endPass() {},
+    taca_RenderingContext_newBuffer(type: number, usage: number, info: number) {
       return app.bufferNew(type, usage, info);
     },
-    taca_RenderingContext_newPipeline(context: number, bytes: number) {
+    taca_RenderingContext_newPipeline(bytes: number) {
       console.log("taca_RenderingContext_newPipeline");
     },
-    taca_RenderingContext_newShader(context: number, bytes: number) {
+    taca_RenderingContext_newShader(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },

@@ -53,54 +53,52 @@ pub const PipelineInfo = struct {
 pub const RenderingContext = extern struct {
     const Self = RenderingContext;
 
-    pub fn applyBindings(self: *Self, bindings: Bindings) void {
-        taca_RenderingContext_applyBindings(self, ExternBindings.from(bindings));
+    pub fn applyBindings(bindings: Bindings) void {
+        taca_RenderingContext_applyBindings(ExternBindings.from(bindings));
     }
 
-    pub fn applyPipeline(self: *Self, pipeline: *Pipeline) void {
-        taca_RenderingContext_applyPipeline(self, pipeline);
+    pub fn applyPipeline(pipeline: *Pipeline) void {
+        taca_RenderingContext_applyPipeline(pipeline);
     }
 
-    pub fn applyUniforms(self: *Self, uniforms: anytype) void {
-        taca_RenderingContext_applyUniforms(self, as_u8_span(uniforms));
+    pub fn applyUniforms(uniforms: anytype) void {
+        taca_RenderingContext_applyUniforms(as_u8_span(uniforms));
     }
 
-    pub fn beginPass(self: *Self) void {
-        taca_RenderingContext_beginPass(self);
+    pub fn beginPass() void {
+        taca_RenderingContext_beginPass();
     }
 
-    pub fn commitFrame(self: *Self) void {
-        taca_RenderingContext_commitFrame(self);
+    pub fn commitFrame() void {
+        taca_RenderingContext_commitFrame();
     }
 
     pub fn draw(
-        self: *Self,
         item_begin: u32,
         item_count: u32,
         instance_count: u32,
     ) void {
-        taca_RenderingContext_draw(self, item_begin, item_count, instance_count);
+        taca_RenderingContext_draw(item_begin, item_count, instance_count);
     }
 
-    pub fn endPass(self: *Self) void {
-        taca_RenderingContext_endPass(self);
+    pub fn endPass() void {
+        taca_RenderingContext_endPass();
     }
 
     pub fn newBuffer(
-        self: *Self,
         typ: BufferType,
         usage: BufferUsage,
         slice: BufferSlice,
     ) *Buffer {
-        return taca_RenderingContext_newBuffer(self, typ, usage, &slice);
+        return taca_RenderingContext_newBuffer(typ, usage, &slice);
     }
 
-    pub fn newPipeline(self: *Self, info: PipelineInfo) *Pipeline {
-        return taca_RenderingContext_newPipeline(self, ExternPipelineInfo.from(info));
+    pub fn newPipeline(info: PipelineInfo) *Pipeline {
+        return taca_RenderingContext_newPipeline(ExternPipelineInfo.from(info));
     }
 
-    pub fn newShader(self: *Self, bytes: []const u8) *Shader {
-        return taca_RenderingContext_newShader(self, Span(u8).from(bytes));
+    pub fn newShader(bytes: []const u8) *Shader {
+        return taca_RenderingContext_newShader(Span(u8).from(bytes));
     }
 };
 
@@ -219,53 +217,46 @@ const ExternPipelineShaderInfo = extern struct {
 };
 
 extern fn taca_RenderingContext_applyBindings(
-    context: *RenderingContext,
     bindings: ExternBindings,
 ) void;
 
 extern fn taca_RenderingContext_applyPipeline(
-    context: *RenderingContext,
     pipeline: *Pipeline,
 ) void;
 
 extern fn taca_RenderingContext_applyUniforms(
-    context: *RenderingContext,
     uniforms: Span(u8),
 ) void;
 
 extern fn taca_RenderingContext_beginPass(
-    context: *RenderingContext,
+    // Nothing
 ) void;
 
 extern fn taca_RenderingContext_commitFrame(
-    context: *RenderingContext,
+    // Nothing
 ) void;
 
 extern fn taca_RenderingContext_draw(
-    context: *RenderingContext,
     item_begin: u32,
     item_count: u32,
     instance_count: u32,
 ) void;
 
 extern fn taca_RenderingContext_endPass(
-    context: *RenderingContext,
+    // Nothing
 ) void;
 
 extern fn taca_RenderingContext_newBuffer(
-    context: *RenderingContext,
     typ: BufferType,
     usage: BufferUsage,
     info: *const BufferSlice,
 ) callconv(.C) *Buffer;
 
 extern fn taca_RenderingContext_newPipeline(
-    context: *RenderingContext,
     info: ExternPipelineInfo,
 ) callconv(.C) *Pipeline;
 
 extern fn taca_RenderingContext_newShader(
-    context: *RenderingContext,
     bytes: Span(u8),
 ) callconv(.C) *Shader;
 

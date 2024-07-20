@@ -153,11 +153,7 @@ fn read_string(view: &MemoryView, span: Span) -> String {
         .unwrap()
 }
 
-fn taca_RenderingContext_applyBindings(
-    mut env: FunctionEnvMut<System>,
-    context: u32,
-    bindings: u32,
-) {
+fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings: u32) {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // let bindings = WasmPtr::<ExternBindings>::new(bindings)
@@ -170,16 +166,12 @@ fn taca_RenderingContext_applyBindings(
     // apply_bindings(platform, context, bindings);
 }
 
-fn taca_RenderingContext_applyPipeline(
-    mut env: FunctionEnvMut<System>,
-    context: u32,
-    pipeline: u32,
-) {
+fn taca_RenderingContext_applyPipeline(mut env: FunctionEnvMut<System>, pipeline: u32) {
     // let platform = env.data_mut();
     // apply_pipeline(platform, context, pipeline)
 }
 
-fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, _context: u32, bytes: u32) {
+fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, bytes: u32) {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
@@ -187,11 +179,11 @@ fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, _context
     uniforms_apply(system, &uniforms);
 }
 
-fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>, _context: u32) {
+fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>) {
     pass_ensure(env.data_mut());
 }
 
-fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, _context: u32) {
+fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>) {
     let system = env.data_mut();
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;
@@ -210,7 +202,6 @@ fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>, _context: 
 
 fn taca_RenderingContext_draw(
     mut env: FunctionEnvMut<System>,
-    _context: u32,
     item_begin: u32,
     item_count: u32,
     instance_count: u32,
@@ -228,14 +219,13 @@ fn taca_RenderingContext_draw(
     pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
 }
 
-fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>, _context: u32) {
+fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>) {
     let system = env.data_mut();
     end_pass(system);
 }
 
 fn taca_RenderingContext_newBuffer(
     mut env: FunctionEnvMut<System>,
-    _context: u32,
     typ: u32,
     usage: u32,
     slice: u32,
@@ -250,11 +240,7 @@ fn taca_RenderingContext_newBuffer(
     system.buffers.len() as u32
 }
 
-fn taca_RenderingContext_newPipeline(
-    mut env: FunctionEnvMut<System>,
-    _context: u32,
-    info: u32,
-) -> u32 {
+fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let info = WasmPtr::<ExternPipelineInfo>::new(info)
@@ -276,11 +262,7 @@ fn taca_RenderingContext_newPipeline(
     0
 }
 
-fn taca_RenderingContext_newShader(
-    mut env: FunctionEnvMut<System>,
-    _context: u32,
-    bytes: u32,
-) -> u32 {
+fn taca_RenderingContext_newShader(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
