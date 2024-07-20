@@ -1,6 +1,8 @@
 use std::{borrow::Cow, future::Future, ptr::null_mut, sync::Arc};
 use wasmer::ValueType;
-use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
+use wgpu::{
+    Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration, TextureFormat,
+};
 use winit::{
     application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize},
@@ -273,9 +275,12 @@ fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphic
             .unwrap();
 
         let size = window.inner_size();
-        let surface_config = surface
+        let mut surface_config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap();
+        surface_config.view_formats =
+            vec![TextureFormat::Bgra8UnormSrgb, TextureFormat::Bgra8Unorm];
+        // dbg!(&surface_config);
         surface.configure(&device, &surface_config);
 
         Graphics {

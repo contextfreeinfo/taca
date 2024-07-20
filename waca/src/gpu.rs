@@ -11,7 +11,7 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BufferDescriptor, BufferUsages, CommandEncoder, MultisampleState, PrimitiveState,
     RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture,
-    TextureView, VertexFormat,
+    TextureFormat, TextureView, TextureViewDescriptor, VertexFormat,
 };
 
 use crate::{app::System, display::MaybeGraphics};
@@ -93,9 +93,6 @@ struct VertexAttributesInfo {
 }
 
 pub fn buffered_ensure<'a>(system: &'a mut System) {
-    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
-        return;
-    };
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
@@ -166,7 +163,11 @@ pub fn pass_ensure(system: &mut System) {
     };
     if system.frame.is_none() {
         let frame = gfx.surface.get_current_texture().unwrap();
-        let view = frame.texture.create_view(&Default::default());
+        let view_descriptor = TextureViewDescriptor {
+            format: Some(TextureFormat::Bgra8Unorm),
+            ..Default::default()
+        };
+        let view = frame.texture.create_view(&view_descriptor);
         let encoder = gfx.device.create_command_encoder(&Default::default());
         system.frame = Some(RenderFrame {
             encoder,
@@ -240,7 +241,7 @@ fn pipeline_ensure(system: &mut System) {
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &attr_info.attributes,
     };
-    let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
+    // let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
     // dbg!(&surface_formats);
     let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
         label: None,
@@ -255,7 +256,7 @@ fn pipeline_ensure(system: &mut System) {
             module: &shader.compiled,
             entry_point: "fs_main",
             compilation_options: Default::default(),
-            targets: &[Some(surface_formats[0].into())],
+            targets: &[Some(TextureFormat::Bgra8Unorm.into())],
         }),
         primitive: Default::default(),
         depth_stencil: None,
