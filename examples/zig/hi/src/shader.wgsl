@@ -16,10 +16,7 @@ fn vs_main(
   @location(1) in_color: vec4f,
 ) -> VertexOutput {
   var out: VertexOutput;
-  // out.position = vec4f(in_pos + uniforms.pointer, 0.0, 1.0);
-  out.position = vec4f(in_pos, 0.0, 1.0);
-  out.position.x *= uniforms.aspect.x;
-  out.position.y *= uniforms.aspect.y;
+  out.position = vec4f(in_pos * uniforms.aspect, 0.0, 1.0);
   out.color = in_color;
   return out;
 }
@@ -28,7 +25,7 @@ fn vs_main(
 fn fs_main(
   in: VertexOutput,
 ) -> @location(0) vec4f {
-  let nearness = 1.0 - min(1e-2 * length(uniforms.pointer - in.position.xy), 1.0);
-  // return vec4f(vec3f(distance), 1.0);
-  return vec4f(in.color.rgb + nearness, 1.0);
+  let distance = length(uniforms.pointer - in.position.xy);
+  let shine = 1.0 - min(1e-2 * distance, 1.0);
+  return vec4f(in.color.rgb + shine, 1.0);
 }

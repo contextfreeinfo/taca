@@ -75,9 +75,9 @@ pub const RenderingContext = extern struct {
 
     pub fn draw(
         self: *Self,
-        item_begin: i32,
-        item_count: i32,
-        instance_count: i32,
+        item_begin: u32,
+        item_count: u32,
+        instance_count: u32,
     ) void {
         taca_RenderingContext_draw(self, item_begin, item_count, instance_count);
     }
@@ -243,9 +243,9 @@ extern fn taca_RenderingContext_commitFrame(
 
 extern fn taca_RenderingContext_draw(
     context: *RenderingContext,
-    item_begin: i32,
-    item_count: i32,
-    instance_count: i32,
+    item_begin: u32,
+    item_count: u32,
+    instance_count: u32,
 ) void;
 
 extern fn taca_RenderingContext_endPass(

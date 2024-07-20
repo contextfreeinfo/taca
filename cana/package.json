@@ -1,0 +1,19 @@
+{
+  "name": "cana",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "wasm-pack build --target web && tsc && vite build",
+    "build-split": "wasm-pack build --target web && tsc && vite build --mode split && npm run pack-dev",
+    "pack-dev": "wasm-pack build --target web --dev",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.8",
+    "typescript": "^5.2.2",
+    "vite": "^5.3.1",
+    "wasm-pack": "^0.12.1"
+  }
+}
