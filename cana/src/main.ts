@@ -126,6 +126,9 @@ class App {
     return new DataView(this.memory.buffer, ptr, len);
   }
 
+  offscreen = new OffscreenCanvas(1, 1);
+  offscreenContext = this.offscreen.getContext("2d") ?? fail();
+
   passBegin() {
     let { gl, resizeNeeded } = this;
     if (resizeNeeded) this.resizeCanvas();
@@ -228,6 +231,30 @@ class App {
       }
     }
   }
+
+  textDraw(text: string) {
+    const { gl, offscreen, offscreenContext, textures } = this;
+    const metrics = offscreenContext.measureText(text);
+    console.log(metrics);
+    const width = metrics.width;
+    const height =
+      metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+    if (width < offscreen.width) offscreen.width = width;
+    if (height < offscreen.height) offscreen.height = height;
+    offscreenContext.clearRect(0, 0, width, height);
+    offscreenContext.fillStyle = "white";
+    offscreenContext.textBaseline = "bottom";
+    offscreenContext.fillText(text, 0, height);
+    const texture = gl.createTexture() ?? fail();
+    const data = offscreenContext.getImageData(0, 0, width, height);
+    // console.log(data.data.reduce((x, y) => x + y) / data.data.length);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    textures.push({ size: [width, height], texture });
+    return textures.length;
+  }
+
+  textures: Texture[] = [];
 
   uniformsApply(uniforms: number) {
     this.#pipelinedEnsure();
@@ -424,7 +451,7 @@ function makeAppEnv(app: App) {
       return app.shaders.length;
     },
     taca_Text_draw(text: number) {
-      return 0;
+      return app.textDraw(app.readString(text));
     },
     taca_Window_newRenderingContext() {
       // TODO If we only have one, we don't need it at all, right?
@@ -464,6 +491,11 @@ function setF32(view: DataView, byteOffset: number, value: number) {
 // }
 
 const textDecoder = new TextDecoder();
+
+interface Texture {
+  size: [number, number];
+  texture: WebGLTexture;
+}
 
 interface Uniforms {
   count: number;
