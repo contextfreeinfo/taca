@@ -11,7 +11,7 @@ export fn config() void {
 pub fn main() void {
     // TODO Render text to display.
     window.print(title);
-    _ = taca.Text.draw(title);
+    const text = taca.Text.draw(title);
     const y = @sqrt(3.0) / 4.0;
     _ = ctx.newBuffer(
         .vertex,
@@ -29,7 +29,7 @@ pub fn main() void {
     );
     // TODO Can any languages run command line tools from their source?
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
-    // stage = .{ .ctx = ctx };
+    stage = .{ .text = text };
 }
 
 export fn listen(event: taca.EventKind) void {
@@ -43,14 +43,15 @@ export fn listen(event: taca.EventKind) void {
         .pointer = .{ state.pointer[0], state.pointer[1] },
     });
     ctx.draw(0, 3, 1);
+    ctx.drawTexture(stage.?.text, 100, 100);
     ctx.commitFrame();
 }
 
-// var stage: ?Stage = null;
+var stage: ?Stage = null;
 
-// const Stage = struct {
-//     ctx: *taca.RenderingContext,
-// };
+const Stage = struct {
+    text: *taca.Texture,
+};
 
 const Uniforms = extern struct {
     aspect: [2]f32,

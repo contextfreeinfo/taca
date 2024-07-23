@@ -43,6 +43,7 @@ impl App {
                 "taca_RenderingContext_beginPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_beginPass),
                 "taca_RenderingContext_commitFrame" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_commitFrame),
                 "taca_RenderingContext_draw" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_draw),
+                "taca_RenderingContext_drawTexture" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawTexture),
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
                 "taca_RenderingContext_newPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newPipeline),
@@ -218,6 +219,15 @@ fn taca_RenderingContext_draw(
     };
     // TODO Ensure pipelined and buffered.
     pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
+}
+
+fn taca_RenderingContext_drawTexture(
+    mut env: FunctionEnvMut<System>,
+    texture: u32,
+    x: f32,
+    y: f32,
+) {
+    // TODO
 }
 
 fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>) {
