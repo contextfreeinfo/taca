@@ -96,7 +96,6 @@ class App {
   }
 
   drawTexture(textureIndex: number, x: number, y: number) {
-    if (textureIndex < 1000) return;
     const {
       canvas: { clientWidth, clientHeight },
       gl,
@@ -249,12 +248,12 @@ class App {
   textDraw(text: string) {
     const { gl, offscreen, offscreenContext, textures } = this;
     const metrics = offscreenContext.measureText(text);
-    console.log(metrics);
+    // console.log(metrics);
     const width = metrics.width;
     const height =
       metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
-    if (width < offscreen.width) offscreen.width = width;
-    if (height < offscreen.height) offscreen.height = height;
+    if (width > offscreen.width) offscreen.width = width;
+    if (height > offscreen.height) offscreen.height = height;
     offscreenContext.clearRect(0, 0, width, height);
     offscreenContext.fillStyle = "white";
     offscreenContext.textBaseline = "bottom";
@@ -264,6 +263,10 @@ class App {
     const texture = gl.createTexture() ?? fail();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     textures.push({ size: [width, height], texture });
     return textures.length;
   }
@@ -570,7 +573,7 @@ class TexturePipeline {
     this.program = program;
     this.drawInfoBuffer = gl.createBuffer() ?? fail();
     this.drawInfoIndex = gl.getUniformBlockIndex(program, "drawInfo") ?? fail();
-    gl.uniformBlockBinding(program, this.drawInfoIndex, 0);
+    gl.uniformBlockBinding(program, this.drawInfoIndex, 80);
     this.sampler = gl.getUniformLocation(program, "sampler") ?? fail();
     const vertexArray = gl.createVertexArray() ?? fail();
     this.vertexArray = vertexArray;
@@ -619,16 +622,12 @@ class TexturePipeline {
     gl.bindVertexArray(vertexArray);
     try {
       gl.bindBuffer(gl.UNIFORM_BUFFER, drawInfoBuffer);
-      gl.bufferData(
-        gl.UNIFORM_BUFFER,
-        drawInfoArray.buffer.byteLength,
-        gl.STREAM_DRAW
-      );
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, drawInfoBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, drawInfoArray, gl.STREAM_DRAW);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 80, drawInfoBuffer);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(sampler, 0);
-      gl.drawElements(gl.TRIANGLES, 0, gl.UNSIGNED_SHORT, 0);
+      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     } finally {
       gl.bindVertexArray(null);
     }
