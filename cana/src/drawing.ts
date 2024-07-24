@@ -3,11 +3,11 @@ import { fail } from "./util";
 export class TexturePipeline {
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
-    const program = shaderProgramBuild(gl, textureVertSource, textureFragSource);
+    const program = shaderProgramBuild(gl, textureSourceVert, textureSourceFrag);
     this.program = program;
     this.drawInfoBuffer = gl.createBuffer() ?? fail();
     this.drawInfoIndex = gl.getUniformBlockIndex(program, "drawInfo") ?? fail();
-    gl.uniformBlockBinding(program, this.drawInfoIndex, 0);
+    gl.uniformBlockBinding(program, this.drawInfoIndex, textureArrayBinding);
     this.sampler = gl.getUniformLocation(program, "sampler") ?? fail();
     const vertexArray = gl.createVertexArray() ?? fail();
     this.vertexArray = vertexArray;
@@ -58,7 +58,7 @@ export class TexturePipeline {
     try {
       gl.bindBuffer(gl.UNIFORM_BUFFER, drawInfoBuffer);
       gl.bufferData(gl.UNIFORM_BUFFER, drawInfoArray, gl.STREAM_DRAW);
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, drawInfoBuffer);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, textureArrayBinding, drawInfoBuffer);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(sampler, 0);
@@ -98,7 +98,19 @@ export function shaderProgramBuild(
   return program;
 }
 
-const textureVertSource = `#version 300 es
+const textureArrayBinding = 0;
+
+const textureSourceFrag = `#version 300 es
+precision mediump float;
+in vec2 vTexCoord;
+out vec4 outColor;
+uniform sampler2D sampler;
+void main() {
+  outColor = texture(sampler, vTexCoord);
+}
+`;
+
+const textureSourceVert = `#version 300 es
 layout(location = 0) in vec2 framePos;
 layout(location = 1) in vec2 texCoord;
 uniform drawInfo {
@@ -113,15 +125,5 @@ void main() {
   pos = (pos / canvasSize) * 2.0 - 1.0;
   gl_Position = vec4(pos, 0.0, 1.0);
   vTexCoord = texCoord;
-}
-`;
-
-const textureFragSource = `#version 300 es
-precision mediump float;
-in vec2 vTexCoord;
-out vec4 outColor;
-uniform sampler2D sampler;
-void main() {
-  outColor = texture(sampler, vTexCoord);
 }
 `;
