@@ -64,6 +64,8 @@ class App {
     const itemSize = getU32(infoBytes, 8);
     const data = this.memoryBytes().subarray(ptr, ptr + size);
     const { gl } = this;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     const buffer = gl.createBuffer();
     buffer || fail();
     this.buffers.push({
@@ -247,6 +249,8 @@ class App {
 
   textDraw(text: string) {
     const { gl, offscreen, offscreenContext, textures } = this;
+    const font = "30px sans-serif";
+    offscreenContext.font = font;
     const metrics = offscreenContext.measureText(text);
     // console.log(metrics);
     const width = metrics.width;
@@ -255,7 +259,8 @@ class App {
     if (width > offscreen.width) offscreen.width = width;
     if (height > offscreen.height) offscreen.height = height;
     offscreenContext.clearRect(0, 0, width, height);
-    offscreenContext.fillStyle = "white";
+    offscreenContext.fillStyle = "blue";
+    offscreenContext.font = font;
     offscreenContext.textBaseline = "bottom";
     offscreenContext.fillText(text, 0, height);
     const data = offscreenContext.getImageData(0, 0, width, height);
@@ -553,7 +558,7 @@ class TexturePipeline {
       };
       out vec2 vTexCoord;
       void main() {
-        vec2 pos = framePos * drawSize + drawPos;
+        vec2 pos = framePos * drawSize * 0.5 + drawPos;
         pos.y = canvasSize.y - pos.y;
         pos = (pos / canvasSize) * 2.0 - 1.0;
         gl_Position = vec4(pos, 0.0, 1.0);

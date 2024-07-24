@@ -43,7 +43,7 @@ export fn listen(event: taca.EventKind) void {
         .pointer = .{ state.pointer[0], state.pointer[1] },
     });
     ctx.draw(0, 3, 1);
-    ctx.drawTexture(stage.?.text, 500, 500);
+    ctx.drawTexture(stage.?.text, state.pointer[0], state.pointer[1]);
     ctx.commitFrame();
 }
 
