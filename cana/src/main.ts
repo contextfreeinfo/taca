@@ -290,7 +290,7 @@ class App {
       gl.bufferData(gl.UNIFORM_BUFFER, uniforms.size, gl.STREAM_DRAW);
       for (let i = 0; i < uniforms.count; i += 1) {
         if (i != uniforms.tacaIndex) {
-          gl.bindBufferBase(gl.UNIFORM_BUFFER, i, uniformsBuffer);
+          gl.bindBufferBase(gl.UNIFORM_BUFFER, i + 1, uniformsBuffer);
         }
       }
       this.uniformsBuffer = uniformsBuffer;
@@ -298,7 +298,7 @@ class App {
       const tacaBuffer = gl.createBuffer() ?? fail();
       gl.bindBuffer(gl.UNIFORM_BUFFER, tacaBuffer);
       gl.bufferData(gl.UNIFORM_BUFFER, uniforms.tacaSize, gl.STREAM_DRAW);
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, uniforms.tacaIndex, tacaBuffer);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, uniforms.tacaIndex + 1, tacaBuffer);
       this.tacaBuffer = tacaBuffer;
       this.tacaBufferUpdate();
     }
@@ -331,7 +331,7 @@ class App {
         if (i > 0 && nextSize != size) fail();
         size = nextSize;
       }
-      gl.uniformBlockBinding(program, i, i);
+      gl.uniformBlockBinding(program, i, i + 1);
     }
     return { count, size, tacaIndex, tacaSize };
   }
@@ -578,7 +578,7 @@ class TexturePipeline {
     this.program = program;
     this.drawInfoBuffer = gl.createBuffer() ?? fail();
     this.drawInfoIndex = gl.getUniformBlockIndex(program, "drawInfo") ?? fail();
-    gl.uniformBlockBinding(program, this.drawInfoIndex, 80);
+    gl.uniformBlockBinding(program, this.drawInfoIndex, 0);
     this.sampler = gl.getUniformLocation(program, "sampler") ?? fail();
     const vertexArray = gl.createVertexArray() ?? fail();
     this.vertexArray = vertexArray;
@@ -628,7 +628,7 @@ class TexturePipeline {
     try {
       gl.bindBuffer(gl.UNIFORM_BUFFER, drawInfoBuffer);
       gl.bufferData(gl.UNIFORM_BUFFER, drawInfoArray, gl.STREAM_DRAW);
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, 80, drawInfoBuffer);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, drawInfoBuffer);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(sampler, 0);
