@@ -1,5 +1,3 @@
-use std::mem::transmute;
-
 use bytemuck::PodCastError;
 use naga::{
     front::spv,
@@ -100,7 +98,6 @@ pub fn buffered_ensure<'a>(system: &'a mut System) {
     let Some(pass) = &mut frame.pass else {
         return;
     };
-    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
     let index = system
         .buffers
         .iter()
@@ -185,20 +182,18 @@ pub fn pass_ensure(system: &mut System) {
     }
     let view = &frame.view;
     let encoder = &mut frame.encoder;
-    let pass = unsafe { &mut *(encoder as *mut CommandEncoder) }.begin_render_pass(
-        &wgpu::RenderPassDescriptor {
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: unsafe { &*(view as *const TextureView) },
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            ..Default::default()
-        },
-    );
-    frame.pass = Some(unsafe { transmute(pass) });
+    let pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                store: wgpu::StoreOp::Store,
+            },
+        })],
+        ..Default::default()
+    });
+    frame.pass = Some(pass.forget_lifetime());
 }
 
 fn pipeline_ensure(system: &mut System) {
@@ -262,6 +257,7 @@ fn pipeline_ensure(system: &mut System) {
         depth_stencil: None,
         multisample: MultisampleState::default(),
         multiview: None,
+        cache: None,
     });
     system.pipelines.push(pipeline);
 }
@@ -278,7 +274,6 @@ pub fn pipelined_ensure<'a>(system: &'a mut System) {
     let Some(pass) = &mut frame.pass else {
         return;
     };
-    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
     pass.set_pipeline(&system.pipelines[0]);
 }
 
@@ -344,7 +339,6 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     let Some(pass) = &mut frame.pass else {
         return;
     };
-    let pass = unsafe { transmute::<_, &mut wgpu::RenderPass<'a>>(pass) };
     pass.set_bind_group(0, system.uniforms_bind_group.as_ref().unwrap(), &[]);
 }
 

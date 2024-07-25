@@ -222,10 +222,10 @@ fn taca_RenderingContext_draw(
 }
 
 fn taca_RenderingContext_drawTexture(
-    mut env: FunctionEnvMut<System>,
-    texture: u32,
-    x: f32,
-    y: f32,
+    mut _env: FunctionEnvMut<System>,
+    _texture: u32,
+    _x: f32,
+    _y: f32,
 ) {
     // TODO
 }

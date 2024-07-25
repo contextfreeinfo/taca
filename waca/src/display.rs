@@ -209,6 +209,7 @@ impl Graphics {
             depth_stencil: None,
             multisample: Default::default(),
             multiview: None,
+            cache: None,
         });
         self.render_pipeline = Some(render_pipeline);
     }
@@ -266,6 +267,7 @@ fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphic
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
+                    memory_hints: wgpu::MemoryHints::Performance,
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                 },
