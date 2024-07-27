@@ -100,12 +100,17 @@ class App {
   }
 
   drawText(text: string, x: number, y: number) {
-    // TODO Remember if there are changes? LRU cache of texts -> textures?
-    this.textDraw(text, this.textTexture?.texture);
-    if (!this.textTexture) {
-      this.textTexture = this.textures.at(-1)!;
+    if (!text) return;
+    if (text != this.textTextureText) {
+      // TODO Consider font, color, and so on.
+      // TODO LRU cache on atlas as separate helper library?
+      this.textDraw(text, this.textTexture?.texture);
+      this.textTextureText = text;
+      if (!this.textTexture) {
+        this.textTexture = this.textures.at(-1)!;
+      }
     }
-    this.drawTexture(this.textTexture, x, y);
+    this.drawTexture(this.textTexture!, x, y);
   }
 
   drawTexture(texture: Texture, x: number, y: number) {
@@ -136,6 +141,22 @@ class App {
   frameCommit() {
     this.passBegun = false;
     this.pipeline = this.vertexArray = null;
+  }
+
+  frameCount: number = 0;
+  frameTimeBegin: number = Date.now();
+
+  frameEnd() {
+    const frameWrap = 100;
+    this.frameCount += 1;
+    this.frameCount = this.frameCount % frameWrap;
+    if (!this.frameCount) {
+      const now = Date.now();
+      const elapsed = (now - this.frameTimeBegin) * 1e-3;
+      const fps = frameWrap / elapsed;
+      console.log(`fps: ${fps}`);
+      this.frameTimeBegin = now;
+    }
   }
 
   gl: WebGL2RenderingContext;
@@ -299,6 +320,7 @@ class App {
   }
 
   textTexture: Texture | null = null;
+  textTextureText: string = "";
   texturePipeline: TexturePipeline;
   textures: Texture[] = [];
 
@@ -447,7 +469,11 @@ async function loadApp(config: AppConfig) {
   exports._start();
   if (exports.listen) {
     const update = () => {
-      exports.listen!(0);
+      try {
+        exports.listen!(0);
+      } finally {
+        app.frameEnd();
+      }
       requestAnimationFrame(update);
     };
     requestAnimationFrame(update);
