@@ -81,6 +81,10 @@ pub const RenderingContext = struct {
         taca_RenderingContext_draw(item_begin, item_count, instance_count);
     }
 
+    pub fn drawText(text: []const u8, x: f32, y: f32) void {
+        taca_RenderingContext_drawText(Span(u8).from(text), x, y);
+    }
+
     pub fn drawTexture(texture: *Texture, x: f32, y: f32) void {
         taca_RenderingContext_drawTexture(texture, x, y);
     }
@@ -252,6 +256,12 @@ extern fn taca_RenderingContext_draw(
     item_begin: u32,
     item_count: u32,
     instance_count: u32,
+) void;
+
+extern fn taca_RenderingContext_drawText(
+    bytes: Span(u8),
+    x: f32,
+    y: f32,
 ) void;
 
 extern fn taca_RenderingContext_drawTexture(

@@ -99,19 +99,26 @@ class App {
     gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
   }
 
-  drawTexture(textureIndex: number, x: number, y: number) {
+  drawText(text: string, x: number, y: number) {
+    // TODO Remember if there are changes? LRU cache of texts -> textures?
+    this.textDraw(text, this.textTexture?.texture);
+    if (!this.textTexture) {
+      this.textTexture = this.textures.at(-1)!;
+    }
+    this.drawTexture(this.textTexture, x, y);
+  }
+
+  drawTexture(texture: Texture, x: number, y: number) {
     const {
       canvas: { clientWidth, clientHeight },
       gl,
       pipeline,
-      textures,
     } = this;
     const {
-      texture,
       size: [width, height],
-    } = textures[textureIndex - 1];
+    } = texture;
     this.texturePipeline.draw(
-      texture,
+      texture.texture,
       clientWidth,
       clientHeight,
       x,
@@ -249,7 +256,7 @@ class App {
     }
   }
 
-  textDraw(text: string) {
+  textDraw(text: string, texture?: WebGLTexture) {
     const { gl, offscreen, offscreenContext, textures } = this;
     const font = "30px sans-serif";
     offscreenContext.font = font;
@@ -267,18 +274,31 @@ class App {
     offscreenContext.textBaseline = "bottom";
     offscreenContext.fillText(text, 0, height);
     // console.log(data.data.reduce((x, y) => x + Math.sign(y)) / data.data.length);
-    const texture = gl.createTexture() ?? fail();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    const makeNew = !texture;
+    if (makeNew) {
+      texture = gl.createTexture() ?? fail();
+      textures.push({ size: [width, height], texture: texture });
+    }
+    gl.bindTexture(gl.TEXTURE_2D, texture!);
+    if (makeNew) {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
     // The hope is that using a canvas as the source stays on gpu.
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offscreen);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    textures.push({ size: [width, height], texture });
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      offscreen
+    );
     return textures.length;
   }
 
+  textTexture: Texture | null = null;
   texturePipeline: TexturePipeline;
   textures: Texture[] = [];
 
@@ -461,8 +481,11 @@ function makeAppEnv(app: App) {
     ) {
       app.draw(itemBegin, itemCount, instanceCount);
     },
+    taca_RenderingContext_drawText(text: number, x: number, y: number) {
+      app.drawText(app.readString(text), x, y);
+    },
     taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
-      app.drawTexture(texture, x, y);
+      app.drawTexture(app.textures[texture - 1], x, y);
     },
     taca_RenderingContext_endPass() {},
     taca_RenderingContext_newBuffer(type: number, usage: number, info: number) {
