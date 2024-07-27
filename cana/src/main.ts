@@ -258,18 +258,19 @@ class App {
     const width = metrics.width;
     const height =
       metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
-    if (width > offscreen.width) offscreen.width = width;
-    if (height > offscreen.height) offscreen.height = height;
+    // TODO Instead allow larger and use subtexture or even texture atlas?
+    if (width != offscreen.width) offscreen.width = width;
+    if (height != offscreen.height) offscreen.height = height;
     offscreenContext.clearRect(0, 0, width, height);
     offscreenContext.fillStyle = "blue";
     offscreenContext.font = font;
     offscreenContext.textBaseline = "bottom";
     offscreenContext.fillText(text, 0, height);
-    const data = offscreenContext.getImageData(0, 0, width, height);
     // console.log(data.data.reduce((x, y) => x + Math.sign(y)) / data.data.length);
     const texture = gl.createTexture() ?? fail();
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    // The hope is that using a canvas as the source stays on gpu.
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offscreen);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
