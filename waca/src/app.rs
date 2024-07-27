@@ -17,6 +17,7 @@ use crate::{
         shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo,
         PipelineShaderInfo, RenderFrame, Shader, Span,
     },
+    text::TextEngine,
 };
 
 pub struct App {
@@ -105,6 +106,8 @@ impl App {
         if let Ok(config) = self.instance.exports.get_function("config") {
             config.call(&mut self.store, &[]).unwrap();
         }
+        let system = self.env.as_mut(&mut self.store);
+        system.text = Some(TextEngine::new());
         let start = self.instance.exports.get_function("_start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
@@ -117,6 +120,7 @@ pub struct System {
     pub memory: Option<Memory>,
     pub pipelines: Vec<RenderPipeline>,
     pub shaders: Vec<Shader>,
+    pub text: Option<TextEngine>,
     pub uniforms_bind_group: Option<wgpu::BindGroup>,
     pub uniforms_bind_group_layout: Option<wgpu::BindGroupLayout>,
     pub uniforms_buffer: Option<wgpu::Buffer>,
@@ -131,6 +135,7 @@ impl System {
             frame: None,
             pipelines: vec![],
             shaders: vec![],
+            text: None,
             uniforms_bind_group: None,
             uniforms_bind_group_layout: None,
             uniforms_buffer: None,
@@ -283,7 +288,12 @@ fn taca_RenderingContext_newShader(mut env: FunctionEnvMut<System>, bytes: u32) 
     system.shaders.len() as u32
 }
 
-fn taca_Text_draw(_env: FunctionEnvMut<System>, _text: u32) -> u32 {
+fn taca_Text_draw(mut env: FunctionEnvMut<System>, text: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
+    let text = read_string(&view, text);
+    system.text.as_mut().unwrap().measure_text(&text);
     0
 }
 
@@ -296,8 +306,8 @@ fn taca_Window_newRenderingContext(_env: FunctionEnvMut<System>) -> u32 {
 }
 
 fn taca_Window_print(mut env: FunctionEnvMut<System>, text: u32) {
-    let (platform, store) = env.data_and_store_mut();
-    let view = platform.memory.as_ref().unwrap().view(&store);
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
     let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
     let text = read_string(&view, text);
     println!("{text}");
