@@ -3,7 +3,11 @@ import { fail } from "./util";
 export class TexturePipeline {
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
-    const program = shaderProgramBuild(gl, textureSourceVert, textureSourceFrag);
+    const program = shaderProgramBuild(
+      gl,
+      textureSourceVert,
+      textureSourceFrag
+    );
     this.program = program;
     this.drawInfoBuffer = gl.createBuffer() ?? fail();
     this.drawInfoIndex = gl.getUniformBlockIndex(program, "drawInfo") ?? fail();
@@ -38,8 +42,8 @@ export class TexturePipeline {
     canvasHeight: number,
     x: number,
     y: number,
-    width: number,
-    height: number
+    size: [number, number],
+    usedSize: [number, number]
   ) {
     const { drawInfoBuffer, gl, program, sampler, vertexArray } = this;
     const drawInfoArray = new Float32Array([
@@ -47,10 +51,10 @@ export class TexturePipeline {
       canvasHeight,
       x,
       y,
-      width,
-      height,
-      0,
-      0,
+      usedSize[0],
+      usedSize[1],
+      size[0],
+      size[1],
     ]);
     gl.useProgram(program);
     // For fixed system things, vertex array objects are probably fine.
@@ -104,19 +108,27 @@ const textureSourceFrag = `#version 300 es
 precision mediump float;
 in vec2 vTexCoord;
 out vec4 outColor;
+uniform drawInfo {
+  vec2 canvasSize;
+  vec2 drawPos;
+  vec2 drawSize;
+  vec2 textureSize;
+};
 uniform sampler2D sampler;
 void main() {
-  outColor = texture(sampler, vTexCoord);
+  outColor = texture(sampler, vTexCoord * drawSize / textureSize);
 }
 `;
 
 const textureSourceVert = `#version 300 es
+precision mediump float;
 layout(location = 0) in vec2 framePos;
 layout(location = 1) in vec2 texCoord;
 uniform drawInfo {
   vec2 canvasSize;
   vec2 drawPos;
   vec2 drawSize;
+  vec2 textureSize;
 };
 out vec2 vTexCoord;
 void main() {

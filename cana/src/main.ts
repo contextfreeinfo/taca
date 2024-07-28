@@ -104,32 +104,28 @@ class App {
     if (text != this.textTextureText) {
       // TODO Consider font, color, and so on.
       // TODO LRU cache on atlas as separate helper library?
-      this.textDraw(text, this.textTexture?.texture);
+      this.textTexture = this.textDraw(text, this.textTexture || undefined);
       this.textTextureText = text;
-      if (!this.textTexture) {
-        this.textTexture = this.textures.at(-1)!;
-      }
     }
-    this.drawTexture(this.textTexture!, x, y);
+    this.drawTexture(this.textTexture, x, y);
   }
 
-  drawTexture(texture: Texture, x: number, y: number) {
+  drawTexture(textureIndex: number, x: number, y: number) {
     const {
       canvas: { clientWidth, clientHeight },
       gl,
       pipeline,
+      textures,
     } = this;
-    const {
-      size: [width, height],
-    } = texture;
+    const { size, texture, usedSize } = textures[textureIndex - 1];
     this.texturePipeline.draw(
-      texture.texture,
+      texture,
       clientWidth,
       clientHeight,
       x,
       y,
-      width,
-      height
+      size,
+      usedSize
     );
     if (pipeline) {
       gl.useProgram(pipeline.program);
@@ -144,13 +140,14 @@ class App {
   }
 
   frameCount: number = 0;
-  frameTimeBegin: number = Date.now();
 
   frameEnd() {
     const frameWrap = 1000;
     this.frameCount += 1;
     this.frameCount = this.frameCount % frameWrap;
     if (!this.frameCount) {
+      // TODO Instead do exponential decay estimate discarding outliers?
+      // TODO Debugger or changing tabs can pause things.
       const now = Date.now();
       const elapsed = (now - this.frameTimeBegin) * 1e-3;
       const fps = frameWrap / elapsed;
@@ -158,6 +155,8 @@ class App {
       this.frameTimeBegin = now;
     }
   }
+
+  frameTimeBegin: number = Date.now();
 
   gl: WebGL2RenderingContext;
 
@@ -277,7 +276,7 @@ class App {
     }
   }
 
-  textDraw(text: string, texture?: WebGLTexture) {
+  textDraw(text: string, textureIndex?: number) {
     const { gl, offscreen, offscreenContext, textures } = this;
     const font = "30px sans-serif";
     offscreenContext.font = font;
@@ -287,18 +286,41 @@ class App {
     const height =
       metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
     // TODO Instead allow larger and use subtexture or even texture atlas?
-    if (width > offscreen.width) offscreen.width = width;
-    if (height > offscreen.height) offscreen.height = height;
+    if (offscreen.width < width) offscreen.width = Math.ceil(width);
+    if (offscreen.height < height) offscreen.height = Math.ceil(height);
     offscreenContext.clearRect(0, 0, offscreen.width, offscreen.height);
     offscreenContext.fillStyle = "blue";
     offscreenContext.font = font;
     offscreenContext.textBaseline = "bottom";
     offscreenContext.fillText(text, 0, height);
     // console.log(data.data.reduce((x, y) => x + Math.sign(y)) / data.data.length);
-    const makeNew = !texture;
+    let makeNew = !textureIndex;
+    let texture: WebGLTexture;
+    if (textureIndex) {
+      const textureInfo = textures[textureIndex - 1];
+      if (
+        textureInfo.size[0] < offscreen.width ||
+        textureInfo.size[1] < offscreen.height
+      ) {
+        gl.deleteTexture(textureInfo.texture);
+        makeNew = true;
+      } else {
+        texture = textureInfo.texture;
+        textureInfo.usedSize = [width, height];
+      }
+    }
     if (makeNew) {
       texture = gl.createTexture() ?? fail();
-      textures.push({ size: [width, height], texture: texture });
+      // TODO Simple {x, y} type for these things?
+      const textureInfo: Texture = {
+        size: [offscreen.width, offscreen.height],
+        texture: texture,
+        usedSize: [width, height],
+      };
+      if (!textureIndex) {
+        textureIndex = textures.length + 1;
+      }
+      textures[textureIndex - 1] = textureInfo;
     }
     gl.bindTexture(gl.TEXTURE_2D, texture!);
     if (makeNew) {
@@ -316,10 +338,10 @@ class App {
       gl.UNSIGNED_BYTE,
       offscreen
     );
-    return textures.length;
+    return textureIndex!;
   }
 
-  textTexture: Texture | null = null;
+  textTexture: number = 0;
   textTextureText: string = "";
   texturePipeline: TexturePipeline;
   textures: Texture[] = [];
@@ -511,7 +533,7 @@ function makeAppEnv(app: App) {
       app.drawText(app.readString(text), x, y);
     },
     taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
-      app.drawTexture(app.textures[texture - 1], x, y);
+      app.drawTexture(texture, x, y);
     },
     taca_RenderingContext_endPass() {},
     taca_RenderingContext_newBuffer(type: number, usage: number, info: number) {
@@ -569,6 +591,7 @@ const textDecoder = new TextDecoder();
 interface Texture {
   size: [number, number];
   texture: WebGLTexture;
+  usedSize: [number, number];
 }
 
 interface Uniforms {
