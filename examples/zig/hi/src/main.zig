@@ -42,7 +42,7 @@ export fn listen(event: taca.EventKind) void {
         .pointer = .{ state.pointer[0], state.pointer[1] },
     });
     ctx.draw(0, 3, 1);
-    const end = (if (stage.?.count == 0) title.len else (stage.?.count / 10) % title.len) + 1;
+    const end = if (stage.?.count == 0) title.len else (stage.?.count / 10) % (title.len + 1);
     ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);
     ctx.commitFrame();
     stage.?.count +%= 1;

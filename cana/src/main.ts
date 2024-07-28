@@ -147,7 +147,7 @@ class App {
   frameTimeBegin: number = Date.now();
 
   frameEnd() {
-    const frameWrap = 100;
+    const frameWrap = 1000;
     this.frameCount += 1;
     this.frameCount = this.frameCount % frameWrap;
     if (!this.frameCount) {
@@ -287,9 +287,9 @@ class App {
     const height =
       metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
     // TODO Instead allow larger and use subtexture or even texture atlas?
-    if (width != offscreen.width) offscreen.width = width;
-    if (height != offscreen.height) offscreen.height = height;
-    offscreenContext.clearRect(0, 0, width, height);
+    if (width > offscreen.width) offscreen.width = width;
+    if (height > offscreen.height) offscreen.height = height;
+    offscreenContext.clearRect(0, 0, offscreen.width, offscreen.height);
     offscreenContext.fillStyle = "blue";
     offscreenContext.font = font;
     offscreenContext.textBaseline = "bottom";
