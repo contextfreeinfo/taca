@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use glyphon::{
-    fontdb::ID, Attrs, Buffer, Cache, Color, Family, FontSystem, LayoutRun, Metrics, Shaping,
-    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+    fontdb::ID, Attrs, Buffer, Cache, Color, Family, FontSystem, LayoutRun, Metrics, Resolution,
+    Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use wgpu::{MultisampleState, TextureFormat};
 
@@ -62,13 +62,22 @@ impl TextEngine {
         let MaybeGraphics::Graphics(Graphics {
             ref device,
             ref queue,
+            ref window,
             ..
         }) = system.display.graphics
         else {
             panic!()
         };
+        let size = window.inner_size();
         buffer.set_text(font_system, text, **attrs, Shaping::Advanced);
         buffer.shape_until_scroll(font_system, false);
+        viewport.update(
+            &queue,
+            Resolution {
+                width: size.width,
+                height: size.height,
+            },
+        );
         text_renderer
             .prepare(
                 &device,
@@ -78,14 +87,14 @@ impl TextEngine {
                 &viewport,
                 [TextArea {
                     buffer: &buffer,
-                    left: x - x + 10.0,
-                    top: y - y + 10.0,
+                    left: x,
+                    top: y,
                     scale: 1.0,
                     bounds: TextBounds {
                         left: 0,
                         top: 0,
-                        right: 600,
-                        bottom: 160,
+                        right: size.width as i32,
+                        bottom: size.height as i32,
                     },
                     default_color: Color::rgb(255, 255, 255),
                 }],
