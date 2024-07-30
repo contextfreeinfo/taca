@@ -288,6 +288,7 @@ class App {
     // TODO Instead allow larger and use subtexture or even texture atlas?
     if (offscreen.width < width) offscreen.width = Math.ceil(width);
     if (offscreen.height < height) offscreen.height = Math.ceil(height);
+    // TODO Clear only portion and do sub texImage2D thing?
     offscreenContext.clearRect(0, 0, offscreen.width, offscreen.height);
     offscreenContext.fillStyle = "blue";
     offscreenContext.font = font;

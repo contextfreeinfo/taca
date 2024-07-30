@@ -1,24 +1,98 @@
 use std::sync::Arc;
 
 use glyphon::{
-    fontdb::ID, Attrs, Buffer, Family, FontSystem, LayoutRun, Metrics, Shaping, SwashCache,
+    fontdb::ID, Attrs, Buffer, Cache, Color, Family, FontSystem, LayoutRun, Metrics, Shaping,
+    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+};
+use wgpu::{MultisampleState, TextureFormat};
+
+use crate::{
+    app::System,
+    display::{Graphics, MaybeGraphics},
+    gpu::RenderFrame,
 };
 
 pub struct TextEngine {
+    pub atlas: TextAtlas,
     pub attrs: Arc<Attrs<'static>>,
     pub buffer: Buffer,
     pub font_system: FontSystem,
     pub swash_cache: SwashCache,
+    pub text_renderer: TextRenderer,
+    pub viewport: Viewport,
 }
 
 impl TextEngine {
-    pub fn new() -> Self {
+    pub fn new(gfx: &Graphics) -> Self {
+        let cache = Cache::new(&gfx.device);
+        let mut atlas = TextAtlas::new(&gfx.device, &gfx.queue, &cache, TextureFormat::Bgra8Unorm);
+        let text_renderer =
+            TextRenderer::new(&mut atlas, &gfx.device, MultisampleState::default(), None);
+        let viewport = Viewport::new(&gfx.device, &cache);
         Self {
+            atlas,
             attrs: Arc::new(Attrs::new().family(Family::SansSerif)),
             buffer: Buffer::new_empty(Metrics::new(30.0, 40.0)),
             font_system: FontSystem::new(),
             swash_cache: SwashCache::new(),
+            text_renderer,
+            viewport,
         }
+    }
+
+    pub fn draw(&mut self, system: &mut System, text: &str, x: f32, y: f32) {
+        // Pretend we're static since we actually do outlive the pass.
+        let static_self: &'static mut Self = unsafe { &mut *(self as *mut _) };
+        let Self {
+            ref mut atlas,
+            attrs,
+            buffer,
+            ref mut font_system,
+            ref mut swash_cache,
+            text_renderer,
+            viewport,
+        } = static_self;
+        let Some(RenderFrame {
+            pass: Some(ref mut pass),
+            ..
+        }) = system.frame
+        else {
+            panic!()
+        };
+        let MaybeGraphics::Graphics(Graphics {
+            ref device,
+            ref queue,
+            ..
+        }) = system.display.graphics
+        else {
+            panic!()
+        };
+        buffer.set_text(font_system, text, **attrs, Shaping::Advanced);
+        buffer.shape_until_scroll(font_system, false);
+        text_renderer
+            .prepare(
+                &device,
+                &queue,
+                font_system,
+                atlas,
+                &viewport,
+                [TextArea {
+                    buffer: &buffer,
+                    left: x - x + 10.0,
+                    top: y - y + 10.0,
+                    scale: 1.0,
+                    bounds: TextBounds {
+                        left: 0,
+                        top: 0,
+                        right: 600,
+                        bottom: 160,
+                    },
+                    default_color: Color::rgb(255, 255, 255),
+                }],
+                swash_cache,
+            )
+            .unwrap();
+        text_renderer.render(atlas, viewport, pass).unwrap();
     }
 
     pub fn measure_text(&mut self, text: &str) {

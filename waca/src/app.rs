@@ -1,6 +1,10 @@
 #![allow(non_snake_case)]
 
-use std::{fs::File, io::Read};
+use std::{
+    fs::File,
+    io::Read,
+    sync::{Arc, Mutex},
+};
 
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
@@ -44,6 +48,7 @@ impl App {
                 "taca_RenderingContext_beginPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_beginPass),
                 "taca_RenderingContext_commitFrame" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_commitFrame),
                 "taca_RenderingContext_draw" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_draw),
+                "taca_RenderingContext_drawText" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawText),
                 "taca_RenderingContext_drawTexture" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawTexture),
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
@@ -102,12 +107,12 @@ impl App {
         system.display.run(event_loop);
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self, graphics: &Graphics) {
         if let Ok(config) = self.instance.exports.get_function("config") {
             config.call(&mut self.store, &[]).unwrap();
         }
         let system = self.env.as_mut(&mut self.store);
-        system.text = Some(TextEngine::new());
+        system.text = Some(Arc::new(Mutex::new(TextEngine::new(graphics))));
         let start = self.instance.exports.get_function("_start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
@@ -120,7 +125,7 @@ pub struct System {
     pub memory: Option<Memory>,
     pub pipelines: Vec<RenderPipeline>,
     pub shaders: Vec<Shader>,
-    pub text: Option<TextEngine>,
+    pub text: Option<Arc<Mutex<TextEngine>>>,
     pub uniforms_bind_group: Option<wgpu::BindGroup>,
     pub uniforms_bind_group_layout: Option<wgpu::BindGroupLayout>,
     pub uniforms_buffer: Option<wgpu::Buffer>,
@@ -226,6 +231,16 @@ fn taca_RenderingContext_draw(
     pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
 }
 
+fn taca_RenderingContext_drawText(mut env: FunctionEnvMut<System>, text: u32, x: f32, y: f32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
+    let text = read_string(&view, text);
+    pass_ensure(system);
+    let text_engine = system.text.clone().unwrap();
+    text_engine.lock().unwrap().draw(system, &text, x, y);
+}
+
 fn taca_RenderingContext_drawTexture(
     mut _env: FunctionEnvMut<System>,
     _texture: u32,
@@ -293,7 +308,13 @@ fn taca_Text_draw(mut env: FunctionEnvMut<System>, text: u32) -> u32 {
     let view = system.memory.as_ref().unwrap().view(&store);
     let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
     let text = read_string(&view, text);
-    system.text.as_mut().unwrap().measure_text(&text);
+    system
+        .text
+        .as_mut()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .measure_text(&text);
     0
 }
 

@@ -141,7 +141,10 @@ impl<'a> ApplicationHandler<Graphics> for Display {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, graphics: Graphics) {
         graphics.window.as_ref().set_title("Taca");
         self.graphics = MaybeGraphics::Graphics(graphics);
-        unsafe { &mut *self.app.0 }.start();
+        let MaybeGraphics::Graphics(gfx) = &self.graphics else {
+            panic!()
+        };
+        unsafe { &mut *self.app.0 }.start(gfx);
     }
 }
 
