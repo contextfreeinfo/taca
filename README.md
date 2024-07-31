@@ -47,6 +47,13 @@ Or build more optimized:
 cargo run --bin waca --release -- run cana/public/hi.taca
 ```
 
+And when interested in updating the demo docs:
+
+```sh
+cp dist/taca.js dist/taca.wasm ../docs/demo/
+cp dist/hi.taca ../docs/demo/apps/zig/
+```
+
 ## Old Dev Notes
 
 Build normal:
