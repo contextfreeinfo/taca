@@ -1,4 +1,11 @@
-use std::{borrow::Cow, future::Future, ptr::null_mut, sync::Arc};
+use std::{
+    borrow::Cow,
+    future::Future,
+    ptr::null_mut,
+    sync::Arc,
+    thread::sleep,
+    time::{Duration, Instant},
+};
 use wasmer::ValueType;
 use wgpu::{
     Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration, TextureFormat,
@@ -18,7 +25,12 @@ pub struct Display {
     pub app: AppPtr,
     pub graphics: MaybeGraphics,
     pub pointer_pos: Option<PhysicalPosition<f64>>,
+    time_end: Instant,
+    time_mean: f64,
+    time_report: Instant,
 }
+
+const REPORT_DELAY: Duration = Duration::from_secs(10);
 
 impl Display {
     pub fn new(event_loop: &EventLoop<Graphics>) -> Self {
@@ -26,6 +38,9 @@ impl Display {
             app: AppPtr(null_mut()),
             graphics: MaybeGraphics::Builder(GraphicsBuilder::new(event_loop.create_proxy())),
             pointer_pos: None,
+            time_end: Instant::now(),
+            time_mean: 0.0,
+            time_report: Instant::now() + REPORT_DELAY,
         }
     }
 
@@ -65,6 +80,19 @@ impl Display {
         // gfx.queue.submit([command_buffer]);
         // frame.present();
         gfx.window.request_redraw();
+        let elapsed = self.time_end.elapsed();
+        let target_elapsed = Duration::from_secs_f64(1.0 / 60.0);
+        if elapsed < target_elapsed {
+            sleep(target_elapsed - elapsed);
+        }
+        let elapsed = self.time_end.elapsed();
+        self.time_end = Instant::now();
+        let weight = 0.95;
+        self.time_mean = weight * self.time_mean + (1.0 - weight) * elapsed.as_secs_f64();
+        if self.time_end > self.time_report {
+            self.time_report = self.time_end + REPORT_DELAY;
+            // println!("fps: {}", 1.0 / self.time_mean);
+        }
     }
 
     fn resized(&mut self, size: PhysicalSize<u32>) {
@@ -141,7 +169,10 @@ impl<'a> ApplicationHandler<Graphics> for Display {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, graphics: Graphics) {
         graphics.window.as_ref().set_title("Taca");
         self.graphics = MaybeGraphics::Graphics(graphics);
-        unsafe { &mut *self.app.0 }.start();
+        let MaybeGraphics::Graphics(gfx) = &self.graphics else {
+            panic!()
+        };
+        unsafe { &mut *self.app.0 }.start(gfx);
     }
 }
 
@@ -209,6 +240,7 @@ impl Graphics {
             depth_stencil: None,
             multisample: Default::default(),
             multiview: None,
+            cache: None,
         });
         self.render_pipeline = Some(render_pipeline);
     }
@@ -266,6 +298,7 @@ fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphic
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
+                    memory_hints: wgpu::MemoryHints::Performance,
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                 },

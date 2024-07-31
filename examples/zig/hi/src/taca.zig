@@ -50,7 +50,7 @@ pub const PipelineInfo = struct {
     vertex: PipelineShaderInfo,
 };
 
-pub const RenderingContext = extern struct {
+pub const RenderingContext = struct {
     const Self = RenderingContext;
 
     pub fn applyBindings(bindings: Bindings) void {
@@ -79,6 +79,14 @@ pub const RenderingContext = extern struct {
         instance_count: u32,
     ) void {
         taca_RenderingContext_draw(item_begin, item_count, instance_count);
+    }
+
+    pub fn drawText(text: []const u8, x: f32, y: f32) void {
+        taca_RenderingContext_drawText(Span(u8).from(text), x, y);
+    }
+
+    pub fn drawTexture(texture: *Texture, x: f32, y: f32) void {
+        taca_RenderingContext_drawTexture(texture, x, y);
     }
 
     pub fn endPass() void {
@@ -114,6 +122,14 @@ pub fn Span(comptime T: type) type {
         }
     };
 }
+
+pub const Text = struct {
+    pub fn draw(text: []const u8) *Texture {
+        return taca_Text_draw(Span(u8).from(text));
+    }
+};
+
+pub const Texture = extern struct {};
 
 // TODO Text metrics and rendering
 
@@ -242,6 +258,18 @@ extern fn taca_RenderingContext_draw(
     instance_count: u32,
 ) void;
 
+extern fn taca_RenderingContext_drawText(
+    bytes: Span(u8),
+    x: f32,
+    y: f32,
+) void;
+
+extern fn taca_RenderingContext_drawTexture(
+    texture: *Texture,
+    x: f32,
+    y: f32,
+) void;
+
 extern fn taca_RenderingContext_endPass(
     // Nothing
 ) void;
@@ -259,6 +287,10 @@ extern fn taca_RenderingContext_newPipeline(
 extern fn taca_RenderingContext_newShader(
     bytes: Span(u8),
 ) callconv(.C) *Shader;
+
+extern fn taca_Text_draw(
+    text: Span(u8),
+) callconv(.C) *Texture;
 
 extern fn taca_Window_newRenderingContext(
     // Nothing

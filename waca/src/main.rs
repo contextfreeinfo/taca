@@ -1,10 +1,10 @@
-use app::AppPtr;
 use clap::{Args, Parser, Subcommand};
 use winit::event_loop::EventLoop;
 
 mod app;
 mod display;
 mod gpu;
+mod text;
 use crate::app::App;
 use crate::display::Display;
 

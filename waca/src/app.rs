@@ -1,6 +1,10 @@
 #![allow(non_snake_case)]
 
-use std::{fs::File, io::Read};
+use std::{
+    fs::File,
+    io::Read,
+    sync::{Arc, Mutex},
+};
 
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
@@ -17,6 +21,7 @@ use crate::{
         shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo,
         PipelineShaderInfo, RenderFrame, Shader, Span,
     },
+    text::TextEngine,
 };
 
 pub struct App {
@@ -43,10 +48,13 @@ impl App {
                 "taca_RenderingContext_beginPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_beginPass),
                 "taca_RenderingContext_commitFrame" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_commitFrame),
                 "taca_RenderingContext_draw" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_draw),
+                "taca_RenderingContext_drawText" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawText),
+                "taca_RenderingContext_drawTexture" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawTexture),
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
                 "taca_RenderingContext_newPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newPipeline),
                 "taca_RenderingContext_newShader" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newShader),
+                "taca_Text_draw" => Function::new_typed_with_env(&mut store, &env, taca_Text_draw),
                 "taca_Window_get" => Function::new_typed_with_env(&mut store, &env, taca_Window_get),
                 "taca_Window_newRenderingContext" => Function::new_typed_with_env(&mut store, &env, taca_Window_newRenderingContext),
                 "taca_Window_print" => Function::new_typed_with_env(&mut store, &env, taca_Window_print),
@@ -99,10 +107,12 @@ impl App {
         system.display.run(event_loop);
     }
 
-    pub fn start(&mut self) {
+    pub fn start(&mut self, graphics: &Graphics) {
         if let Ok(config) = self.instance.exports.get_function("config") {
             config.call(&mut self.store, &[]).unwrap();
         }
+        let system = self.env.as_mut(&mut self.store);
+        system.text = Some(Arc::new(Mutex::new(TextEngine::new(graphics))));
         let start = self.instance.exports.get_function("_start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
@@ -115,6 +125,7 @@ pub struct System {
     pub memory: Option<Memory>,
     pub pipelines: Vec<RenderPipeline>,
     pub shaders: Vec<Shader>,
+    pub text: Option<Arc<Mutex<TextEngine>>>,
     pub uniforms_bind_group: Option<wgpu::BindGroup>,
     pub uniforms_bind_group_layout: Option<wgpu::BindGroupLayout>,
     pub uniforms_buffer: Option<wgpu::Buffer>,
@@ -129,6 +140,7 @@ impl System {
             frame: None,
             pipelines: vec![],
             shaders: vec![],
+            text: None,
             uniforms_bind_group: None,
             uniforms_bind_group_layout: None,
             uniforms_buffer: None,
@@ -153,7 +165,7 @@ fn read_string(view: &MemoryView, span: Span) -> String {
         .unwrap()
 }
 
-fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings: u32) {
+fn taca_RenderingContext_applyBindings(mut _env: FunctionEnvMut<System>, _bindings: u32) {
     // let (platform, store) = env.data_and_store_mut();
     // let view = platform.memory.as_ref().unwrap().view(&store);
     // let bindings = WasmPtr::<ExternBindings>::new(bindings)
@@ -166,7 +178,7 @@ fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings
     // apply_bindings(platform, context, bindings);
 }
 
-fn taca_RenderingContext_applyPipeline(mut env: FunctionEnvMut<System>, pipeline: u32) {
+fn taca_RenderingContext_applyPipeline(mut _env: FunctionEnvMut<System>, _pipeline: u32) {
     // let platform = env.data_mut();
     // apply_pipeline(platform, context, pipeline)
 }
@@ -217,6 +229,25 @@ fn taca_RenderingContext_draw(
     };
     // TODO Ensure pipelined and buffered.
     pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
+}
+
+fn taca_RenderingContext_drawText(mut env: FunctionEnvMut<System>, text: u32, x: f32, y: f32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
+    let text = read_string(&view, text);
+    pass_ensure(system);
+    let text_engine = system.text.clone().unwrap();
+    text_engine.lock().unwrap().draw(system, &text, x, y);
+}
+
+fn taca_RenderingContext_drawTexture(
+    mut _env: FunctionEnvMut<System>,
+    _texture: u32,
+    _x: f32,
+    _y: f32,
+) {
+    // TODO
 }
 
 fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>) {
@@ -272,6 +303,21 @@ fn taca_RenderingContext_newShader(mut env: FunctionEnvMut<System>, bytes: u32) 
     system.shaders.len() as u32
 }
 
+fn taca_Text_draw(mut env: FunctionEnvMut<System>, text: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
+    let text = read_string(&view, text);
+    system
+        .text
+        .as_mut()
+        .unwrap()
+        .lock()
+        .unwrap()
+        .measure_text(&text);
+    0
+}
+
 fn taca_Window_get(_env: FunctionEnvMut<System>) -> u32 {
     1
 }
@@ -281,8 +327,8 @@ fn taca_Window_newRenderingContext(_env: FunctionEnvMut<System>) -> u32 {
 }
 
 fn taca_Window_print(mut env: FunctionEnvMut<System>, text: u32) {
-    let (platform, store) = env.data_and_store_mut();
-    let view = platform.memory.as_ref().unwrap().view(&store);
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
     let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
     let text = read_string(&view, text);
     println!("{text}");

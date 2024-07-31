@@ -1,14 +1,16 @@
 const taca = @import("taca.zig");
-const window = taca.Window;
 const ctx = taca.RenderingContext;
+const window = taca.Window;
+
+const title = "Hi from Zig!";
 
 export fn config() void {
-    window.setTitle("Hi from Zig!");
+    window.setTitle(title);
 }
 
 pub fn main() void {
     // TODO Render text to display.
-    window.print("Hi from Zig!");
+    window.print(title);
     const y = @sqrt(3.0) / 4.0;
     _ = ctx.newBuffer(
         .vertex,
@@ -26,7 +28,7 @@ pub fn main() void {
     );
     // TODO Can any languages run command line tools from their source?
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
-    // stage = .{ .ctx = ctx };
+    stage = .{ .count = 0 };
 }
 
 export fn listen(event: taca.EventKind) void {
@@ -40,14 +42,17 @@ export fn listen(event: taca.EventKind) void {
         .pointer = .{ state.pointer[0], state.pointer[1] },
     });
     ctx.draw(0, 3, 1);
+    const end = (stage.?.count / 10) % (title.len + 1);
+    ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);
     ctx.commitFrame();
+    stage.?.count +%= 1;
 }
 
-// var stage: ?Stage = null;
+var stage: ?Stage = null;
 
-// const Stage = struct {
-//     ctx: *taca.RenderingContext,
-// };
+const Stage = struct {
+    count: u32,
+};
 
 const Uniforms = extern struct {
     aspect: [2]f32,

@@ -6,6 +6,8 @@ import {
   shaderToGlsl,
   ShaderStage,
 } from "../pkg/cana";
+import { TexturePipeline, shaderProgramBuild } from "./drawing";
+import { fail } from "./util";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
@@ -29,6 +31,7 @@ class App {
     });
     this.config = config;
     this.gl = config.canvas.getContext("webgl2")!;
+    this.texturePipeline = new TexturePipeline(this.gl);
     // Resize will fail if we couldn't get a context.
     this.resizeCanvas();
     // TODO Track for deregistration needs?
@@ -50,7 +53,7 @@ class App {
     }
     attributes.sort((a, b) => a.loc - b.loc);
     // TODO Buffer handling doesn't belong here in program construction!
-    // TODO Change taca api to work around vertex arrays.
+    // TODO Stop using vertex array objects because they have rather limited bindings available.
     this.#vertexArrayCreate(attributes);
     // console.log(attributes);
     return attributes;
@@ -63,6 +66,8 @@ class App {
     const itemSize = getU32(infoBytes, 8);
     const data = this.memoryBytes().subarray(ptr, ptr + size);
     const { gl } = this;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     const buffer = gl.createBuffer();
     buffer || fail();
     this.buffers.push({
@@ -94,12 +99,64 @@ class App {
     gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
   }
 
+  drawText(text: string, x: number, y: number) {
+    if (!text) return;
+    if (text != this.textTextureText) {
+      // TODO Consider font, color, and so on.
+      // TODO LRU cache on atlas as separate helper library?
+      this.textTexture = this.textDraw(text, this.textTexture || undefined);
+      this.textTextureText = text;
+    }
+    this.drawTexture(this.textTexture, x, y);
+  }
+
+  drawTexture(textureIndex: number, x: number, y: number) {
+    const {
+      canvas: { clientWidth, clientHeight },
+      gl,
+      pipeline,
+      textures,
+    } = this;
+    const { size, texture, usedSize } = textures[textureIndex - 1];
+    this.texturePipeline.draw(
+      texture,
+      clientWidth,
+      clientHeight,
+      x,
+      y,
+      size,
+      usedSize
+    );
+    if (pipeline) {
+      gl.useProgram(pipeline.program);
+    }
+  }
+
   exports: AppExports = undefined as any;
 
   frameCommit() {
     this.passBegun = false;
     this.pipeline = this.vertexArray = null;
   }
+
+  frameCount: number = 0;
+
+  frameEnd() {
+    const frameWrap = 1000;
+    this.frameCount += 1;
+    this.frameCount = this.frameCount % frameWrap;
+    if (!this.frameCount) {
+      // TODO Instead do exponential decay estimate discarding outliers?
+      // TODO Debugger or changing tabs can pause things.
+      const now = Date.now();
+      const elapsed = (now - this.frameTimeBegin) * 1e-3;
+      const fps = frameWrap / elapsed;
+      console.log(`fps: ${fps}`);
+      this.frameTimeBegin = now;
+    }
+  }
+
+  frameTimeBegin: number = Date.now();
 
   gl: WebGL2RenderingContext;
 
@@ -125,6 +182,9 @@ class App {
   memoryView(ptr: number, len: number) {
     return new DataView(this.memory.buffer, ptr, len);
   }
+
+  offscreen = new OffscreenCanvas(1, 1);
+  offscreenContext = this.offscreen.getContext("2d") ?? fail();
 
   passBegin() {
     let { gl, resizeNeeded } = this;
@@ -152,20 +212,7 @@ class App {
     if (pipelines.length) return;
     const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vs_main");
     const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fs_main");
-    const program = gl.createProgram() ?? fail();
-    const addShader = (type: number, source: string) => {
-      const shader = gl.createShader(type) ?? fail();
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      gl.getShaderParameter(shader, gl.COMPILE_STATUS) ??
-        fail(gl.getShaderInfoLog(shader));
-      gl.attachShader(program, shader);
-    };
-    addShader(gl.VERTEX_SHADER, vertex);
-    addShader(gl.FRAGMENT_SHADER, fragment);
-    gl.linkProgram(program);
-    gl.getProgramParameter(program, gl.LINK_STATUS) ??
-      fail(gl.getProgramInfoLog(program));
+    const program = shaderProgramBuild(gl, vertex, fragment);
     // console.log(vertex);
     // console.log(fragment);
     const attributes = this.#attributesBuild(program);
@@ -229,6 +276,77 @@ class App {
     }
   }
 
+  textDraw(text: string, textureIndex?: number) {
+    const { gl, offscreen, offscreenContext, textures } = this;
+    const font = "30px sans-serif";
+    offscreenContext.font = font;
+    const metrics = offscreenContext.measureText(text);
+    // console.log(metrics);
+    const width = metrics.width;
+    const height =
+      metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+    // TODO Instead allow larger and use subtexture or even texture atlas?
+    if (offscreen.width < width) offscreen.width = Math.ceil(width);
+    if (offscreen.height < height) offscreen.height = Math.ceil(height);
+    // TODO Clear only portion and do sub texImage2D thing?
+    offscreenContext.clearRect(0, 0, offscreen.width, offscreen.height);
+    offscreenContext.fillStyle = "white";
+    offscreenContext.font = font;
+    offscreenContext.textBaseline = "bottom";
+    offscreenContext.fillText(text, 0, height);
+    // console.log(data.data.reduce((x, y) => x + Math.sign(y)) / data.data.length);
+    let makeNew = !textureIndex;
+    let texture: WebGLTexture;
+    if (textureIndex) {
+      const textureInfo = textures[textureIndex - 1];
+      if (
+        textureInfo.size[0] < offscreen.width ||
+        textureInfo.size[1] < offscreen.height
+      ) {
+        gl.deleteTexture(textureInfo.texture);
+        makeNew = true;
+      } else {
+        texture = textureInfo.texture;
+        textureInfo.usedSize = [width, height];
+      }
+    }
+    if (makeNew) {
+      texture = gl.createTexture() ?? fail();
+      // TODO Simple {x, y} type for these things?
+      const textureInfo: Texture = {
+        size: [offscreen.width, offscreen.height],
+        texture: texture,
+        usedSize: [width, height],
+      };
+      if (!textureIndex) {
+        textureIndex = textures.length + 1;
+      }
+      textures[textureIndex - 1] = textureInfo;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, texture!);
+    if (makeNew) {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
+    // The hope is that using a canvas as the source stays on gpu.
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      offscreen
+    );
+    return textureIndex!;
+  }
+
+  textTexture: number = 0;
+  textTextureText: string = "";
+  texturePipeline: TexturePipeline;
+  textures: Texture[] = [];
+
   uniformsApply(uniforms: number) {
     this.#pipelinedEnsure();
     const { gl } = this;
@@ -237,18 +355,18 @@ class App {
       const uniformsBuffer = gl.createBuffer() ?? fail();
       const { uniforms } = pipeline!;
       gl.bindBuffer(gl.UNIFORM_BUFFER, uniformsBuffer);
-      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.size, gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.size, gl.STREAM_DRAW);
       for (let i = 0; i < uniforms.count; i += 1) {
         if (i != uniforms.tacaIndex) {
-          gl.bindBufferBase(gl.UNIFORM_BUFFER, i, uniformsBuffer);
+          gl.bindBufferBase(gl.UNIFORM_BUFFER, i + 1, uniformsBuffer);
         }
       }
       this.uniformsBuffer = uniformsBuffer;
       // Custom taca uniforms.
       const tacaBuffer = gl.createBuffer() ?? fail();
       gl.bindBuffer(gl.UNIFORM_BUFFER, tacaBuffer);
-      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.tacaSize, gl.DYNAMIC_DRAW);
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, uniforms.tacaIndex, tacaBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.tacaSize, gl.STREAM_DRAW);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, uniforms.tacaIndex + 1, tacaBuffer);
       this.tacaBuffer = tacaBuffer;
       this.tacaBufferUpdate();
     }
@@ -281,7 +399,7 @@ class App {
         if (i > 0 && nextSize != size) fail();
         size = nextSize;
       }
-      gl.uniformBlockBinding(program, i, i);
+      gl.uniformBlockBinding(program, i, i + 1);
     }
     return { count, size, tacaIndex, tacaSize };
   }
@@ -349,10 +467,6 @@ interface Buffer {
   kind: "index" | "vertex";
 }
 
-function fail(message?: string | null): never {
-  throw Error(message ?? undefined);
-}
-
 function getU32(view: DataView, byteOffset: number) {
   return view.getUint32(byteOffset, true);
 }
@@ -378,7 +492,11 @@ async function loadApp(config: AppConfig) {
   exports._start();
   if (exports.listen) {
     const update = () => {
-      exports.listen!(0);
+      try {
+        exports.listen!(0);
+      } finally {
+        app.frameEnd();
+      }
       requestAnimationFrame(update);
     };
     requestAnimationFrame(update);
@@ -412,6 +530,12 @@ function makeAppEnv(app: App) {
     ) {
       app.draw(itemBegin, itemCount, instanceCount);
     },
+    taca_RenderingContext_drawText(text: number, x: number, y: number) {
+      app.drawText(app.readString(text), x, y);
+    },
+    taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
+      app.drawTexture(texture, x, y);
+    },
     taca_RenderingContext_endPass() {},
     taca_RenderingContext_newBuffer(type: number, usage: number, info: number) {
       return app.bufferNew(type, usage, info);
@@ -422,6 +546,9 @@ function makeAppEnv(app: App) {
     taca_RenderingContext_newShader(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
+    },
+    taca_Text_draw(text: number) {
+      return app.textDraw(app.readString(text));
     },
     taca_Window_newRenderingContext() {
       // TODO If we only have one, we don't need it at all, right?
@@ -461,6 +588,12 @@ function setF32(view: DataView, byteOffset: number, value: number) {
 // }
 
 const textDecoder = new TextDecoder();
+
+interface Texture {
+  size: [number, number];
+  texture: WebGLTexture;
+  usedSize: [number, number];
+}
 
 interface Uniforms {
   count: number;
