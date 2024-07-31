@@ -9,7 +9,6 @@ export fn config() void {
 }
 
 pub fn main() void {
-    // TODO Render text to display.
     window.print(title);
     const y = @sqrt(3.0) / 4.0;
     _ = ctx.newBuffer(
@@ -26,7 +25,6 @@ pub fn main() void {
         .immutable,
         taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     );
-    // TODO Can any languages run command line tools from their source?
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
     stage = .{ .count = 0 };
 }
