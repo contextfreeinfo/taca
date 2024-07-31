@@ -16,10 +16,17 @@ pub struct TextEngine {
     pub atlas: TextAtlas,
     pub attrs: Arc<Attrs<'static>>,
     pub buffer: Buffer,
+    pub font: Font,
     pub font_system: FontSystem,
     pub swash_cache: SwashCache,
     pub text_renderer: TextRenderer,
     pub viewport: Viewport,
+}
+
+pub struct Font {
+    pub color: Color,
+    pub name: String,
+    pub size: f32,
 }
 
 impl TextEngine {
@@ -33,6 +40,11 @@ impl TextEngine {
             atlas,
             attrs: Arc::new(Attrs::new().family(Family::SansSerif)),
             buffer: Buffer::new_empty(Metrics::new(30.0, 40.0)),
+            font: Font {
+                color: Color::rgb(255, 255, 255),
+                name: "sans-serif".into(),
+                size: 30.0,
+            },
             font_system: FontSystem::new(),
             swash_cache: SwashCache::new(),
             text_renderer,
@@ -47,6 +59,7 @@ impl TextEngine {
             ref mut atlas,
             attrs,
             buffer,
+            ref font,
             ref mut font_system,
             ref mut swash_cache,
             text_renderer,
@@ -68,9 +81,18 @@ impl TextEngine {
         else {
             panic!()
         };
-        let size = window.inner_size();
+        // Metrics
+        let metrics_text = match text.len() {
+            0 => DEFAULT_TEXT,
+            _ => text,
+        };
+        buffer.set_text(font_system, metrics_text, **attrs, Shaping::Advanced);
+        let text_size = adjust_metrics(buffer, font, font_system);
+        // Text
         buffer.set_text(font_system, text, **attrs, Shaping::Advanced);
         buffer.shape_until_scroll(font_system, false);
+        // Render
+        let size = window.inner_size();
         viewport.update(
             &queue,
             Resolution {
@@ -87,8 +109,8 @@ impl TextEngine {
                 &viewport,
                 [TextArea {
                     buffer: &buffer,
-                    left: x,
-                    top: y,
+                    left: x - text_size.0 * 0.5,
+                    top: y - text_size.1 * 0.5,
                     scale: 1.0,
                     bounds: TextBounds {
                         left: 0,
@@ -96,7 +118,7 @@ impl TextEngine {
                         right: size.width as i32,
                         bottom: size.height as i32,
                     },
-                    default_color: Color::rgb(255, 255, 255),
+                    default_color: font.color,
                 }],
                 swash_cache,
             )
@@ -128,3 +150,29 @@ impl TextEngine {
         }
     }
 }
+
+fn adjust_metrics(buffer: &mut Buffer, font: &Font, font_system: &mut FontSystem) -> (f32, f32) {
+    // The line height doesn't really matter, but pick something reasonable anyway.
+    buffer.set_metrics(font_system, Metrics::new(font.size, font.size * 1.5));
+    let mut max_height = 0f32;
+    let mut font_id = ID::dummy();
+    let mut width = 0f32;
+    for run in buffer.layout_runs() {
+        for glyph in run.glyphs {
+            // TODO Always just use the first???
+            if glyph.font_id != font_id {
+                font_id = glyph.font_id;
+                let font = font_system.get_font(glyph.font_id).unwrap();
+                let metrics = font.as_swash().metrics(&[]);
+                let height = (metrics.ascent + metrics.descent) / metrics.units_per_em as f32;
+                max_height = max_height.max(height);
+            }
+        }
+        width += run.line_w;
+    }
+    let height = font.size * max_height;
+    return (width, height);
+    // buffer.set_metrics(font_system, Metrics::new(font.size / max_height, font_size * 1.5));
+}
+
+const DEFAULT_TEXT: &str = "The quick brown fox jumped over the yellow dog.";
