@@ -123,12 +123,6 @@ pub fn Span(comptime T: type) type {
     };
 }
 
-pub const Text = struct {
-    pub fn draw(text: []const u8) *Texture {
-        return taca_Text_draw(Span(u8).from(text));
-    }
-};
-
 pub const Texture = extern struct {};
 
 // TODO Text metrics and rendering
@@ -287,10 +281,6 @@ extern fn taca_RenderingContext_newPipeline(
 extern fn taca_RenderingContext_newShader(
     bytes: Span(u8),
 ) callconv(.C) *Shader;
-
-extern fn taca_Text_draw(
-    text: Span(u8),
-) callconv(.C) *Texture;
 
 extern fn taca_Window_newRenderingContext(
     // Nothing

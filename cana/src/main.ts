@@ -534,6 +534,7 @@ function makeAppEnv(app: App) {
       app.drawText(app.readString(text), x, y);
     },
     taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
+      // TODO Source and dest rect?
       app.drawTexture(texture, x, y);
     },
     taca_RenderingContext_endPass() {},
@@ -547,11 +548,10 @@ function makeAppEnv(app: App) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
-    taca_Text_draw(text: number) {
-      return app.textDraw(app.readString(text));
-    },
     taca_Window_newRenderingContext() {
       // TODO If we only have one, we don't need it at all, right?
+      // TODO Except context for render to texture.
+      // TODO Need size? Resizable? Reallocate in same index?
       return 1;
     },
     taca_Window_print(text: number) {
