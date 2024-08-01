@@ -17,9 +17,9 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        buffered_ensure, create_buffer, create_pipeline, end_pass, pass_ensure, pipelined_ensure,
-        shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo, PipelineInfo,
-        PipelineShaderInfo, RenderFrame, Shader, Span,
+        buffered_ensure, create_buffer, create_pipeline, end_pass, frame_commit, pass_ensure,
+        pipelined_ensure, shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo,
+        PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
     text::TextEngine,
 };
@@ -76,12 +76,8 @@ impl App {
 
     pub fn listen(&mut self) {
         self.listen.call(&mut self.store, &[Value::I32(0)]).unwrap();
-        // Drop any remaining frame work.
-        let app = self.env.as_mut(&mut self.store);
-        if let Some(mut frame) = app.frame.take() {
-            // Finish any pass before letting the rest of the frame drop.
-            frame.pass.take();
-        }
+        let system = self.env.as_mut(&mut self.store);
+        frame_commit(system);
     }
 
     pub fn load(path: &str, display: Display) -> App {
@@ -108,9 +104,6 @@ impl App {
     }
 
     pub fn start(&mut self, graphics: &Graphics) {
-        if let Ok(config) = self.instance.exports.get_function("config") {
-            config.call(&mut self.store, &[]).unwrap();
-        }
         let system = self.env.as_mut(&mut self.store);
         system.text = Some(Arc::new(Mutex::new(TextEngine::new(graphics))));
         let start = self.instance.exports.get_function("_start").unwrap();
@@ -197,19 +190,7 @@ fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>) {
 
 fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>) {
     let system = env.data_mut();
-    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
-        return;
-    };
-    let Some(mut frame) = system.frame.take() else {
-        return;
-    };
-    // First finish any pass.
-    frame.pass.take();
-    // Then commit frame.
-    let command_buffer = frame.encoder.finish();
-    // dbg!(&command_buffer);
-    gfx.queue.submit([command_buffer]);
-    frame.frame.present();
+    frame_commit(system);
 }
 
 fn taca_RenderingContext_draw(

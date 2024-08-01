@@ -154,6 +154,22 @@ pub fn end_pass(system: &mut System) {
     }
 }
 
+pub fn frame_commit(system: &mut System) {
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let Some(mut frame) = system.frame.take() else {
+        return;
+    };
+    // First finish any pass.
+    frame.pass.take();
+    // Then commit frame.
+    let command_buffer = frame.encoder.finish();
+    // dbg!(&command_buffer);
+    gfx.queue.submit([command_buffer]);
+    frame.frame.present();
+}
+
 pub fn pass_ensure(system: &mut System) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;
@@ -227,7 +243,7 @@ fn pipeline_ensure(system: &mut System) {
         bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
         push_constant_ranges: &[],
     });
-    let vertex_entry_point = "vs_main";
+    let vertex_entry_point = "vertex_main";
     let attr_info = vertex_attributes_build(shader, vertex_entry_point);
     // dbg!(&attr_info);
     let vertex_attr_layout = wgpu::VertexBufferLayout {
@@ -249,7 +265,7 @@ fn pipeline_ensure(system: &mut System) {
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader.compiled,
-            entry_point: "fs_main",
+            entry_point: "fragment_main",
             compilation_options: Default::default(),
             targets: &[Some(TextureFormat::Bgra8Unorm.into())],
         }),

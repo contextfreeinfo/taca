@@ -1655,17 +1655,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miniquad"
-version = "0.4.2"
-source = "git+https://github.com/not-fl3/miniquad/#65f1da6028ff37b1dc4f9eee498c0381baebf2b1"
-dependencies = [
- "libc",
- "ndk-sys 0.2.2",
- "objc",
- "winapi",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1742,12 +1731,6 @@ name = "ndk-context"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b"
-
-[[package]]
-name = "ndk-sys"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1bcdd74c20ad5d95aacd60ef9ba40fdf77f767051040541df557b7a9b2a2121"
 
 [[package]]
 name = "ndk-sys"
@@ -2790,12 +2773,16 @@ dependencies = [
 name = "taca"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "clap",
+ "glyphon",
  "lz4_flex",
- "miniquad",
  "naga 0.20.0",
+ "pollster",
  "wasmer",
  "wasmer-types",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
@@ -3135,22 +3122,6 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
-
-[[package]]
-name = "waca"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "clap",
- "glyphon",
- "lz4_flex",
- "naga 0.20.0",
- "pollster",
- "wasmer",
- "wasmer-types",
- "wgpu",
- "winit",
-]
 
 [[package]]
 name = "walkdir"

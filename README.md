@@ -54,43 +54,6 @@ cp dist/taca.js dist/taca.wasm ../docs/demo/
 cp dist/hi.taca ../docs/demo/apps/zig/
 ```
 
-## Old Dev Notes
-
-Build normal:
-
-```sh
-cargo build --target wasm32-unknown-unknown --release && \
-  cp target/wasm32-unknown-unknown/release/taca.wasm static/
-```
-
-Build optimized:
-
-```sh
-./build-opt.sh
-```
-
-Run native:
-
-```sh
-cargo run --release -- run docs/demo/apps/zig/hi.taca
-```
-
-Run web:
-
-```sh
-# First time: npm install -g http-server
-https-server .
-```
-
-Open: http://127.0.0.1:8080/static/?app=../docs/demo/apps/zig/hi.taca
-
-## Sources
-
-These files are copied and maybe modified from miniquad:
-
-- static/gl.js
-- static/index.html
-
 ## Exploration
 
 Size on WGSL:
