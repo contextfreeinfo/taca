@@ -297,8 +297,10 @@ class H {
   }
   frameCount = 0;
   frameEnd() {
-    if (this.frameCount += 1, this.frameCount = this.frameCount % 1e3, !this.frameCount) {
-      const t = Date.now(), i = 1e3 / ((t - this.frameTimeBegin) * 1e-3);
+    this.passBegun && this.frameCommit();
+    const e = 1e3;
+    if (this.frameCount += 1, this.frameCount = this.frameCount % e, !this.frameCount) {
+      const t = Date.now(), r = (t - this.frameTimeBegin) * 1e-3, i = e / r;
       console.log(`fps: ${i}`), this.frameTimeBegin = t;
     }
   }
@@ -320,7 +322,7 @@ class H {
   offscreenContext = this.offscreen.getContext("2d") ?? u();
   passBegin() {
     let { gl: e, resizeNeeded: t } = this;
-    t && this.resizeCanvas(), e.clearColor(0, 0, 0, 1), e.clear(e.COLOR_BUFFER_BIT | e.DEPTH_BUFFER_BIT);
+    t && this.resizeCanvas(), e.clearColor(0, 0, 0, 1), e.clear(e.COLOR_BUFFER_BIT | e.DEPTH_BUFFER_BIT), this.passBegun = !0;
   }
   passBegun = !1;
   pipeline = null;
@@ -336,7 +338,7 @@ class H {
       shaders: [r]
     } = this;
     if (t.length) return;
-    const i = B(r, E.Vertex, "vs_main"), o = B(r, E.Fragment, "fs_main"), s = D(e, i, o), a = this.#n(s), f = this.#s(s);
+    const i = B(r, E.Vertex, "vertex_main"), o = B(r, E.Fragment, "fragment_main"), s = D(e, i, o), a = this.#n(s), f = this.#s(s);
     t.push({ attributes: a, program: s, uniforms: f });
   }
   #r() {
@@ -476,7 +478,7 @@ async function q(n) {
   let { instance: s } = await WebAssembly.instantiate(r, { env: o });
   i.init(s);
   const a = i.exports;
-  if (a.config && a.config(), a._start(), a.listen) {
+  if (a._start(), a.listen) {
     const f = () => {
       try {
         a.listen(0);
