@@ -59,11 +59,12 @@ class App {
     return attributes;
   }
 
-  bufferNew(type: number, usage: number, info: number) {
+  bufferNew(type: number, info: number) {
     const infoBytes = this.memoryView(info, 3 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
     const itemSize = getU32(infoBytes, 8);
+    // TODO Null ptr -> zero buffer for writing.
     const data = this.memoryBytes().subarray(ptr, ptr + size);
     const { gl } = this;
     gl.enable(gl.BLEND);
@@ -77,8 +78,7 @@ class App {
     });
     const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
     gl.bindBuffer(target, buffer);
-    const usageValue =
-      [gl.STATIC_DRAW, gl.DYNAMIC_DRAW, gl.STREAM_DRAW][usage] ?? fail();
+    const usageValue = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
     gl.bufferData(target, data, usageValue);
     return this.buffers.length;
   }
@@ -215,7 +215,11 @@ class App {
     } = this;
     if (pipelines.length) return;
     const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vertex_main");
-    const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fragment_main");
+    const fragment = shaderToGlsl(
+      shader,
+      ShaderStage.Fragment,
+      "fragment_main"
+    );
     const program = shaderProgramBuild(gl, vertex, fragment);
     // console.log(vertex);
     // console.log(fragment);
@@ -514,8 +518,12 @@ async function loadAppData() {
 
 function makeAppEnv(app: App) {
   return {
-    taca_RenderingContext_applyBindings(bindings: number) {},
-    taca_RenderingContext_applyPipeline(pipeline: number) {},
+    taca_RenderingContext_applyBindings(bindings: number) {
+      // TODO Bindings.
+    },
+    taca_RenderingContext_applyPipeline(pipeline: number) {
+      // TODO Pipeline.
+    },
     taca_RenderingContext_applyUniforms(uniforms: number) {
       app.uniformsApply(uniforms);
     },
@@ -538,10 +546,11 @@ function makeAppEnv(app: App) {
       app.drawTexture(texture, x, y);
     },
     taca_RenderingContext_endPass() {},
-    taca_RenderingContext_newBuffer(type: number, usage: number, info: number) {
-      return app.bufferNew(type, usage, info);
+    taca_RenderingContext_newBuffer(type: number, info: number) {
+      return app.bufferNew(type, info);
     },
     taca_RenderingContext_newPipeline(bytes: number) {
+      // TODO Pipeline.
       console.log("taca_RenderingContext_newPipeline");
     },
     taca_RenderingContext_newShader(bytes: number) {
@@ -562,6 +571,7 @@ function makeAppEnv(app: App) {
       document.title = app.readString(title);
     },
     taca_Window_state(result: number) {
+      // TODO Include time.
       const { clientWidth, clientHeight } = app.canvas;
       const [pointerX, pointerY] = app.pointerPos;
       const view = app.memoryView(result, 4 * 4);

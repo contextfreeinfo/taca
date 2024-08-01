@@ -10,7 +10,6 @@ pub fn main() void {
     const y = @sqrt(3.0) / 4.0;
     _ = ctx.newBuffer(
         .vertex,
-        .immutable,
         taca.BufferSlice.new(&[_]Vertex{
             .{ .pos = .{ -0.5, y }, .color = .{ 1, 0, 0, 1 } },
             .{ .pos = .{ 0.5, y }, .color = .{ 0, 1, 0, 1 } },
@@ -19,7 +18,6 @@ pub fn main() void {
     );
     _ = ctx.newBuffer(
         .index,
-        .immutable,
         taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     );
     _ = ctx.newShader(@embedFile("shader.opt.spv"));

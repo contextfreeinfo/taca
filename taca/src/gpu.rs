@@ -112,13 +112,7 @@ pub fn buffered_ensure<'a>(system: &'a mut System) {
     pass.set_vertex_buffer(0, vertex.buffer.slice(..));
 }
 
-pub fn create_buffer(
-    system: &mut System,
-    contents: &[u8],
-    typ: u32,
-    _usage: u32,
-    item_size: usize,
-) {
+pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32, item_size: usize) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
