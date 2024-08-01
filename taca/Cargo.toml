@@ -4,19 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.7", features = ["derive"] }
+bytemuck = "1.16.1"
+clap = { version = "4.5.8", features = ["derive"] }
+glyphon = { git = "https://github.com/grovesNL/glyphon.git", rev = "9def85304266605d2bd93fc4bf33a294db67f3d3" }
 lz4_flex = "0.11.3"
-# Git version for WebGL2 support.
-miniquad = { git = "https://github.com/not-fl3/miniquad/" }
+pollster = "0.3.0"
+wasmer = "4.3.2"
+wasmer-types = "4.3.2"
+wgpu = { version = "22.0.0", features = ["spirv"] }
+winit = "0.30.3"
 
 [dependencies.naga]
 version = "0.20.0"
 default-features = false
-features = ["glsl-out", "msl-out", "spv-in"]
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer = "4.3.1"
-wasmer-types = "4.3.1"
-
-# [target.'cfg(target_arch = "wasm32")'.dependencies]
-# wasmer = { version = "4.3.1", features = ["js"] }
+features = ["spv-in"]

@@ -1,46 +1,46 @@
-#[cfg(not(target_arch = "wasm32"))]
 use clap::{Args, Parser, Subcommand};
-#[cfg(not(target_arch = "wasm32"))]
-use wasmic::run;
+use winit::event_loop::EventLoop;
 
-mod platform;
-mod shaders;
-mod wasmic;
+mod app;
+mod display;
+mod gpu;
+mod text;
+use crate::app::App;
+use crate::display::Display;
 
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(clap::Parser)]
+#[derive(Parser)]
 #[command(about, version, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Subcommand)]
 enum Commands {
     Run(BuildArgs),
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Args)]
 pub struct BuildArgs {
     pub app: String,
 }
 
 fn main() {
-    // TODO Push all variation into wasmic?
-    #[cfg(target_arch = "wasm32")]
-    {
-        // TODO Different loading for browser.
-        wasmic::wasmish();
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let cli = Cli::parse();
-        match &cli.command {
-            Commands::Run(args) => {
-                run(args.app.clone());
-            }
+    let cli = Cli::parse();
+    match &cli.command {
+        Commands::Run(args) => {
+            run(args.app.clone());
         }
     }
+}
+
+fn run(app: String) {
+    // Setup based on: https://github.com/erer1243/wgpu-0.20-winit-0.30-web-example
+    let event_loop = EventLoop::with_user_event().build().unwrap();
+    let display = Display::new(&event_loop);
+    let mut app = Box::new(App::load(&app, display));
+    // This should be safe because we only initiate app activity from display itself.
+    // TODO Ensure that all event handling is on a single thread.
+    let ptr = &mut *app as *mut App;
+    app.run(event_loop, ptr);
 }
