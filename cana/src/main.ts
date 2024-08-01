@@ -214,8 +214,8 @@ class App {
       shaders: [shader],
     } = this;
     if (pipelines.length) return;
-    const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vs_main");
-    const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fs_main");
+    const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vertex_main");
+    const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fragment_main");
     const program = shaderProgramBuild(gl, vertex, fragment);
     // console.log(vertex);
     // console.log(fragment);

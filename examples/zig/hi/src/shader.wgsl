@@ -11,7 +11,7 @@ struct VertexOutput {
 };
 
 @vertex
-fn vs_main(
+fn vertex_main(
   @location(0) in_pos: vec2f,
   @location(1) in_color: vec4f,
 ) -> VertexOutput {
@@ -22,7 +22,7 @@ fn vs_main(
 }
 
 @fragment
-fn fs_main(
+fn fragment_main(
   in: VertexOutput,
 ) -> @location(0) vec4f {
   let distance = length(uniforms.pointer - in.position.xy);

@@ -243,7 +243,7 @@ fn pipeline_ensure(system: &mut System) {
         bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
         push_constant_ranges: &[],
     });
-    let vertex_entry_point = "vs_main";
+    let vertex_entry_point = "vertex_main";
     let attr_info = vertex_attributes_build(shader, vertex_entry_point);
     // dbg!(&attr_info);
     let vertex_attr_layout = wgpu::VertexBufferLayout {
@@ -265,7 +265,7 @@ fn pipeline_ensure(system: &mut System) {
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader.compiled,
-            entry_point: "fs_main",
+            entry_point: "fragment_main",
             compilation_options: Default::default(),
             targets: &[Some(TextureFormat::Bgra8Unorm.into())],
         }),
