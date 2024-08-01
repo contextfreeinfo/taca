@@ -4,11 +4,8 @@ const window = taca.Window;
 
 const title = "Hi from Zig!";
 
-export fn config() void {
-    window.setTitle(title);
-}
-
 pub fn main() void {
+    window.setTitle(title);
     window.print(title);
     const y = @sqrt(3.0) / 4.0;
     _ = ctx.newBuffer(
@@ -37,12 +34,11 @@ export fn listen(event: taca.EventKind) void {
     const aspect = size[0] / size[1];
     ctx.applyUniforms(&Uniforms{
         .aspect = if (aspect < 1) .{ 1 / aspect, 1 } else .{ 1, aspect },
-        .pointer = .{ state.pointer[0], state.pointer[1] },
+        .pointer = state.pointer,
     });
     ctx.draw(0, 3, 1);
     const end = (stage.?.count / 10) % (title.len + 1);
     ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);
-    ctx.commitFrame();
     stage.?.count +%= 1;
 }
 

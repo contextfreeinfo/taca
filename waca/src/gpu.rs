@@ -154,6 +154,22 @@ pub fn end_pass(system: &mut System) {
     }
 }
 
+pub fn frame_commit(system: &mut System) {
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let Some(mut frame) = system.frame.take() else {
+        return;
+    };
+    // First finish any pass.
+    frame.pass.take();
+    // Then commit frame.
+    let command_buffer = frame.encoder.finish();
+    // dbg!(&command_buffer);
+    gfx.queue.submit([command_buffer]);
+    frame.frame.present();
+}
+
 pub fn pass_ensure(system: &mut System) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;

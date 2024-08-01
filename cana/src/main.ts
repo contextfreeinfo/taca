@@ -142,6 +142,9 @@ class App {
   frameCount: number = 0;
 
   frameEnd() {
+    if (this.passBegun) {
+      this.frameCommit();
+    }
     const frameWrap = 1000;
     this.frameCount += 1;
     this.frameCount = this.frameCount % frameWrap;
@@ -191,6 +194,7 @@ class App {
     if (resizeNeeded) this.resizeCanvas();
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    this.passBegun = true;
   }
 
   passBegun = false;
@@ -450,7 +454,6 @@ class App {
 }
 
 interface AppExports {
-  config: (() => void) | undefined;
   listen: ((event: number) => void) | undefined;
   _start: () => void;
 }
@@ -486,9 +489,6 @@ async function loadApp(config: AppConfig) {
   app.init(instance);
   // TODO Fold config into start once we get fully off miniquad.
   const exports = app.exports;
-  if (exports.config) {
-    exports.config();
-  }
   exports._start();
   if (exports.listen) {
     const update = () => {
