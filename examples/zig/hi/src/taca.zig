@@ -9,16 +9,10 @@ pub const Buffer = extern struct {};
 pub const BufferSlice = extern struct {
     ptr: *const anyopaque,
     size: usize,
-    item_size: usize,
 
-    // TODO Video on this? Rust, Zig, Jai, D, Odin, C++?
     pub fn new(items: anytype) BufferSlice {
         const info = @typeInfo(@TypeOf(items)).Pointer;
-        return .{
-            .ptr = items.ptr,
-            .size = @sizeOf(info.child),
-            .item_size = @sizeOf(@typeInfo(info.child).Array.child),
-        };
+        return .{ .ptr = items.ptr, .size = @sizeOf(info.child) };
     }
 };
 

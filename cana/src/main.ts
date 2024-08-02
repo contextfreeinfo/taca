@@ -63,7 +63,6 @@ class App {
     const infoBytes = this.memoryView(info, 3 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
-    const itemSize = getU32(infoBytes, 8);
     // TODO Null ptr -> zero buffer for writing.
     const data = this.memoryBytes().subarray(ptr, ptr + size);
     const { gl } = this;
@@ -73,7 +72,6 @@ class App {
     buffer || fail();
     this.buffers.push({
       buffer: buffer!,
-      itemSize,
       kind: ["vertex", "index"][type] as "vertex" | "index",
     });
     const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
@@ -424,24 +422,39 @@ class App {
         const vertex =
           buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
-        let offset = 0;
-        for (const attr of attributes) {
-          const { loc } = attr;
+        function loopAttributes(
+          handle: (
+            loc: number,
+            size: number,
+            type: number,
+            offset: number
+          ) => void
+        ) {
+          let offset = 0;
+          for (const attr of attributes) {
+            const { loc } = attr;
+            const [size, type] =
+              {
+                [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+                [gl.FLOAT_VEC4]: [4, gl.FLOAT],
+              }[attr.type] ?? fail();
+            const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
+            // Pad for alignment.
+            offset = Math.ceil(offset / typeSize) * typeSize;
+            handle(loc, size, type, offset);
+            offset += size * typeSize;
+          }
+          return offset;
+        }
+        // Loop once to get total size.
+        const itemSize = loopAttributes(() => {});
+        // Then again to prep the attributes.
+        loopAttributes((loc, size, type, offset) => {
           gl.enableVertexAttribArray(loc);
-          const [size, type] =
-            {
-              [gl.FLOAT_VEC2]: [2, gl.FLOAT],
-              [gl.FLOAT_VEC4]: [4, gl.FLOAT],
-            }[attr.type] ?? fail();
-          const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
-          // Pad for alignment.
-          offset = Math.ceil(offset / typeSize) * typeSize;
           // console.log(size, vertex.itemSize, offset);
           // TODO Item size vs alignment seems very off.
-          let { itemSize } = vertex;
           gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
-          offset += size * typeSize;
-        }
+        });
         // TODO Instance buffer.
         // Index buffer.
         const index =
@@ -470,7 +483,6 @@ interface Attribute {
 
 interface Buffer {
   buffer: WebGLBuffer;
-  itemSize: number;
   kind: "index" | "vertex";
 }
 
@@ -519,10 +531,10 @@ async function loadAppData() {
 function makeAppEnv(app: App) {
   return {
     taca_RenderingContext_applyBindings(bindings: number) {
-      // TODO Bindings.
+      // TODO Bindings
     },
     taca_RenderingContext_applyPipeline(pipeline: number) {
-      // TODO Pipeline.
+      // TODO Pipeline
     },
     taca_RenderingContext_applyUniforms(uniforms: number) {
       app.uniformsApply(uniforms);
@@ -542,15 +554,15 @@ function makeAppEnv(app: App) {
       app.drawText(app.readString(text), x, y);
     },
     taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
-      // TODO Source and dest rect?
+      // TODO Source and dest rect? Instanced?
       app.drawTexture(texture, x, y);
     },
     taca_RenderingContext_endPass() {},
     taca_RenderingContext_newBuffer(type: number, info: number) {
       return app.bufferNew(type, info);
     },
-    taca_RenderingContext_newPipeline(bytes: number) {
-      // TODO Pipeline.
+    taca_RenderingContext_newPipeline(info: number) {
+      // TODO Pipeline
       console.log("taca_RenderingContext_newPipeline");
     },
     taca_RenderingContext_newShader(bytes: number) {

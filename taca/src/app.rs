@@ -235,18 +235,14 @@ fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>) {
     end_pass(system);
 }
 
-fn taca_RenderingContext_newBuffer(
-    mut env: FunctionEnvMut<System>,
-    typ: u32,
-    slice: u32,
-) -> u32 {
+fn taca_RenderingContext_newBuffer(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
     let contents = view
         .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
         .unwrap();
-    create_buffer(system, &contents, typ, slice.item_size as usize);
+    create_buffer(system, &contents, typ);
     system.buffers.len() as u32
 }
 

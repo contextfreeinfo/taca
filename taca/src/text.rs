@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use glyphon::{
-    fontdb::ID, Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution,
-    Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+    fontdb::ID, Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution, Shaping,
+    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use wgpu::{MultisampleState, TextureFormat};
 
