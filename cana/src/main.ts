@@ -52,8 +52,6 @@ class App {
       attributes.push({ count: info.size, loc, type: info.type });
     }
     attributes.sort((a, b) => a.loc - b.loc);
-    // TODO Buffer handling doesn't belong here in program construction!
-    // TODO Stop using vertex array objects because they have rather limited bindings available.
     this.#vertexArrayCreate(attributes);
     // console.log(attributes);
     return attributes;
@@ -90,10 +88,6 @@ class App {
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
     this.#pipelinedEnsure();
     const { gl } = this;
-    if (!this.vertexArray) {
-      this.vertexArray = this.vertexArrays[0] ?? fail();
-      gl.bindVertexArray(this.vertexArray);
-    }
     gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
   }
 
@@ -134,7 +128,7 @@ class App {
 
   frameCommit() {
     this.passBegun = false;
-    this.pipeline = this.vertexArray = null;
+    this.pipeline = null;
   }
 
   frameCount: number = 0;
@@ -160,6 +154,8 @@ class App {
   frameTimeBegin: number = Date.now();
 
   gl: WebGL2RenderingContext;
+
+  indexBuffer: Buffer | null = null;
 
   init(instance: WebAssembly.Instance) {
     this.exports = instance.exports as any;
@@ -410,64 +406,58 @@ class App {
     return { count, size, tacaIndex, tacaSize };
   }
 
-  vertexArray: WebGLVertexArrayObject | null = null;
-
   #vertexArrayCreate(attributes: Attribute[]) {
+    // If only two buffers, presumse one is data and one index.
+    // This leaves them bound if only two.
+    // TODO Rename this function.
+    // There's a limited number of vaos, so better to avoid them from user code.
     const { buffers, gl } = this;
     if (buffers.length == 2) {
-      const vertexArray = gl.createVertexArray() ?? fail();
-      gl.bindVertexArray(vertexArray);
-      try {
-        // Vertex buffer.
-        const vertex =
-          buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
-        function loopAttributes(
-          handle: (
-            loc: number,
-            size: number,
-            type: number,
-            offset: number
-          ) => void
-        ) {
-          let offset = 0;
-          for (const attr of attributes) {
-            const { loc } = attr;
-            const [size, type] =
-              {
-                [gl.FLOAT_VEC2]: [2, gl.FLOAT],
-                [gl.FLOAT_VEC4]: [4, gl.FLOAT],
-              }[attr.type] ?? fail();
-            const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
-            // Pad for alignment.
-            offset = Math.ceil(offset / typeSize) * typeSize;
-            handle(loc, size, type, offset);
-            offset += size * typeSize;
-          }
-          return offset;
+      // Vertex buffer.
+      const vertex =
+        buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+      function loopAttributes(
+        handle: (
+          loc: number,
+          size: number,
+          type: number,
+          offset: number
+        ) => void
+      ) {
+        let offset = 0;
+        for (const attr of attributes) {
+          const { loc } = attr;
+          const [size, type] =
+            {
+              [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+              [gl.FLOAT_VEC4]: [4, gl.FLOAT],
+            }[attr.type] ?? fail();
+          const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
+          // Pad for alignment.
+          offset = Math.ceil(offset / typeSize) * typeSize;
+          handle(loc, size, type, offset);
+          offset += size * typeSize;
         }
-        // Loop once to get total size.
-        const itemSize = loopAttributes(() => {});
-        // Then again to prep the attributes.
-        loopAttributes((loc, size, type, offset) => {
-          gl.enableVertexAttribArray(loc);
-          // console.log(size, vertex.itemSize, offset);
-          // TODO Item size vs alignment seems very off.
-          gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
-        });
-        // TODO Instance buffer.
-        // Index buffer.
-        const index =
-          buffers.find((buffer) => buffer.kind == "index") ?? fail();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
-      } finally {
-        gl.bindVertexArray(null);
+        return offset;
       }
-      this.vertexArrays.push(vertexArray);
+      // Loop once to get total size.
+      const itemSize = loopAttributes(() => {});
+      // Then again to prep the attributes.
+      loopAttributes((loc, size, type, offset) => {
+        gl.enableVertexAttribArray(loc);
+        // console.log(size, vertex.itemSize, offset);
+        // TODO Item size vs alignment seems very off.
+        gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
+      });
+      // TODO Instance buffer.
+      // Index buffer.
+      const index = buffers.find((buffer) => buffer.kind == "index") ?? fail();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
     }
   }
 
-  vertexArrays: WebGLVertexArrayObject[] = [];
+  vertexBuffer: Buffer | null = null;
 }
 
 interface AppExports {
