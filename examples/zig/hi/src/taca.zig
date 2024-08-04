@@ -9,28 +9,16 @@ pub const Buffer = extern struct {};
 pub const BufferSlice = extern struct {
     ptr: *const anyopaque,
     size: usize,
-    item_size: usize,
 
-    // TODO Video on this? Rust, Zig, Jai, D, Odin, C++?
     pub fn new(items: anytype) BufferSlice {
         const info = @typeInfo(@TypeOf(items)).Pointer;
-        return .{
-            .ptr = items.ptr,
-            .size = @sizeOf(info.child),
-            .item_size = @sizeOf(@typeInfo(info.child).Array.child),
-        };
+        return .{ .ptr = items.ptr, .size = @sizeOf(info.child) };
     }
 };
 
 pub const BufferType = enum(c_int) {
     vertex,
     index,
-};
-
-pub const BufferUsage = enum(c_int) {
-    immutable,
-    dynamic,
-    stream,
 };
 
 pub const EventKind = enum(c_int) {
@@ -95,10 +83,9 @@ pub const RenderingContext = struct {
 
     pub fn newBuffer(
         typ: BufferType,
-        usage: BufferUsage,
         slice: BufferSlice,
     ) *Buffer {
-        return taca_RenderingContext_newBuffer(typ, usage, &slice);
+        return taca_RenderingContext_newBuffer(typ, &slice);
     }
 
     pub fn newPipeline(info: PipelineInfo) *Pipeline {
@@ -122,12 +109,6 @@ pub fn Span(comptime T: type) type {
         }
     };
 }
-
-pub const Text = struct {
-    pub fn draw(text: []const u8) *Texture {
-        return taca_Text_draw(Span(u8).from(text));
-    }
-};
 
 pub const Texture = extern struct {};
 
@@ -276,7 +257,6 @@ extern fn taca_RenderingContext_endPass(
 
 extern fn taca_RenderingContext_newBuffer(
     typ: BufferType,
-    usage: BufferUsage,
     info: *const BufferSlice,
 ) callconv(.C) *Buffer;
 
@@ -287,10 +267,6 @@ extern fn taca_RenderingContext_newPipeline(
 extern fn taca_RenderingContext_newShader(
     bytes: Span(u8),
 ) callconv(.C) *Shader;
-
-extern fn taca_Text_draw(
-    text: Span(u8),
-) callconv(.C) *Texture;
 
 extern fn taca_Window_newRenderingContext(
     // Nothing

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use glyphon::{
-    fontdb::ID, Attrs, Buffer, Cache, Color, Family, FontSystem, LayoutRun, Metrics, Resolution,
-    Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+    fontdb::ID, Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution, Shaping,
+    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use wgpu::{MultisampleState, TextureFormat};
 
@@ -125,30 +125,6 @@ impl TextEngine {
             .unwrap();
         text_renderer.render(atlas, viewport, pass).unwrap();
     }
-
-    pub fn measure_text(&mut self, text: &str) {
-        let Self {
-            attrs,
-            buffer,
-            font_system,
-            ..
-        } = self;
-        // let fonts = font_system.get_font_matches(attrs);
-        // let default_families = [&attrs.family];
-        buffer.set_text(font_system, text, **attrs, Shaping::Advanced);
-        let mut font_id = ID::dummy();
-        for run in buffer.layout_runs() {
-            for glyph in run.glyphs {
-                if glyph.font_id != font_id {
-                    font_id = glyph.font_id;
-                    let font = font_system.get_font(glyph.font_id).unwrap();
-                    let metrics = font.as_swash().metrics(&[]);
-                    dbg!(glyph, metrics);
-                }
-            }
-            dbg!(LayoutRun { glyphs: &[], ..run });
-        }
-    }
 }
 
 fn adjust_metrics(buffer: &mut Buffer, font: &Font, font_system: &mut FontSystem) -> (f32, f32) {
@@ -168,6 +144,7 @@ fn adjust_metrics(buffer: &mut Buffer, font: &Font, font_system: &mut FontSystem
                 max_height = max_height.max(height);
             }
         }
+        // dbg!(LayoutRun { glyphs: &[], ..run });
         width += run.line_w;
     }
     let height = font.size * max_height;

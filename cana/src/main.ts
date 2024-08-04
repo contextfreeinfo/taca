@@ -52,18 +52,16 @@ class App {
       attributes.push({ count: info.size, loc, type: info.type });
     }
     attributes.sort((a, b) => a.loc - b.loc);
-    // TODO Buffer handling doesn't belong here in program construction!
-    // TODO Stop using vertex array objects because they have rather limited bindings available.
     this.#vertexArrayCreate(attributes);
     // console.log(attributes);
     return attributes;
   }
 
-  bufferNew(type: number, usage: number, info: number) {
+  bufferNew(type: number, info: number) {
     const infoBytes = this.memoryView(info, 3 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
-    const itemSize = getU32(infoBytes, 8);
+    // TODO Null ptr -> zero buffer for writing.
     const data = this.memoryBytes().subarray(ptr, ptr + size);
     const { gl } = this;
     gl.enable(gl.BLEND);
@@ -72,13 +70,11 @@ class App {
     buffer || fail();
     this.buffers.push({
       buffer: buffer!,
-      itemSize,
       kind: ["vertex", "index"][type] as "vertex" | "index",
     });
     const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
     gl.bindBuffer(target, buffer);
-    const usageValue =
-      [gl.STATIC_DRAW, gl.DYNAMIC_DRAW, gl.STREAM_DRAW][usage] ?? fail();
+    const usageValue = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
     gl.bufferData(target, data, usageValue);
     return this.buffers.length;
   }
@@ -92,10 +88,6 @@ class App {
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
     this.#pipelinedEnsure();
     const { gl } = this;
-    if (!this.vertexArray) {
-      this.vertexArray = this.vertexArrays[0] ?? fail();
-      gl.bindVertexArray(this.vertexArray);
-    }
     gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
   }
 
@@ -136,7 +128,7 @@ class App {
 
   frameCommit() {
     this.passBegun = false;
-    this.pipeline = this.vertexArray = null;
+    this.pipeline = null;
   }
 
   frameCount: number = 0;
@@ -162,6 +154,8 @@ class App {
   frameTimeBegin: number = Date.now();
 
   gl: WebGL2RenderingContext;
+
+  indexBuffer: Buffer | null = null;
 
   init(instance: WebAssembly.Instance) {
     this.exports = instance.exports as any;
@@ -215,7 +209,11 @@ class App {
     } = this;
     if (pipelines.length) return;
     const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vertex_main");
-    const fragment = shaderToGlsl(shader, ShaderStage.Fragment, "fragment_main");
+    const fragment = shaderToGlsl(
+      shader,
+      ShaderStage.Fragment,
+      "fragment_main"
+    );
     const program = shaderProgramBuild(gl, vertex, fragment);
     // console.log(vertex);
     // console.log(fragment);
@@ -408,22 +406,28 @@ class App {
     return { count, size, tacaIndex, tacaSize };
   }
 
-  vertexArray: WebGLVertexArrayObject | null = null;
-
   #vertexArrayCreate(attributes: Attribute[]) {
+    // If only two buffers, presumse one is data and one index.
+    // This leaves them bound if only two.
+    // TODO Rename this function.
+    // There's a limited number of vaos, so better to avoid them from user code.
     const { buffers, gl } = this;
     if (buffers.length == 2) {
-      const vertexArray = gl.createVertexArray() ?? fail();
-      gl.bindVertexArray(vertexArray);
-      try {
-        // Vertex buffer.
-        const vertex =
-          buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+      // Vertex buffer.
+      const vertex =
+        buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+      function loopAttributes(
+        handle: (
+          loc: number,
+          size: number,
+          type: number,
+          offset: number
+        ) => void
+      ) {
         let offset = 0;
         for (const attr of attributes) {
           const { loc } = attr;
-          gl.enableVertexAttribArray(loc);
           const [size, type] =
             {
               [gl.FLOAT_VEC2]: [2, gl.FLOAT],
@@ -432,25 +436,28 @@ class App {
           const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
           // Pad for alignment.
           offset = Math.ceil(offset / typeSize) * typeSize;
-          // console.log(size, vertex.itemSize, offset);
-          // TODO Item size vs alignment seems very off.
-          let { itemSize } = vertex;
-          gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
+          handle(loc, size, type, offset);
           offset += size * typeSize;
         }
-        // TODO Instance buffer.
-        // Index buffer.
-        const index =
-          buffers.find((buffer) => buffer.kind == "index") ?? fail();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
-      } finally {
-        gl.bindVertexArray(null);
+        return offset;
       }
-      this.vertexArrays.push(vertexArray);
+      // Loop once to get total size.
+      const itemSize = loopAttributes(() => {});
+      // Then again to prep the attributes.
+      loopAttributes((loc, size, type, offset) => {
+        gl.enableVertexAttribArray(loc);
+        // console.log(size, vertex.itemSize, offset);
+        // TODO Item size vs alignment seems very off.
+        gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
+      });
+      // TODO Instance buffer.
+      // Index buffer.
+      const index = buffers.find((buffer) => buffer.kind == "index") ?? fail();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
     }
   }
 
-  vertexArrays: WebGLVertexArrayObject[] = [];
+  vertexBuffer: Buffer | null = null;
 }
 
 interface AppExports {
@@ -466,7 +473,6 @@ interface Attribute {
 
 interface Buffer {
   buffer: WebGLBuffer;
-  itemSize: number;
   kind: "index" | "vertex";
 }
 
@@ -514,8 +520,12 @@ async function loadAppData() {
 
 function makeAppEnv(app: App) {
   return {
-    taca_RenderingContext_applyBindings(bindings: number) {},
-    taca_RenderingContext_applyPipeline(pipeline: number) {},
+    taca_RenderingContext_applyBindings(bindings: number) {
+      // TODO Bindings
+    },
+    taca_RenderingContext_applyPipeline(pipeline: number) {
+      // TODO Pipeline
+    },
     taca_RenderingContext_applyUniforms(uniforms: number) {
       app.uniformsApply(uniforms);
     },
@@ -534,24 +544,25 @@ function makeAppEnv(app: App) {
       app.drawText(app.readString(text), x, y);
     },
     taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
+      // TODO Source and dest rect? Instanced?
       app.drawTexture(texture, x, y);
     },
     taca_RenderingContext_endPass() {},
-    taca_RenderingContext_newBuffer(type: number, usage: number, info: number) {
-      return app.bufferNew(type, usage, info);
+    taca_RenderingContext_newBuffer(type: number, info: number) {
+      return app.bufferNew(type, info);
     },
-    taca_RenderingContext_newPipeline(bytes: number) {
+    taca_RenderingContext_newPipeline(info: number) {
+      // TODO Pipeline
       console.log("taca_RenderingContext_newPipeline");
     },
     taca_RenderingContext_newShader(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
-    taca_Text_draw(text: number) {
-      return app.textDraw(app.readString(text));
-    },
     taca_Window_newRenderingContext() {
       // TODO If we only have one, we don't need it at all, right?
+      // TODO Except context for render to texture.
+      // TODO Need size? Resizable? Reallocate in same index?
       return 1;
     },
     taca_Window_print(text: number) {
@@ -562,6 +573,7 @@ function makeAppEnv(app: App) {
       document.title = app.readString(title);
     },
     taca_Window_state(result: number) {
+      // TODO Include time.
       const { clientWidth, clientHeight } = app.canvas;
       const [pointerX, pointerY] = app.pointerPos;
       const view = app.memoryView(result, 4 * 4);

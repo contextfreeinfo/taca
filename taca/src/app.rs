@@ -54,7 +54,6 @@ impl App {
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
                 "taca_RenderingContext_newPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newPipeline),
                 "taca_RenderingContext_newShader" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newShader),
-                "taca_Text_draw" => Function::new_typed_with_env(&mut store, &env, taca_Text_draw),
                 "taca_Window_get" => Function::new_typed_with_env(&mut store, &env, taca_Window_get),
                 "taca_Window_newRenderingContext" => Function::new_typed_with_env(&mut store, &env, taca_Window_newRenderingContext),
                 "taca_Window_print" => Function::new_typed_with_env(&mut store, &env, taca_Window_print),
@@ -236,19 +235,14 @@ fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>) {
     end_pass(system);
 }
 
-fn taca_RenderingContext_newBuffer(
-    mut env: FunctionEnvMut<System>,
-    typ: u32,
-    usage: u32,
-    slice: u32,
-) -> u32 {
+fn taca_RenderingContext_newBuffer(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
     let contents = view
         .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
         .unwrap();
-    create_buffer(system, &contents, typ, usage, slice.item_size as usize);
+    create_buffer(system, &contents, typ);
     system.buffers.len() as u32
 }
 
@@ -282,21 +276,6 @@ fn taca_RenderingContext_newShader(mut env: FunctionEnvMut<System>, bytes: u32) 
     let shader = shader_create(system, &bytes);
     system.shaders.push(shader);
     system.shaders.len() as u32
-}
-
-fn taca_Text_draw(mut env: FunctionEnvMut<System>, text: u32) -> u32 {
-    let (system, store) = env.data_and_store_mut();
-    let view = system.memory.as_ref().unwrap().view(&store);
-    let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
-    let text = read_string(&view, text);
-    system
-        .text
-        .as_mut()
-        .unwrap()
-        .lock()
-        .unwrap()
-        .measure_text(&text);
-    0
 }
 
 fn taca_Window_get(_env: FunctionEnvMut<System>) -> u32 {

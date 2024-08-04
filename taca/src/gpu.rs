@@ -24,7 +24,6 @@ pub struct BufferSlice {
 
 pub struct Buffer {
     pub buffer: wgpu::Buffer,
-    pub item_size: usize,
     pub usage: BufferUsages,
 }
 
@@ -112,13 +111,7 @@ pub fn buffered_ensure<'a>(system: &'a mut System) {
     pass.set_vertex_buffer(0, vertex.buffer.slice(..));
 }
 
-pub fn create_buffer(
-    system: &mut System,
-    contents: &[u8],
-    typ: u32,
-    _usage: u32,
-    item_size: usize,
-) {
+pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
@@ -134,11 +127,7 @@ pub fn create_buffer(
     });
     // dbg!(&buffer);
     // dbg!(&contents);
-    system.buffers.push(Buffer {
-        buffer,
-        item_size,
-        usage,
-    });
+    system.buffers.push(Buffer { buffer, usage });
 }
 
 pub fn create_pipeline(_system: &mut System, _info: PipelineInfo) {
