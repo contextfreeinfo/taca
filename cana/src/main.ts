@@ -11,13 +11,13 @@ import { fail } from "./util";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
-  wasm?: ArrayBuffer | Promise<ArrayBuffer>;
+  code?: ArrayBuffer | Promise<ArrayBuffer>;
 }
 
 export async function runApp(config: AppConfig) {
-  const [appData] = await Promise.all([config.wasm ?? loadAppData(), cana()]);
+  const [appData] = await Promise.all([config.code ?? loadAppData(), cana()]);
   if (appData) {
-    await loadApp({ ...config, wasm: appData });
+    await loadApp({ ...config, code: appData });
   }
 }
 
@@ -481,8 +481,8 @@ function getU32(view: DataView, byteOffset: number) {
 }
 
 async function loadApp(config: AppConfig) {
-  const appData = config.wasm as ArrayBuffer;
-  config.wasm = undefined;
+  const appData = config.code as ArrayBuffer;
+  config.code = undefined;
   const appBytes = new Uint8Array(appData);
   const actualData =
     appBytes[0] == 4

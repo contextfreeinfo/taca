@@ -31,7 +31,7 @@
         const { runApp } = await import("/src/main.ts");
         runApp({
           canvas: document.getElementById("app"),
-          wasm: await (await appRequest).arrayBuffer(),
+          code: (await appRequest).arrayBuffer(),
         });
       }
     </script>
