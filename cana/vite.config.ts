@@ -2,6 +2,8 @@ import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
+let runtimeWasm: String | undefined;
+
 export default defineConfig({
   build: {
     lib: {
@@ -33,6 +35,9 @@ export default defineConfig({
         const outPath = resolve(__dirname, "dist/index.html");
         let content = (await readFile(inPath)).toString();
         content = content.replace("/src/main.ts", "./taca.js");
+        if (runtimeWasm) {
+          content = content.replace(/(runtimeWasm = )\w+/, `$1${runtimeWasm}`);
+        }
         await writeFile(outPath, content);
       }
     },
@@ -55,6 +60,7 @@ export default defineConfig({
         return command == "build" && mode == "split";
       },
       async buildStart() {
+        runtimeWasm = `fetch("taca.wasm")`;
         // This works for build but not for preview.
         const jsPath = resolve(__dirname, "pkg/cana.js");
         let jsContent = (await readFile(jsPath)).toString();

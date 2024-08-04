@@ -27,11 +27,13 @@
       const app = new URLSearchParams(url.search).get("app");
       if (app) {
         // Start requests in parallel.
-        const appRequest = fetch(app);
+        const code = fetch(app);
+        const runtimeWasm = undefined; // or fetch("taca.wasm")
         const { runApp } = await import("/src/main.ts");
         runApp({
           canvas: document.getElementById("app"),
-          code: (await appRequest).arrayBuffer(),
+          code,
+          runtimeWasm,
         });
       }
     </script>

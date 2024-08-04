@@ -11,11 +11,15 @@ import { fail } from "./util";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
-  code?: ArrayBuffer | Promise<ArrayBuffer>;
+  code?: ArrayBuffer | Promise<Response>;
+  runtimeWasm?: Promise<Response>;
 }
 
 export async function runApp(config: AppConfig) {
-  const [appData] = await Promise.all([config.code ?? loadAppData(), cana()]);
+  const [appData] = await Promise.all([
+    loadAppData(config.code!),
+    cana(config.runtimeWasm),
+  ]);
   if (appData) {
     await loadApp({ ...config, code: appData });
   }
@@ -509,12 +513,11 @@ async function loadApp(config: AppConfig) {
   }
 }
 
-async function loadAppData() {
-  const url = new URL(window.location.href);
-  const params = new URLSearchParams(url.search);
-  const app = params.get("app");
-  if (app) {
-    return await (await fetch(app)).arrayBuffer();
+async function loadAppData(code: ArrayBuffer | Promise<Response>) {
+  if (code instanceof ArrayBuffer) {
+    return code;
+  } else {
+    return await (await code).arrayBuffer();
   }
 }
 
