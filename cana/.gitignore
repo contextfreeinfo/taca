@@ -14,7 +14,8 @@ dist-ssr
 .vite
 
 public/taca.wasm
-public/**/*.taca
+# TODO Ignore once we're also building apps in ci.
+# public/**/*.taca
 
 # Editor directories and files
 .vscode/*
