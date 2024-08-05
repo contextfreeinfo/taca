@@ -26,11 +26,14 @@
       const url = new URL(window.location.href);
       const app = new URLSearchParams(url.search).get("app");
       if (app) {
-        const appRequest = fetch(app);
+        // Start requests in parallel.
+        const code = fetch(app);
+        const runtimeWasm = fetch("taca.wasm"); // or fetch("taca.wasm")
         const { runApp } = await import("./taca.js");
         runApp({
           canvas: document.getElementById("app"),
-          wasm: await (await appRequest).arrayBuffer(),
+          code,
+          runtimeWasm,
         });
       }
     </script>
