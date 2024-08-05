@@ -25,6 +25,27 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install naga
+        run: cargo install naga
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+      - name: Install wasm-opt
+        run: |
+          curl -LO https://github.com/WebAssembly/binaryen/releases/download/version_118/binaryen-version_118-x86_64-linux.tar.gz
+          tar -xvzf binaryen-version_118-x86_64-linux.tar.gz
+          sudo mv binaryen-version_118/bin/wasm-opt /usr/local/bin/
+      - name: Install Zig
+        run: |
+          curl -LO https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz
+          tar -xf zig-linux-x86_64-0.13.0.tar.xz
+          sudo mv zig-linux-x86_64-0.13.0/zig /usr/local/bin/
+      - name: Build demo app
+        run: cd examples/zig/hi && bash build.sh
       - name: Install dependencies
         run: cd cana && npm install
       - name: Build the site
