@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/taca.svg" />
+    <link rel="icon" type="image/svg+xml" href="./taca.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Loading Taca app ...</title>
     <style>
@@ -23,8 +23,19 @@
   <body>
     <canvas id="app" tabindex="1"></canvas>
     <script type="module">
-      import { runApp } from "/src/main.ts";
-      runApp({ canvas: document.getElementById("app") });
+      const url = new URL(window.location.href);
+      const app = new URLSearchParams(url.search).get("app");
+      if (app) {
+        // Start requests in parallel.
+        const code = fetch(app);
+        const runtimeWasm = undefined; // or fetch("taca.wasm")
+        const { runApp } = await import("/src/main.ts");
+        runApp({
+          canvas: document.getElementById("app"),
+          code,
+          runtimeWasm,
+        });
+      }
     </script>
   </body>
 </html>

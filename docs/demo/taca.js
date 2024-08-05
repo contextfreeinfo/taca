@@ -3,95 +3,95 @@ const S = typeof TextDecoder < "u" ? new TextDecoder("utf-8", { ignoreBOM: !0, f
   throw Error("TextDecoder not available");
 } };
 typeof TextDecoder < "u" && S.decode();
-let g = null;
+let x = null;
 function w() {
-  return (g === null || g.byteLength === 0) && (g = new Uint8Array(d.memory.buffer)), g;
+  return (x === null || x.byteLength === 0) && (x = new Uint8Array(d.memory.buffer)), x;
 }
-function C(r, e) {
-  return r = r >>> 0, S.decode(w().subarray(r, r + e));
+function C(n, e) {
+  return n = n >>> 0, S.decode(w().subarray(n, n + e));
 }
 let p = 0;
-function I(r, e) {
-  const t = e(r.length * 1, 1) >>> 0;
-  return w().set(r, t / 1), p = r.length, t;
+function I(n, e) {
+  const t = e(n.length * 1, 1) >>> 0;
+  return w().set(n, t / 1), p = n.length, t;
 }
-let x = null;
+let g = null;
 function B() {
-  return (x === null || x.byteLength === 0) && (x = new Int32Array(d.memory.buffer)), x;
+  return (g === null || g.byteLength === 0) && (g = new Int32Array(d.memory.buffer)), g;
 }
-function N(r, e) {
-  return r = r >>> 0, w().subarray(r / 1, r / 1 + e);
+function N(n, e) {
+  return n = n >>> 0, w().subarray(n / 1, n / 1 + e);
 }
-function z(r) {
+function z(n) {
   try {
-    const i = d.__wbindgen_add_to_stack_pointer(-16), o = I(r, d.__wbindgen_export_0), a = p;
-    d.lz4Decompress(i, o, a);
-    var e = B()[i / 4 + 0], t = B()[i / 4 + 1], n = N(e, t).slice();
-    return d.__wbindgen_export_1(e, t * 1, 1), n;
+    const i = d.__wbindgen_add_to_stack_pointer(-16), a = I(n, d.__wbindgen_export_0), o = p;
+    d.lz4Decompress(i, a, o);
+    var e = B()[i / 4 + 0], t = B()[i / 4 + 1], r = N(e, t).slice();
+    return d.__wbindgen_export_1(e, t * 1, 1), r;
   } finally {
     d.__wbindgen_add_to_stack_pointer(16);
   }
 }
-function M(r) {
-  const e = I(r, d.__wbindgen_export_0), t = p, n = d.shaderNew(e, t);
-  return T.__wrap(n);
+function M(n) {
+  const e = I(n, d.__wbindgen_export_0), t = p, r = d.shaderNew(e, t);
+  return A.__wrap(r);
 }
-function L(r, e) {
-  if (!(r instanceof e))
+function L(n, e) {
+  if (!(n instanceof e))
     throw new Error(`expected instance of ${e.name}`);
-  return r.ptr;
+  return n.ptr;
 }
 const R = typeof TextEncoder < "u" ? new TextEncoder("utf-8") : { encode: () => {
   throw Error("TextEncoder not available");
-} }, O = typeof R.encodeInto == "function" ? function(r, e) {
-  return R.encodeInto(r, e);
-} : function(r, e) {
-  const t = R.encode(r);
+} }, O = typeof R.encodeInto == "function" ? function(n, e) {
+  return R.encodeInto(n, e);
+} : function(n, e) {
+  const t = R.encode(n);
   return e.set(t), {
-    read: r.length,
+    read: n.length,
     written: t.length
   };
 };
-function W(r, e, t) {
+function W(n, e, t) {
   if (t === void 0) {
-    const s = R.encode(r), c = e(s.length, 1) >>> 0;
-    return w().subarray(c, c + s.length).set(s), p = s.length, c;
+    const s = R.encode(n), f = e(s.length, 1) >>> 0;
+    return w().subarray(f, f + s.length).set(s), p = s.length, f;
   }
-  let n = r.length, i = e(n, 1) >>> 0;
-  const o = w();
-  let a = 0;
-  for (; a < n; a++) {
-    const s = r.charCodeAt(a);
+  let r = n.length, i = e(r, 1) >>> 0;
+  const a = w();
+  let o = 0;
+  for (; o < r; o++) {
+    const s = n.charCodeAt(o);
     if (s > 127) break;
-    o[i + a] = s;
+    a[i + o] = s;
   }
-  if (a !== n) {
-    a !== 0 && (r = r.slice(a)), i = t(i, n, n = a + r.length * 3, 1) >>> 0;
-    const s = w().subarray(i + a, i + n), c = O(r, s);
-    a += c.written, i = t(i, n, a, 1) >>> 0;
+  if (o !== r) {
+    o !== 0 && (n = n.slice(o)), i = t(i, r, r = o + n.length * 3, 1) >>> 0;
+    const s = w().subarray(i + o, i + r), f = O(n, s);
+    o += f.written, i = t(i, r, o, 1) >>> 0;
   }
-  return p = a, i;
+  return p = o, i;
 }
-function E(r, e, t) {
-  let n, i;
+function E(n, e, t) {
+  let r, i;
   try {
     const s = d.__wbindgen_add_to_stack_pointer(-16);
-    L(r, T);
-    const c = W(t, d.__wbindgen_export_0, d.__wbindgen_export_2), f = p;
-    d.shaderToGlsl(s, r.__wbg_ptr, e, c, f);
-    var o = B()[s / 4 + 0], a = B()[s / 4 + 1];
-    return n = o, i = a, C(o, a);
+    L(n, A);
+    const f = W(t, d.__wbindgen_export_0, d.__wbindgen_export_2), c = p;
+    d.shaderToGlsl(s, n.__wbg_ptr, e, f, c);
+    var a = B()[s / 4 + 0], o = B()[s / 4 + 1];
+    return r = a, i = o, C(a, o);
   } finally {
-    d.__wbindgen_add_to_stack_pointer(16), d.__wbindgen_export_1(n, i, 1);
+    d.__wbindgen_add_to_stack_pointer(16), d.__wbindgen_export_1(r, i, 1);
   }
 }
 const F = Object.freeze({ Vertex: 0, 0: "Vertex", Fragment: 1, 1: "Fragment" }), v = typeof FinalizationRegistry > "u" ? { register: () => {
 }, unregister: () => {
-} } : new FinalizationRegistry((r) => d.__wbg_shader_free(r >>> 0));
-class T {
+} } : new FinalizationRegistry((n) => d.__wbg_shader_free(n >>> 0));
+class A {
   static __wrap(e) {
     e = e >>> 0;
-    const t = Object.create(T.prototype);
+    const t = Object.create(A.prototype);
     return t.__wbg_ptr = e, v.register(t, t.__wbg_ptr, t), t;
   }
   __destroy_into_raw() {
@@ -103,43 +103,43 @@ class T {
     d.__wbg_shader_free(e);
   }
 }
-async function V(r, e) {
-  if (typeof Response == "function" && r instanceof Response) {
+async function V(n, e) {
+  if (typeof Response == "function" && n instanceof Response) {
     if (typeof WebAssembly.instantiateStreaming == "function")
       try {
-        return await WebAssembly.instantiateStreaming(r, e);
-      } catch (n) {
-        if (r.headers.get("Content-Type") != "application/wasm")
-          console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", n);
+        return await WebAssembly.instantiateStreaming(n, e);
+      } catch (r) {
+        if (n.headers.get("Content-Type") != "application/wasm")
+          console.warn("`WebAssembly.instantiateStreaming` failed because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", r);
         else
-          throw n;
+          throw r;
       }
-    const t = await r.arrayBuffer();
+    const t = await n.arrayBuffer();
     return await WebAssembly.instantiate(t, e);
   } else {
-    const t = await WebAssembly.instantiate(r, e);
-    return t instanceof WebAssembly.Instance ? { instance: t, module: r } : t;
+    const t = await WebAssembly.instantiate(n, e);
+    return t instanceof WebAssembly.Instance ? { instance: t, module: n } : t;
   }
 }
 function k() {
-  const r = {};
-  return r.wbg = {}, r.wbg.__wbindgen_throw = function(e, t) {
+  const n = {};
+  return n.wbg = {}, n.wbg.__wbindgen_throw = function(e, t) {
     throw new Error(C(e, t));
-  }, r;
+  }, n;
 }
-function X(r, e) {
-  return d = r.exports, D.__wbindgen_wasm_module = e, x = null, g = null, d;
+function X(n, e) {
+  return d = n.exports, D.__wbindgen_wasm_module = e, g = null, x = null, d;
 }
-async function D(r) {
+async function D(n) {
   if (d !== void 0) return d;
-  typeof r > "u" && (r = new URL("taca.wasm", import.meta.url));
+  typeof n > "u" && (n = new URL("taca.wasm", import.meta.url));
   const e = k();
-  (typeof r == "string" || typeof Request == "function" && r instanceof Request || typeof URL == "function" && r instanceof URL) && (r = fetch(r));
-  const { instance: t, module: n } = await V(await r, e);
-  return X(t, n);
+  (typeof n == "string" || typeof Request == "function" && n instanceof Request || typeof URL == "function" && n instanceof URL) && (n = fetch(n));
+  const { instance: t, module: r } = await V(await n, e);
+  return X(t, r);
 }
-function u(r) {
-  throw Error(r ?? void 0);
+function u(n) {
+  throw Error(n ?? void 0);
 }
 class G {
   constructor(e) {
@@ -150,35 +150,35 @@ class G {
       Y
     );
     this.program = t, this.drawInfoBuffer = e.createBuffer() ?? u(), this.drawInfoIndex = e.getUniformBlockIndex(t, "drawInfo") ?? u(), e.uniformBlockBinding(t, this.drawInfoIndex, U), this.sampler = e.getUniformLocation(t, "sampler") ?? u();
-    const n = e.createVertexArray() ?? u();
-    this.vertexArray = n;
+    const r = e.createVertexArray() ?? u();
+    this.vertexArray = r;
     const i = new Uint16Array([0, 1, 2, 0, 2, 3]);
-    e.bindVertexArray(n), [
+    e.bindVertexArray(r), [
       [1, 1, -1, 1, -1, -1, 1, -1],
       [1, 1, 0, 1, 0, 0, 1, 0]
-    ].forEach((a, s) => {
-      const c = e.createBuffer() ?? u();
-      e.bindBuffer(e.ARRAY_BUFFER, c), e.bufferData(e.ARRAY_BUFFER, new Float32Array(a), e.STATIC_DRAW), e.vertexAttribPointer(s, 2, e.FLOAT, !1, 0, 0), e.enableVertexAttribArray(s);
+    ].forEach((o, s) => {
+      const f = e.createBuffer() ?? u();
+      e.bindBuffer(e.ARRAY_BUFFER, f), e.bufferData(e.ARRAY_BUFFER, new Float32Array(o), e.STATIC_DRAW), e.vertexAttribPointer(s, 2, e.FLOAT, !1, 0, 0), e.enableVertexAttribArray(s);
     });
-    const o = e.createBuffer() ?? u();
-    e.bindBuffer(e.ELEMENT_ARRAY_BUFFER, o), e.bufferData(e.ELEMENT_ARRAY_BUFFER, i, e.STATIC_DRAW), e.bindVertexArray(null);
+    const a = e.createBuffer() ?? u();
+    e.bindBuffer(e.ELEMENT_ARRAY_BUFFER, a), e.bufferData(e.ELEMENT_ARRAY_BUFFER, i, e.STATIC_DRAW), e.bindVertexArray(null);
   }
-  draw(e, t, n, i, o, a, s) {
-    const { drawInfoBuffer: c, gl: f, program: l, sampler: h, vertexArray: m } = this, _ = new Float32Array([
+  draw(e, t, r, i, a, o, s) {
+    const { drawInfoBuffer: f, gl: c, program: l, sampler: h, vertexArray: m } = this, _ = new Float32Array([
       t,
-      n,
+      r,
       i,
-      o,
+      a,
       s[0],
       s[1],
-      a[0],
-      a[1]
+      o[0],
+      o[1]
     ]);
-    f.useProgram(l), f.bindVertexArray(m);
+    c.useProgram(l), c.bindVertexArray(m);
     try {
-      f.bindBuffer(f.UNIFORM_BUFFER, c), f.bufferData(f.UNIFORM_BUFFER, _, f.STREAM_DRAW), f.bindBufferBase(f.UNIFORM_BUFFER, U, c), f.activeTexture(f.TEXTURE0), f.bindTexture(f.TEXTURE_2D, e), f.uniform1i(h, 0), f.drawElements(f.TRIANGLES, 6, f.UNSIGNED_SHORT, 0);
+      c.bindBuffer(c.UNIFORM_BUFFER, f), c.bufferData(c.UNIFORM_BUFFER, _, c.STREAM_DRAW), c.bindBufferBase(c.UNIFORM_BUFFER, U, f), c.activeTexture(c.TEXTURE0), c.bindTexture(c.TEXTURE_2D, e), c.uniform1i(h, 0), c.drawElements(c.TRIANGLES, 6, c.UNSIGNED_SHORT, 0);
     } finally {
-      f.bindVertexArray(null);
+      c.bindVertexArray(null);
     }
   }
   drawInfoBuffer;
@@ -189,12 +189,12 @@ class G {
   sampler;
   vertexArray;
 }
-function P(r, e, t) {
-  const n = r.createProgram() ?? u(), i = (o, a) => {
-    const s = r.createShader(o) ?? u();
-    r.shaderSource(s, a), r.compileShader(s), r.getShaderParameter(s, r.COMPILE_STATUS) ?? u(r.getShaderInfoLog(s)), r.attachShader(n, s);
+function P(n, e, t) {
+  const r = n.createProgram() ?? u(), i = (a, o) => {
+    const s = n.createShader(a) ?? u();
+    n.shaderSource(s, o), n.compileShader(s), n.getShaderParameter(s, n.COMPILE_STATUS) ?? u(n.getShaderInfoLog(s)), n.attachShader(r, s);
   };
-  return i(r.VERTEX_SHADER, e), i(r.FRAGMENT_SHADER, t), r.linkProgram(n), r.getProgramParameter(n, r.LINK_STATUS) ?? u(r.getProgramInfoLog(n)), n;
+  return i(n.VERTEX_SHADER, e), i(n.FRAGMENT_SHADER, t), n.linkProgram(r), n.getProgramParameter(r, n.LINK_STATUS) ?? u(n.getProgramInfoLog(r)), r;
 }
 const U = 0, Y = `#version 300 es
 precision mediump float;
@@ -229,66 +229,69 @@ void main() {
   vTexCoord = texCoord;
 }
 `;
-async function J(r) {
-  const [e] = await Promise.all([r.wasm ?? K(), D()]);
-  e && await j({ ...r, wasm: e });
+async function J(n) {
+  const [e] = await Promise.all([
+    K(n.code),
+    D(n.runtimeWasm)
+  ]);
+  e && await j({ ...n, code: e });
 }
 class q {
   constructor(e) {
     const t = this.canvas = e.canvas;
-    t.addEventListener("mousemove", (n) => {
+    t.addEventListener("mousemove", (r) => {
       const i = t.getBoundingClientRect();
-      this.pointerPos = [n.clientX - i.left, n.clientY - i.top];
+      this.pointerPos = [r.clientX - i.left, r.clientY - i.top];
     }), this.config = e, this.gl = e.canvas.getContext("webgl2"), this.texturePipeline = new G(this.gl), this.resizeCanvas(), new ResizeObserver(() => this.resizeNeeded = !0).observe(e.canvas);
   }
   #r(e) {
-    const t = [], { gl: n } = this, i = n.getProgramParameter(e, n.ACTIVE_ATTRIBUTES);
-    for (let o = 0; o < i; o += 1) {
-      const a = n.getActiveAttrib(e, o) ?? u(), s = n.getAttribLocation(e, a.name);
-      t.push({ count: a.size, loc: s, type: a.type });
+    const t = [], { gl: r } = this, i = r.getProgramParameter(e, r.ACTIVE_ATTRIBUTES);
+    for (let a = 0; a < i; a += 1) {
+      const o = r.getActiveAttrib(e, a) ?? u(), s = r.getAttribLocation(e, o.name);
+      t.push({ count: o.size, loc: s, type: o.type });
     }
-    return t.sort((o, a) => o.loc - a.loc), this.#a(t), t;
+    return t.sort((a, o) => a.loc - o.loc), this.#o(t), t;
   }
   bufferNew(e, t) {
-    const n = this.memoryView(t, 12), i = b(n, 0), o = b(n, 4), a = this.memoryBytes().subarray(i, i + o), { gl: s } = this;
+    const r = this.memoryView(t, 12), i = b(r, 0), a = b(r, 4), o = this.memoryBytes().subarray(i, i + a), { gl: s } = this;
     s.enable(s.BLEND), s.blendFunc(s.SRC_ALPHA, s.ONE_MINUS_SRC_ALPHA);
-    const c = s.createBuffer();
-    c || u(), this.buffers.push({
-      buffer: c,
+    const f = s.createBuffer();
+    f || u(), this.buffers.push({
+      buffer: f,
       kind: ["vertex", "index"][e]
     });
-    const f = [s.ARRAY_BUFFER, s.ELEMENT_ARRAY_BUFFER][e] ?? u();
-    s.bindBuffer(f, c);
+    const c = [s.ARRAY_BUFFER, s.ELEMENT_ARRAY_BUFFER][e] ?? u();
+    s.bindBuffer(c, f);
     const l = i ? s.STATIC_DRAW : s.STREAM_DRAW;
-    return s.bufferData(f, a, l), this.buffers.length;
+    return s.bufferData(c, o, l), this.buffers.length;
   }
   buffers = [];
   canvas;
   config;
-  draw(e, t, n) {
+  draw(e, t, r) {
     this.#n();
     const { gl: i } = this;
     i.drawElements(i.TRIANGLES, t, i.UNSIGNED_SHORT, e);
   }
-  drawText(e, t, n) {
-    e && (e != this.textTextureText && (this.textTexture = this.textDraw(e, this.textTexture || void 0), this.textTextureText = e), this.drawTexture(this.textTexture, t, n));
+  drawText(e, t, r) {
+    e && (e != this.textTextureText && (this.textTexture = this.textDraw(e, this.textTexture || void 0), this.textTextureText = e), this.drawTexture(this.textTexture, t, r));
   }
-  drawTexture(e, t, n) {
+  drawTexture(e, t, r) {
     const {
-      canvas: { clientWidth: i, clientHeight: o },
-      gl: a,
+      canvas: { clientWidth: i, clientHeight: a },
+      gl: o,
       pipeline: s,
-      textures: c
-    } = this, { size: f, texture: l, usedSize: h } = c[e - 1];
+      textures: f
+    } = this, { size: c, texture: l, usedSize: h } = f[e - 1];
     this.texturePipeline.draw(
       l,
       i,
-      o,
+      a,
       t,
-      n,
-      f,
+      r,
+      c,
       h
-    ), s && a.useProgram(s.program);
+    ), s && o.useProgram(s.program);
   }
   exports = void 0;
   frameCommit() {
@@ -299,7 +302,7 @@ class q {
     this.passBegun && this.frameCommit();
     const e = 1e3;
     if (this.frameCount += 1, this.frameCount = this.frameCount % e, !this.frameCount) {
-      const t = Date.now(), n = (t - this.frameTimeBegin) * 1e-3, i = e / n;
+      const t = Date.now(), r = (t - this.frameTimeBegin) * 1e-3, i = e / r;
       console.log(`fps: ${i}`), this.frameTimeBegin = t;
     }
   }
@@ -327,23 +330,23 @@ class q {
   passBegun = !1;
   pipeline = null;
   pipelineApply(e) {
-    let { gl: t, pipelines: n } = this;
-    const i = this.pipeline = n[e - 1] ?? u();
+    let { gl: t, pipelines: r } = this;
+    const i = this.pipeline = r[e - 1] ?? u();
     t.useProgram(i.program);
   }
   #i() {
     const {
       gl: e,
       pipelines: t,
-      shaders: [n]
+      shaders: [r]
     } = this;
     if (t.length) return;
-    const i = E(n, F.Vertex, "vertex_main"), o = E(
-      n,
+    const i = E(r, F.Vertex, "vertex_main"), a = E(
+      r,
       F.Fragment,
       "fragment_main"
-    ), a = P(e, i, o), s = this.#r(a), c = this.#s(a);
-    t.push({ attributes: s, program: a, uniforms: c });
+    ), o = P(e, i, a), s = this.#r(o), f = this.#s(o);
+    t.push({ attributes: s, program: o, uniforms: f });
   }
   #n() {
     this.pipeline || (this.#i(), this.passBegun || this.passBegin(), this.pipelines.length == 1 && this.pipelineApply(1));
@@ -351,8 +354,8 @@ class q {
   pipelines = [];
   pointerPos = [0, 0];
   readBytes(e) {
-    const t = this.memoryBytes(), n = new DataView(t.buffer, e, 2 * 4), i = b(n, 0), o = b(n, 4);
-    return t.subarray(i, i + o);
+    const t = this.memoryBytes(), r = new DataView(t.buffer, e, 2 * 4), i = b(r, 0), a = b(r, 4);
+    return t.subarray(i, i + a);
   }
   readString(e) {
     return Z.decode(this.readBytes(e));
@@ -368,38 +371,38 @@ class q {
     const { canvas: e } = this.config;
     if (this.tacaBuffer) {
       const { gl: t } = this;
-      for (const n of this.pipelines) {
+      for (const r of this.pipelines) {
         t.bindBuffer(t.UNIFORM_BUFFER, this.tacaBuffer);
-        const i = new Uint8Array(n.uniforms.tacaSize), o = new DataView(i.buffer);
-        o.setFloat32(0, e.width, !0), o.setFloat32(4, e.height, !0), t.bufferSubData(t.UNIFORM_BUFFER, 0, i);
+        const i = new Uint8Array(r.uniforms.tacaSize), a = new DataView(i.buffer);
+        a.setFloat32(0, e.width, !0), a.setFloat32(4, e.height, !0), t.bufferSubData(t.UNIFORM_BUFFER, 0, i);
       }
     }
   }
   textDraw(e, t) {
-    const { gl: n, offscreen: i, offscreenContext: o, textures: a } = this, s = "30px sans-serif";
-    o.font = s;
-    const c = o.measureText(e), f = c.width, l = c.fontBoundingBoxAscent + c.fontBoundingBoxDescent;
-    i.width < f && (i.width = Math.ceil(f)), i.height < l && (i.height = Math.ceil(l)), o.clearRect(0, 0, i.width, i.height), o.fillStyle = "white", o.font = s, o.textBaseline = "bottom", o.fillText(e, 0, l);
+    const { gl: r, offscreen: i, offscreenContext: a, textures: o } = this, s = "30px sans-serif";
+    a.font = s;
+    const f = a.measureText(e), c = f.width, l = f.fontBoundingBoxAscent + f.fontBoundingBoxDescent;
+    i.width < c && (i.width = Math.ceil(c)), i.height < l && (i.height = Math.ceil(l)), a.clearRect(0, 0, i.width, i.height), a.fillStyle = "white", a.font = s, a.textBaseline = "bottom", a.fillText(e, 0, l);
     let h = !t, m;
     if (t) {
-      const _ = a[t - 1];
-      _.size[0] < i.width || _.size[1] < i.height ? (n.deleteTexture(_.texture), h = !0) : (m = _.texture, _.usedSize = [f, l]);
+      const _ = o[t - 1];
+      _.size[0] < i.width || _.size[1] < i.height ? (r.deleteTexture(_.texture), h = !0) : (m = _.texture, _.usedSize = [c, l]);
     }
     if (h) {
-      m = n.createTexture() ?? u();
+      m = r.createTexture() ?? u();
       const _ = {
         size: [i.width, i.height],
         texture: m,
-        usedSize: [f, l]
+        usedSize: [c, l]
       };
-      t || (t = a.length + 1), a[t - 1] = _;
+      t || (t = o.length + 1), o[t - 1] = _;
     }
-    return n.bindTexture(n.TEXTURE_2D, m), h && (n.texParameteri(n.TEXTURE_2D, n.TEXTURE_WRAP_S, n.CLAMP_TO_EDGE), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_WRAP_T, n.CLAMP_TO_EDGE), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MIN_FILTER, n.LINEAR), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MAG_FILTER, n.LINEAR)), n.texImage2D(
-      n.TEXTURE_2D,
+    return r.bindTexture(r.TEXTURE_2D, m), h && (r.texParameteri(r.TEXTURE_2D, r.TEXTURE_WRAP_S, r.CLAMP_TO_EDGE), r.texParameteri(r.TEXTURE_2D, r.TEXTURE_WRAP_T, r.CLAMP_TO_EDGE), r.texParameteri(r.TEXTURE_2D, r.TEXTURE_MIN_FILTER, r.LINEAR), r.texParameteri(r.TEXTURE_2D, r.TEXTURE_MAG_FILTER, r.LINEAR)), r.texImage2D(
+      r.TEXTURE_2D,
       0,
-      n.RGBA,
-      n.RGBA,
-      n.UNSIGNED_BYTE,
+      r.RGBA,
+      r.RGBA,
+      r.UNSIGNED_BYTE,
       i
     ), t;
   }
@@ -411,141 +414,139 @@ class q {
     this.#n();
     const { gl: t } = this;
     if (!this.uniformsBuffer) {
-      const { pipeline: i } = this, o = t.createBuffer() ?? u(), { uniforms: a } = i;
-      t.bindBuffer(t.UNIFORM_BUFFER, o), t.bufferData(t.UNIFORM_BUFFER, a.size, t.STREAM_DRAW);
-      for (let c = 0; c < a.count; c += 1)
-        c != a.tacaIndex && t.bindBufferBase(t.UNIFORM_BUFFER, c + 1, o);
-      this.uniformsBuffer = o;
+      const { pipeline: i } = this, a = t.createBuffer() ?? u(), { uniforms: o } = i;
+      t.bindBuffer(t.UNIFORM_BUFFER, a), t.bufferData(t.UNIFORM_BUFFER, o.size, t.STREAM_DRAW);
+      for (let f = 0; f < o.count; f += 1)
+        f != o.tacaIndex && t.bindBufferBase(t.UNIFORM_BUFFER, f + 1, a);
+      this.uniformsBuffer = a;
       const s = t.createBuffer() ?? u();
-      t.bindBuffer(t.UNIFORM_BUFFER, s), t.bufferData(t.UNIFORM_BUFFER, a.tacaSize, t.STREAM_DRAW), t.bindBufferBase(t.UNIFORM_BUFFER, a.tacaIndex + 1, s), this.tacaBuffer = s, this.tacaBufferUpdate();
+      t.bindBuffer(t.UNIFORM_BUFFER, s), t.bufferData(t.UNIFORM_BUFFER, o.tacaSize, t.STREAM_DRAW), t.bindBufferBase(t.UNIFORM_BUFFER, o.tacaIndex + 1, s), this.tacaBuffer = s, this.tacaBufferUpdate();
     }
-    const n = this.readBytes(e);
-    t.bindBuffer(t.UNIFORM_BUFFER, this.uniformsBuffer), t.bufferSubData(t.UNIFORM_BUFFER, 0, n);
+    const r = this.readBytes(e);
+    t.bindBuffer(t.UNIFORM_BUFFER, this.uniformsBuffer), t.bufferSubData(t.UNIFORM_BUFFER, 0, r);
   }
   uniformsBuffer = null;
   #s(e) {
-    const { gl: t } = this, n = t.getProgramParameter(e, t.ACTIVE_UNIFORM_BLOCKS);
-    let i = 0, o = 0, a = 0;
-    for (let s = 0; s < n; s += 1) {
-      const c = t.getActiveUniformBlockName(e, s), f = t.getActiveUniformBlockParameter(
+    const { gl: t } = this, r = t.getProgramParameter(e, t.ACTIVE_UNIFORM_BLOCKS);
+    let i = 0, a = 0, o = 0;
+    for (let s = 0; s < r; s += 1) {
+      const f = t.getActiveUniformBlockName(e, s), c = t.getActiveUniformBlockParameter(
         e,
         s,
         t.UNIFORM_BLOCK_DATA_SIZE
       ) ?? u();
-      c == "taca_uniform_block" ? (o = s, a = f) : (s > 0 && f != i && u(), i = f), t.uniformBlockBinding(e, s, s + 1);
+      f == "taca_uniform_block" ? (a = s, o = c) : (s > 0 && c != i && u(), i = c), t.uniformBlockBinding(e, s, s + 1);
     }
-    return { count: n, size: i, tacaIndex: o, tacaSize: a };
+    return { count: r, size: i, tacaIndex: a, tacaSize: o };
   }
-  #a(e) {
-    const { buffers: t, gl: n } = this;
+  #o(e) {
+    const { buffers: t, gl: r } = this;
     if (t.length == 2) {
-      let i = function(c) {
-        let f = 0;
+      let i = function(f) {
+        let c = 0;
         for (const l of e) {
           const { loc: h } = l, [m, _] = {
-            [n.FLOAT_VEC2]: [2, n.FLOAT],
-            [n.FLOAT_VEC4]: [4, n.FLOAT]
-          }[l.type] ?? u(), A = { [n.FLOAT]: 4 }[_] ?? u();
-          f = Math.ceil(f / A) * A, c(h, m, _, f), f += m * A;
+            [r.FLOAT_VEC2]: [2, r.FLOAT],
+            [r.FLOAT_VEC4]: [4, r.FLOAT]
+          }[l.type] ?? u(), T = { [r.FLOAT]: 4 }[_] ?? u();
+          c = Math.ceil(c / T) * T, f(h, m, _, c), c += m * T;
         }
-        return f;
+        return c;
       };
-      const o = t.find((c) => c.kind == "vertex") ?? u();
-      n.bindBuffer(n.ARRAY_BUFFER, o.buffer);
-      const a = i(() => {
+      const a = t.find((f) => f.kind == "vertex") ?? u();
+      r.bindBuffer(r.ARRAY_BUFFER, a.buffer);
+      const o = i(() => {
       });
-      i((c, f, l, h) => {
-        n.enableVertexAttribArray(c), n.vertexAttribPointer(c, f, l, !1, a, h);
+      i((f, c, l, h) => {
+        r.enableVertexAttribArray(f), r.vertexAttribPointer(f, c, l, !1, o, h);
       });
-      const s = t.find((c) => c.kind == "index") ?? u();
-      n.bindBuffer(n.ELEMENT_ARRAY_BUFFER, s.buffer);
+      const s = t.find((f) => f.kind == "index") ?? u();
+      r.bindBuffer(r.ELEMENT_ARRAY_BUFFER, s.buffer);
     }
   }
   vertexBuffer = null;
 }
-function b(r, e) {
-  return r.getUint32(e, !0);
+function b(n, e) {
+  return n.getUint32(e, !0);
 }
-async function j(r) {
-  const e = r.wasm;
-  r.wasm = void 0;
-  const t = new Uint8Array(e), n = t[0] == 4 ? (
+async function j(n) {
+  const e = n.code;
+  n.code = void 0;
+  const t = new Uint8Array(e), r = t[0] == 4 ? (
     // Presume lz4 because wasm starts with 0.
     z(t).buffer
   ) : e;
-  let i = new q(r);
-  const o = $(i);
-  let { instance: a } = await WebAssembly.instantiate(n, { env: o });
-  i.init(a);
+  let i = new q(n);
+  const a = $(i);
+  let { instance: o } = await WebAssembly.instantiate(r, { env: a });
+  i.init(o);
   const s = i.exports;
   if (s._start(), s.listen) {
-    const c = () => {
+    const f = () => {
       try {
         s.listen(0);
       } finally {
         i.frameEnd();
       }
-      requestAnimationFrame(c);
+      requestAnimationFrame(f);
     };
-    requestAnimationFrame(c);
+    requestAnimationFrame(f);
   }
 }
-async function K() {
-  const r = new URL(window.location.href), t = new URLSearchParams(r.search).get("app");
-  if (t)
-    return await (await fetch(t)).arrayBuffer();
+async function K(n) {
+  return n instanceof ArrayBuffer ? n : await (await n).arrayBuffer();
 }
-function $(r) {
+function $(n) {
   return {
     taca_RenderingContext_applyBindings(e) {
     },
     taca_RenderingContext_applyPipeline(e) {
     },
     taca_RenderingContext_applyUniforms(e) {
-      r.uniformsApply(e);
+      n.uniformsApply(e);
     },
     taca_RenderingContext_beginPass() {
     },
     taca_RenderingContext_commitFrame() {
-      r.frameCommit();
+      n.frameCommit();
     },
-    taca_RenderingContext_draw(e, t, n) {
-      r.draw(e, t, n);
+    taca_RenderingContext_draw(e, t, r) {
+      n.draw(e, t, r);
     },
-    taca_RenderingContext_drawText(e, t, n) {
-      r.drawText(r.readString(e), t, n);
+    taca_RenderingContext_drawText(e, t, r) {
+      n.drawText(n.readString(e), t, r);
     },
-    taca_RenderingContext_drawTexture(e, t, n) {
-      r.drawTexture(e, t, n);
+    taca_RenderingContext_drawTexture(e, t, r) {
+      n.drawTexture(e, t, r);
     },
     taca_RenderingContext_endPass() {
     },
     taca_RenderingContext_newBuffer(e, t) {
-      return r.bufferNew(e, t);
+      return n.bufferNew(e, t);
     },
     taca_RenderingContext_newPipeline(e) {
       console.log("taca_RenderingContext_newPipeline");
     },
     taca_RenderingContext_newShader(e) {
-      return r.shaders.push(M(r.readBytes(e))), r.shaders.length;
+      return n.shaders.push(M(n.readBytes(e))), n.shaders.length;
     },
     taca_Window_newRenderingContext() {
       return 1;
     },
     taca_Window_print(e) {
-      console.log(r.readString(e));
+      console.log(n.readString(e));
     },
     taca_Window_setTitle(e) {
-      document.title = r.readString(e);
+      document.title = n.readString(e);
     },
     taca_Window_state(e) {
-      const { clientWidth: t, clientHeight: n } = r.canvas, [i, o] = r.pointerPos, a = r.memoryView(e, 4 * 4);
-      y(a, 0, i), y(a, 4, o), y(a, 8, t), y(a, 12, n);
+      const { clientWidth: t, clientHeight: r } = n.canvas, [i, a] = n.pointerPos, o = n.memoryView(e, 4 * 4);
+      y(o, 0, i), y(o, 4, a), y(o, 8, t), y(o, 12, r);
     }
   };
 }
-function y(r, e, t) {
-  return r.setFloat32(e, t, !0);
+function y(n, e, t) {
+  return n.setFloat32(e, t, !0);
 }
 const Z = new TextDecoder();
 export {

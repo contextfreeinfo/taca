@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "wasm-pack build --target web && tsc && vite build",
+    "build": "wasm-pack build --target web && tsc && vite build && npm run pack-dev",
     "build-split": "wasm-pack build --target web && tsc && vite build --mode split && npm run pack-dev",
     "pack-dev": "wasm-pack build --target web --dev",
     "preview": "vite preview"

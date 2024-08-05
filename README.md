@@ -18,6 +18,8 @@ combined, when everything is gzipped:
 
 ## Dev Notes
 
+### Web
+
 Look at package.json under cana for web versions. For simple dev:
 
 ```sh
@@ -34,6 +36,13 @@ npm run preview
 npm run build
 npm run build-split
 ```
+
+Demo links:
+
+- Dev: http://localhost:5173/?app=apps/zig/hi.taca
+- Dist: http://localhost:4173/?app=apps/zig/hi.taca
+
+### Native
 
 For native, either build faster:
 

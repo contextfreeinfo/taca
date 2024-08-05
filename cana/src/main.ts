@@ -11,13 +11,17 @@ import { fail } from "./util";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
-  wasm?: ArrayBuffer | Promise<ArrayBuffer>;
+  code?: ArrayBuffer | Promise<Response>;
+  runtimeWasm?: Promise<Response>;
 }
 
 export async function runApp(config: AppConfig) {
-  const [appData] = await Promise.all([config.wasm ?? loadAppData(), cana()]);
+  const [appData] = await Promise.all([
+    loadAppData(config.code!),
+    cana(config.runtimeWasm),
+  ]);
   if (appData) {
-    await loadApp({ ...config, wasm: appData });
+    await loadApp({ ...config, code: appData });
   }
 }
 
@@ -481,8 +485,8 @@ function getU32(view: DataView, byteOffset: number) {
 }
 
 async function loadApp(config: AppConfig) {
-  const appData = config.wasm as ArrayBuffer;
-  config.wasm = undefined;
+  const appData = config.code as ArrayBuffer;
+  config.code = undefined;
   const appBytes = new Uint8Array(appData);
   const actualData =
     appBytes[0] == 4
@@ -509,12 +513,11 @@ async function loadApp(config: AppConfig) {
   }
 }
 
-async function loadAppData() {
-  const url = new URL(window.location.href);
-  const params = new URLSearchParams(url.search);
-  const app = params.get("app");
-  if (app) {
-    return await (await fetch(app)).arrayBuffer();
+async function loadAppData(code: ArrayBuffer | Promise<Response>) {
+  if (code instanceof ArrayBuffer) {
+    return code;
+  } else {
+    return await (await code).arrayBuffer();
   }
 }
 
