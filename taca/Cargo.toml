@@ -11,10 +11,10 @@ lz4_flex = "0.11.3"
 pollster = "0.3.0"
 wasmer = "4.3.2"
 wasmer-types = "4.3.2"
-wgpu = { version = "22.0.0", features = ["spirv"] }
+wgpu = { version = "22.1.0", features = ["spirv"] }
 winit = "0.30.3"
 
 [dependencies.naga]
-version = "0.20.0"
+version = "22.1.0"
 default-features = false
 features = ["spv-in"]

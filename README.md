@@ -47,13 +47,13 @@ Demo links:
 For native, either build faster:
 
 ```sh
-cargo run --bin waca --profile release-quick -- run cana/public/hi.taca
+cargo run --bin waca --profile release-quick -- run cana/public/apps/zig/hi.taca
 ```
 
 Or build more optimized:
 
 ```sh
-cargo run --bin waca --release -- run cana/public/hi.taca
+cargo run --bin waca --release -- run cana/public/apps/zig/hi.taca
 ```
 
 And when interested in updating the demo docs:
