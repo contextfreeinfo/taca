@@ -42,6 +42,16 @@ Demo links:
 - Dev: http://localhost:5173/?app=apps/zig/hi.taca
 - Dist: http://localhost:4173/?app=apps/zig/hi.taca
 
+Possibly useful for containers:
+
+```bash
+podman run --rm -it -p 5173:5173 -p 24678:24678 -v $PWD:/workspace taca-build:latest bash
+npm run dev -- --host 0.0.0.0
+#
+podman run --rm -it -p 4173:4173 -v $PWD:/workspace taca-build:latest bash
+npm run preview -- --host 0.0.0.0
+```
+
 ### Native
 
 For native, either build faster:
