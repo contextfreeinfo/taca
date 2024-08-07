@@ -33,6 +33,12 @@ class App {
       const rect = canvas.getBoundingClientRect();
       this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
     });
+    canvas.addEventListener("touchmove", (event) => {
+      event.preventDefault();
+      const touch = event.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      this.pointerPos = [touch.clientX - rect.left, touch.clientY - rect.top];
+    });
     this.config = config;
     this.gl = config.canvas.getContext("webgl2")!;
     this.texturePipeline = new TexturePipeline(this.gl);
@@ -386,7 +392,7 @@ class App {
   #uniformsBuild(program: WebGLProgram): Uniforms {
     const { gl } = this;
     const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORM_BLOCKS);
-    let size = 0;
+    let size = -1;
     let tacaIndex = 0;
     let tacaSize = 0;
     for (let i = 0; i < count; i += 1) {
@@ -402,7 +408,7 @@ class App {
         tacaIndex = i;
         tacaSize = nextSize;
       } else {
-        if (i > 0 && nextSize != size) fail();
+        if (size > 0 && nextSize != size) fail();
         size = nextSize;
       }
       gl.uniformBlockBinding(program, i, i + 1);
