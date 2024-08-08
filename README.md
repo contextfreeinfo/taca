@@ -71,13 +71,6 @@ Or build more optimized:
 cargo run --bin waca --release -- run cana/public/apps/zig/hi.taca
 ```
 
-And when interested in updating the demo docs:
-
-```sh
-cp dist/taca.js dist/taca.wasm ../docs/demo/
-cp dist/hi.taca ../docs/demo/apps/zig/
-```
-
 ## Exploration
 
 Size on WGSL:
