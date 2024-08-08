@@ -45,10 +45,15 @@ Demo links:
 Possibly useful for containers:
 
 ```bash
-podman run --rm -it -p 5173:5173 -p 24678:24678 -v $PWD:/workspace taca-build:latest bash
+# Get the image
+podman pull ghcr.io/contextfreeinfo/taca-dev:latest
+# Use the image in this dir
+podman run --rm -it -v $PWD:/workspace taca-dev:latest bash
+# Run the dev server from the cana dir
+podman run --rm -it -p 5173:5173 -p 24678:24678 -v $PWD:/workspace taca-dev:latest bash
 npm run dev -- --host 0.0.0.0
-#
-podman run --rm -it -p 4173:4173 -v $PWD:/workspace taca-build:latest bash
+# Run the preview server from the cana dir
+podman run --rm -it -p 4173:4173 -v $PWD:/workspace taca-dev:latest bash
 npm run preview -- --host 0.0.0.0
 ```
 
