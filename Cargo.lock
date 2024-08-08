@@ -216,27 +216,12 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "bit-set"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0700ddab506f33b20a03b13996eccd309a48e5ff77d0d95926aa0210fb4e95f1"
-dependencies = [
- "bit-vec 0.6.3",
-]
-
-[[package]]
-name = "bit-set"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0481a0e032742109b1133a095184ee93d88f3dc9e0d28a5d033dc77a073f44f"
 dependencies = [
- "bit-vec 0.7.0",
+ "bit-vec",
 ]
-
-[[package]]
-name = "bit-vec"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bit-vec"
@@ -395,7 +380,7 @@ name = "cana"
 version = "0.1.0"
 dependencies = [
  "lz4_flex",
- "naga 0.20.0",
+ "naga",
  "wasm-bindgen",
 ]
 
@@ -1671,32 +1656,12 @@ checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
 
 [[package]]
 name = "naga"
-version = "0.20.0"
+version = "22.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e536ae46fcab0876853bd4a632ede5df4b1c2527a58f6c5a4150fe86be858231"
+checksum = "8bd5a652b6faf21496f2cfd88fc49989c8db0825d1f6746b1a71a6ede24a63ad"
 dependencies = [
  "arrayvec",
- "bit-set 0.5.3",
- "bitflags 2.6.0",
- "codespan-reporting",
- "indexmap 2.2.6",
- "log",
- "num-traits",
- "petgraph",
- "rustc-hash 1.1.0",
- "spirv",
- "termcolor",
- "thiserror",
-]
-
-[[package]]
-name = "naga"
-version = "22.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09eeccb9b50f4f7839b214aa3e08be467159506a986c18e0702170ccf720a453"
-dependencies = [
- "arrayvec",
- "bit-set 0.6.0",
+ "bit-set",
  "bitflags 2.6.0",
  "cfg_aliases 0.1.1",
  "codespan-reporting",
@@ -2777,7 +2742,7 @@ dependencies = [
  "clap",
  "glyphon",
  "lz4_flex",
- "naga 0.20.0",
+ "naga",
  "pollster",
  "wasmer",
  "wasmer-types",
@@ -3565,16 +3530,16 @@ dependencies = [
 
 [[package]]
 name = "wgpu"
-version = "22.0.0"
+version = "22.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c87e07e87a179614940ad845397e03201847453a37b43a31a3b54eee2e6e32ce"
+checksum = "e1d1c4ba43f80542cf63a0a6ed3134629ae73e8ab51e4b765a67f3aa062eb433"
 dependencies = [
  "arrayvec",
  "cfg_aliases 0.1.1",
  "document-features",
  "js-sys",
  "log",
- "naga 22.0.0",
+ "naga",
  "parking_lot",
  "profiling",
  "raw-window-handle",
@@ -3595,14 +3560,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0f191908a21968991463fcf3b42cb6c9648c0fb7fa301b8fc733bc21a9ed9bd"
 dependencies = [
  "arrayvec",
- "bit-vec 0.7.0",
+ "bit-vec",
  "bitflags 2.6.0",
  "bytemuck",
  "cfg_aliases 0.1.1",
  "document-features",
  "indexmap 2.2.6",
  "log",
- "naga 22.0.0",
+ "naga",
  "once_cell",
  "parking_lot",
  "profiling",
@@ -3623,7 +3588,7 @@ dependencies = [
  "android_system_properties",
  "arrayvec",
  "ash",
- "bit-set 0.6.0",
+ "bit-set",
  "bitflags 2.6.0",
  "block",
  "cfg_aliases 0.1.1",
@@ -3641,7 +3606,7 @@ dependencies = [
  "libloading",
  "log",
  "metal",
- "naga 22.0.0",
+ "naga",
  "ndk-sys 0.5.0+25.2.9519653",
  "objc",
  "once_cell",

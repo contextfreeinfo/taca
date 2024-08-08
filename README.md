@@ -42,18 +42,33 @@ Demo links:
 - Dev: http://localhost:5173/?app=apps/zig/hi.taca
 - Dist: http://localhost:4173/?app=apps/zig/hi.taca
 
+Possibly useful for containers:
+
+```bash
+# Get the image
+podman pull ghcr.io/contextfreeinfo/taca-dev:latest
+# Use the image in this dir
+podman run --rm -it -v $PWD:/workspace taca-dev:latest bash
+# Run the dev server from the cana dir
+podman run --rm -it -p 5173:5173 -p 24678:24678 -v $PWD:/workspace taca-dev:latest bash
+npm run dev -- --host 0.0.0.0
+# Run the preview server from the cana dir
+podman run --rm -it -p 4173:4173 -v $PWD:/workspace taca-dev:latest bash
+npm run preview -- --host 0.0.0.0
+```
+
 ### Native
 
 For native, either build faster:
 
 ```sh
-cargo run --bin waca --profile release-quick -- run cana/public/hi.taca
+cargo run --bin waca --profile release-quick -- run cana/public/apps/zig/hi.taca
 ```
 
 Or build more optimized:
 
 ```sh
-cargo run --bin waca --release -- run cana/public/hi.taca
+cargo run --bin waca --release -- run cana/public/apps/zig/hi.taca
 ```
 
 And when interested in updating the demo docs:
