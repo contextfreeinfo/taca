@@ -21,7 +21,7 @@ jobs:
         run: |
           export RUSTUP_HOME=/root/.rustup
           rustup show
-          cd cana && npm install && npm run build-split
+          cd cana && npm install && npm run build-split-only
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
