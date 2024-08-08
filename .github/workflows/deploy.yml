@@ -19,6 +19,10 @@ jobs:
         run: cd examples/zig/hi && bash build.sh
       - name: Build taca.js and demo page
         run: |
+          rustup show
+          which cargo
+          ls -lh /root/.rustup/
+          ls -lh /root/.rustup/toolchains/
           rustup toolchain list
           rustup default $(rustup toolchain list | awk '{print $1}')
           cd cana && npm install && npm run build-split
