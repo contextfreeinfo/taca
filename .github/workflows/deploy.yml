@@ -18,7 +18,10 @@ jobs:
       - name: Build demo app
         run: cd examples/zig/hi && bash build.sh
       - name: Build taca.js and demo page
-        run: cd cana && npm install && npm run build-split
+        run: |
+          rustup toolchain list
+          rustup default $(rustup toolchain list | awk '{print $1}')
+          cd cana && npm install && npm run build-split
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
