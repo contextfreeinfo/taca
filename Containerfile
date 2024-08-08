@@ -59,13 +59,6 @@ RUN curl -LO https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/linux/vul
 # wasm-pack
 RUN npm install -g wasm-pack@${WASM_PACK_VERSION}
 
-# Out of place things
-
-# I'd rather do this earlier, but I don't want to have to transfer old image
-# layers.
-
-RUN apt-get update && apt-get install -y git
-
 # Finish
 
 # working directory
