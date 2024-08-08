@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  id-token: write
+  pages: write
 
 jobs:
   build:
@@ -18,11 +20,19 @@ jobs:
       - name: Build taca.js and demo page
         run: |
           export RUSTUP_HOME=/root/.rustup
-          rustup show
           cd cana && npm install && npm run build-split-only
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          destination_dir: demo
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./cana/dist
+          path: ./cana/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
