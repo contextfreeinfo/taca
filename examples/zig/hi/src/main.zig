@@ -8,6 +8,7 @@ pub fn main() void {
     window.setTitle(title);
     window.print(title);
     const y = @sqrt(3.0) / 4.0;
+    // Main triangle.
     _ = ctx.newBuffer(
         .vertex,
         taca.BufferSlice.new(&[_]Vertex{
@@ -21,7 +22,27 @@ pub fn main() void {
         taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     );
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
-    stage = .{ .count = 0 };
+    // More things.
+    const rect_vertex = ctx.newBuffer(
+        .vertex,
+        taca.BufferSlice.new(&[_][2]f32{
+            .{ -0.5, -0.5 },
+            .{ -0.5, 0.5 },
+            .{ 0.5, -0.5 },
+            .{ 0.5, 0.5 },
+        }),
+    );
+    const rect_index = ctx.newBuffer(
+        .index,
+        taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
+    );
+    // TODO Use rect_vertex as instance data.
+    // TODO New shader
+    stage = .{
+        .count = 0,
+        .rect_index = rect_index,
+        .rect_vertex = rect_vertex,
+    };
 }
 
 export fn listen(event: taca.EventKind) void {
@@ -44,6 +65,8 @@ var stage: ?Stage = null;
 
 const Stage = struct {
     count: u32,
+    rect_index: *taca.Buffer,
+    rect_vertex: *taca.Buffer,
 };
 
 const Uniforms = extern struct {

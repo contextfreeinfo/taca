@@ -6,6 +6,7 @@ pub const Bindings = struct {
 
 pub const Buffer = extern struct {};
 
+// TODO Just do a late translate of a slice to opaque bytes?
 pub const BufferSlice = extern struct {
     ptr: *const anyopaque,
     size: usize,

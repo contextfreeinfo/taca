@@ -422,7 +422,7 @@ class App {
     // TODO Rename this function.
     // There's a limited number of vaos, so better to avoid them from user code.
     const { buffers, gl } = this;
-    if (buffers.length == 2) {
+    if (buffers.length >= 2) {
       // Vertex buffer.
       const vertex =
         buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
