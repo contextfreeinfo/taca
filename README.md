@@ -18,9 +18,66 @@ combined, when everything is gzipped:
 
 ## Dev Notes
 
-### Web
+### Containers
 
-Look at package.json under cana for web versions. For simple dev:
+Containers might make life easier:
+
+```bash
+# Get the image
+podman pull ghcr.io/contextfreeinfo/taca-dev:latest
+# Use the image in this dir
+podman run --rm -it -v $PWD:/workspace taca-dev:latest bash
+# Run the dev server from the web dir
+podman run --rm -it -p 5173:5173 -p 24678:24678 -v $PWD:/workspace taca-dev:latest bash
+npm run dev -- --host 0.0.0.0
+# Run the preview server from the web dir
+podman run --rm -it -p 4173:4173 -v $PWD:/workspace taca-dev:latest bash
+npm run preview -- --host 0.0.0.0
+```
+
+Or use Docker if you need to.
+
+Even if you don't use a container, the Containerfile gives info on dependencies
+for building things.
+
+### Demo app
+
+Just one demo so far, made with Zig and support tools:
+
+```sh
+cd examples/zig/hi
+./build.sh
+```
+
+That puts the built taca app under the top-level web dir for easy access there.
+
+### Native runtime
+
+For native, go back to the top dir and either build faster:
+
+```sh
+cargo run --bin taca --profile release-quick -- run web/public/apps/zig/hi.taca
+```
+
+Or build more optimized:
+
+```sh
+cargo run --bin taca --release -- run web/public/apps/zig/hi.taca
+```
+
+The native runtime is pure Rust, but the only demo app so far is in Zig and
+more. Maybe it would be nice to make a demo app in Rust sometime to make a
+simpler example with few dependencies.
+
+### Web runtime
+
+Look at package.json under web for web versions:
+
+```sh
+cd web
+```
+
+For simple dev:
 
 ```sh
 npm run dev
@@ -41,54 +98,3 @@ Demo links:
 
 - Dev: http://localhost:5173/?app=apps/zig/hi.taca
 - Dist: http://localhost:4173/?app=apps/zig/hi.taca
-
-Possibly useful for containers:
-
-```bash
-# Get the image
-podman pull ghcr.io/contextfreeinfo/taca-dev:latest
-# Use the image in this dir
-podman run --rm -it -v $PWD:/workspace taca-dev:latest bash
-# Run the dev server from the cana dir
-podman run --rm -it -p 5173:5173 -p 24678:24678 -v $PWD:/workspace taca-dev:latest bash
-npm run dev -- --host 0.0.0.0
-# Run the preview server from the cana dir
-podman run --rm -it -p 4173:4173 -v $PWD:/workspace taca-dev:latest bash
-npm run preview -- --host 0.0.0.0
-```
-
-### Native
-
-For native, either build faster:
-
-```sh
-cargo run --bin waca --profile release-quick -- run cana/public/apps/zig/hi.taca
-```
-
-Or build more optimized:
-
-```sh
-cargo run --bin waca --release -- run cana/public/apps/zig/hi.taca
-```
-
-## Exploration
-
-Size on WGSL:
-
-```
--rw-r--r--  1 tom tom  957899 Jun  9 06:09 taca.opt.wasm
--rwxr-xr-x  2 tom tom 1062610 Jun  9 10:13 taca.wasm
-...
--rw-r--r-- 1 tom tom  424 Jun  7 14:12 shader.wgsl
--rw-r--r-- 1 tom tom  226 Jun  7 14:12 shader.wgsl.gz
-```
-
-Size on SPIR-V:
-
-```
--rw-r--r--  1 tom tom 766449 Jun  9 10:58 taca.opt.wasm
--rwxr-xr-x  2 tom tom 852427 Jun  9 10:58 taca.wasm
-...
--rw-r--r-- 1 tom tom 1056 Jun  9 10:55 shader.spv
--rw-r--r-- 1 tom tom  438 Jun  9 10:55 shader.spv.gz
-```

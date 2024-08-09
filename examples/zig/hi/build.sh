@@ -7,7 +7,7 @@ build() {
 }
 
 place() {
-    PUB_DIR=../../../cana/public/apps/zig
+    PUB_DIR=../../../web/public/apps/zig
     mkdir -p $PUB_DIR
     cp zig-out/bin/hi.opt.wasm.lz4 $PUB_DIR/hi.taca
 }

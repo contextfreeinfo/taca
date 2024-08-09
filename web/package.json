@@ -1,5 +1,5 @@
 {
-  "name": "cana",
+  "name": "taca",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -16,6 +16,6 @@
     "@types/node": "^20.14.8",
     "typescript": "^5.2.2",
     "vite": "^5.3.1",
-    "wasm-pack": "^0.12.1"
+    "wasm-pack": "^0.13.0"
   }
 }

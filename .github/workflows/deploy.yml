@@ -20,9 +20,9 @@ jobs:
       - name: Build taca.js and demo page
         run: |
           export RUSTUP_HOME=/root/.rustup
-          cd cana && npm install && npm run build-split-only
+          cd web && npm install && npm run build-split-only
       - name: Copy demo to docs
-        run: cp -r cana/dist docs/demo
+        run: cp -r web/dist docs/demo
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
