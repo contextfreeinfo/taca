@@ -9,39 +9,51 @@ pub fn main() void {
     window.print(title);
     const y = @sqrt(3.0) / 4.0;
     // Main triangle.
-    _ = ctx.newBuffer(
-        .vertex,
-        taca.BufferSlice.new(&[_]Vertex{
+    _ = ctx.newBuffer(.{
+        .slice = taca.BufferSlice.new(&[_]Vertex{
             .{ .pos = .{ -0.5, y }, .color = .{ 1, 0, 0, 1 } },
             .{ .pos = .{ 0.5, y }, .color = .{ 0, 1, 0, 1 } },
             .{ .pos = .{ 0.0, -y }, .color = .{ 0, 0, 1, 1 } },
         }),
-    );
-    _ = ctx.newBuffer(
-        .index,
-        taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
-    );
+    });
+    _ = ctx.newBuffer(.{
+        .type = .index,
+        .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
+    });
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
     // More things.
-    const rect_vertex = ctx.newBuffer(
-        .vertex,
-        taca.BufferSlice.new(&[_][2]f32{
+    const decor_vertex = ctx.newBuffer(.{
+        .slice = taca.BufferSlice.new(&[_][2]f32{
             .{ -0.5, -0.5 },
             .{ -0.5, 0.5 },
             .{ 0.5, -0.5 },
             .{ 0.5, 0.5 },
         }),
-    );
-    const rect_index = ctx.newBuffer(
-        .index,
-        taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
-    );
-    // TODO Use rect_vertex as instance data.
+    });
+    const decor_index = ctx.newBuffer(.{
+        .type = .index,
+        .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
+    });
+    const decor_pipeline = ctx.newPipeline(.{
+        .vertex = .{
+            .shader = ctx.newShader(@embedFile("shader.opt.spv")),
+        },
+        .vertex_attributes = &[_]taca.VertexAttribute{
+            .{},
+            .{ .buffer_index = 1 },
+        },
+        .vertex_buffers = &[_]taca.VertexBufferLayout{
+            .{},
+            .{ .step = .instance },
+        },
+    });
+    // TODO Use decor_vertex as instance data.
     // TODO New shader
     stage = .{
         .count = 0,
-        .rect_index = rect_index,
-        .rect_vertex = rect_vertex,
+        .decor_index = decor_index,
+        .decor_pipeline = decor_pipeline,
+        .decor_vertex = decor_vertex,
     };
 }
 
@@ -65,8 +77,9 @@ var stage: ?Stage = null;
 
 const Stage = struct {
     count: u32,
-    rect_index: *taca.Buffer,
-    rect_vertex: *taca.Buffer,
+    decor_index: *taca.Buffer,
+    decor_pipeline: *taca.Pipeline,
+    decor_vertex: *taca.Buffer,
 };
 
 const Uniforms = extern struct {

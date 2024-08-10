@@ -6,9 +6,14 @@ pub const Bindings = struct {
 
 pub const Buffer = extern struct {};
 
+pub const BufferInfo = extern struct {
+    type: BufferType = .vertex,
+    slice: BufferSlice,
+};
+
 // TODO Just do a late translate of a slice to opaque bytes?
 pub const BufferSlice = extern struct {
-    ptr: *const anyopaque,
+    ptr: ?*const anyopaque = null,
     size: usize,
 
     pub fn new(items: anytype) BufferSlice {
@@ -29,14 +34,17 @@ pub const EventKind = enum(c_int) {
 pub const Pipeline = extern struct {};
 
 pub const PipelineShaderInfo = struct {
-    entry_point: []const u8,
-    shader: *Shader,
+    entry_point: []const u8 = "",
+    shader: ?*const Shader = null,
 };
 
 pub const PipelineInfo = struct {
-    attributes: []const VertexAttribute,
-    fragment: PipelineShaderInfo,
-    vertex: PipelineShaderInfo,
+    // Attributes are specified separately from buffers to make it easier to
+    // avoid memory allocation when prepping for ffi.
+    fragment: PipelineShaderInfo = .{},
+    vertex: PipelineShaderInfo = .{},
+    vertex_attributes: []const VertexAttribute = &[_]VertexAttribute{},
+    vertex_buffers: []const VertexBufferLayout = &[_]VertexBufferLayout{},
 };
 
 pub const RenderingContext = struct {
@@ -82,11 +90,8 @@ pub const RenderingContext = struct {
         taca_RenderingContext_endPass();
     }
 
-    pub fn newBuffer(
-        typ: BufferType,
-        slice: BufferSlice,
-    ) *Buffer {
-        return taca_RenderingContext_newBuffer(typ, &slice);
+    pub fn newBuffer(info: BufferInfo) *Buffer {
+        return taca_RenderingContext_newBuffer(info.type, &info.slice);
     }
 
     pub fn newPipeline(info: PipelineInfo) *Pipeline {
@@ -111,13 +116,24 @@ pub fn Span(comptime T: type) type {
     };
 }
 
+pub const Step = enum(c_int) {
+    vertex,
+    instance,
+};
+
 pub const Texture = extern struct {};
 
 // TODO Text metrics and rendering
 
 pub const VertexAttribute = extern struct {
-    format: VertexFormat,
     buffer_index: usize = 0,
+    shader_location: usize = 0,
+    value_offset: usize = 0,
+};
+
+pub const VertexBufferLayout = extern struct {
+    step: Step = .vertex,
+    stride: usize = 0,
 };
 
 pub const VertexFormat = enum(c_int) {
@@ -189,13 +205,15 @@ const ExternBindings = extern struct {
 };
 
 const ExternPipelineInfo = extern struct {
-    attributes: Span(VertexAttribute),
     fragment: ExternPipelineShaderInfo,
     vertex: ExternPipelineShaderInfo,
+    vertex_attributes: Span(VertexAttribute),
+    vertex_buffers: Span(VertexBufferLayout),
 
     pub fn from(info: PipelineInfo) ExternPipelineInfo {
         return .{
-            .attributes = Span(VertexAttribute).from(info.attributes),
+            .vertex_attributes = Span(VertexAttribute).from(info.vertex_attributes),
+            .vertex_buffers = Span(VertexBufferLayout).from(info.vertex_buffers),
             .fragment = ExternPipelineShaderInfo.from(info.fragment),
             .vertex = ExternPipelineShaderInfo.from(info.vertex),
         };
@@ -204,7 +222,7 @@ const ExternPipelineInfo = extern struct {
 
 const ExternPipelineShaderInfo = extern struct {
     entry_point: Span(u8),
-    shader: *Shader,
+    shader: ?*const Shader,
 
     pub fn from(info: PipelineShaderInfo) ExternPipelineShaderInfo {
         return .{
