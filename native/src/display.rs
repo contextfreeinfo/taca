@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     future::Future,
     ptr::null_mut,
     sync::Arc,
@@ -51,34 +50,6 @@ impl Display {
         };
         // TODO Event.
         unsafe { &mut *self.app.0 }.listen();
-
-        if gfx.render_pipeline.is_none() {
-            gfx.build_render_pipeline();
-        }
-
-        // let frame = gfx.surface.get_current_texture().unwrap();
-        // let view = frame.texture.create_view(&Default::default());
-        // let mut encoder = gfx.device.create_command_encoder(&Default::default());
-
-        // {
-        //     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-        //                 store: wgpu::StoreOp::Store,
-        //             },
-        //         })],
-        //         ..Default::default()
-        //     });
-        //     rpass.set_pipeline(gfx.render_pipeline.as_ref().unwrap());
-        //     rpass.draw(0..3, 0..1);
-        // }
-
-        // let command_buffer = encoder.finish();
-        // gfx.queue.submit([command_buffer]);
-        // frame.present();
         gfx.window.request_redraw();
         let elapsed = self.time_end.elapsed();
         let target_elapsed = Duration::from_secs_f64(1.0 / 60.0);
@@ -186,64 +157,6 @@ pub struct Graphics {
     pub device: Device,
     pub queue: Queue,
     render_pipeline: Option<RenderPipeline>,
-}
-
-impl Graphics {
-    fn build_render_pipeline(&mut self) {
-        let Graphics {
-            adapter,
-            device,
-            surface,
-            ..
-        } = self;
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
-        });
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
-
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed("
-                    @vertex
-                    fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4<f32> {
-                        let x = f32(i32(in_vertex_index) - 1);
-                        let y = f32(i32(in_vertex_index & 1u) * 2 - 1);
-                        return vec4<f32>(x, y, 0.0, 1.0);
-                    }
-    
-                    @fragment
-                    fn fs_main() -> @location(0) vec4<f32> {
-                        return vec4<f32>(1.0, 1.0, 0.0, 1.0);
-                    }
-            "))
-        });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                compilation_options: Default::default(),
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                compilation_options: Default::default(),
-                targets: &[Some(swapchain_format.into())],
-            }),
-            primitive: Default::default(),
-            depth_stencil: None,
-            multisample: Default::default(),
-            multiview: None,
-            cache: None,
-        });
-        self.render_pipeline = Some(render_pipeline);
-    }
 }
 
 pub struct GraphicsBuilder {
