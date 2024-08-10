@@ -6,9 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 use wasmer::ValueType;
-use wgpu::{
-    Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration, TextureFormat,
-};
+use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::{
     application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize},
@@ -156,7 +154,6 @@ pub struct Graphics {
     pub adapter: Adapter,
     pub device: Device,
     pub queue: Queue,
-    render_pipeline: Option<RenderPipeline>,
 }
 
 pub struct GraphicsBuilder {
@@ -237,7 +234,6 @@ fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphic
             adapter,
             device,
             queue,
-            render_pipeline: None,
         }
     }
 }
