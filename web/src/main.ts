@@ -422,7 +422,7 @@ class App {
     // TODO Rename this function.
     // There's a limited number of vaos, so better to avoid them from user code.
     const { buffers, gl } = this;
-    if (buffers.length == 2) {
+    if (buffers.length >= 2) {
       // Vertex buffer.
       const vertex =
         buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
@@ -440,6 +440,7 @@ class App {
           const { loc } = attr;
           const [size, type] =
             {
+              [gl.FLOAT]: [1, gl.FLOAT],
               [gl.FLOAT_VEC2]: [2, gl.FLOAT],
               [gl.FLOAT_VEC4]: [4, gl.FLOAT],
             }[attr.type] ?? fail();

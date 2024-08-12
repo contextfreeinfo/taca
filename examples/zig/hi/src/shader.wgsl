@@ -1,6 +1,7 @@
 struct Uniforms {
   aspect: vec2f,
   pointer: vec2f,
+  count: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -16,7 +17,8 @@ fn vertex_main(
   @location(1) in_color: vec4f,
 ) -> VertexOutput {
   var out: VertexOutput;
-  out.position = vec4f(in_pos * uniforms.aspect, 0.0, 1.0);
+  let scale = sin(uniforms.count * 1e-2);
+  out.position = vec4f(in_pos * uniforms.aspect / scale, 0.0, 1.0);
   out.color = in_color;
   return out;
 }

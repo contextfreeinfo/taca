@@ -235,7 +235,7 @@ fn pipeline_ensure(system: &mut System) {
     let vertex_entry_point = "vertex_main";
     let attr_info = vertex_attributes_build(shader, vertex_entry_point);
     // dbg!(&attr_info);
-    let vertex_attr_layout = wgpu::VertexBufferLayout {
+    let vertex_buffer_layout = wgpu::VertexBufferLayout {
         array_stride: attr_info.stride,
         // TODO Which vertex and which instance?
         step_mode: wgpu::VertexStepMode::Vertex,
@@ -250,7 +250,7 @@ fn pipeline_ensure(system: &mut System) {
             module: &shader.compiled,
             entry_point: vertex_entry_point,
             compilation_options: Default::default(),
-            buffers: &[vertex_attr_layout],
+            buffers: &[vertex_buffer_layout],
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader.compiled,
