@@ -30,9 +30,10 @@ pub struct Buffer {
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct ExternPipelineInfo {
-    pub attributes: Span,
     pub fragment: ExternPipelineShaderInfo,
     pub vertex: ExternPipelineShaderInfo,
+    pub vertex_attributes: Span,
+    pub vertex_buffers: Span,
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]
@@ -44,9 +45,10 @@ pub struct ExternPipelineShaderInfo {
 
 #[derive(Clone, Debug)]
 pub struct PipelineInfo {
-    pub attributes: Vec<VertexAttribute>,
     pub fragment: PipelineShaderInfo,
     pub vertex: PipelineShaderInfo,
+    pub vertex_attributes: Vec<VertexAttribute>,
+    pub vertex_buffers: Vec<VertexBufferInfo>,
 }
 
 #[derive(Clone, Debug)]
@@ -79,14 +81,22 @@ pub struct Span {
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct VertexAttribute {
-    pub format: u32,
     pub buffer_index: u32,
+    pub shader_location: u32,
+    pub value_offset: u32,
 }
 
 #[derive(Debug)]
 struct VertexAttributesInfo {
     attributes: Vec<wgpu::VertexAttribute>,
     stride: u64,
+}
+
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct VertexBufferInfo {
+    step: u32,
+    stride: u32,
 }
 
 pub fn buffered_ensure<'a>(system: &'a mut System) {

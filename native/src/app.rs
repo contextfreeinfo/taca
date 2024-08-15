@@ -152,9 +152,12 @@ where
 }
 
 fn read_string(view: &MemoryView, span: Span) -> String {
-    WasmPtr::<u8>::new(span.ptr)
-        .read_utf8_string(&view, span.len)
-        .unwrap()
+    match span.len {
+        0 => "".into(),
+        _ => WasmPtr::<u8>::new(span.ptr)
+            .read_utf8_string(&view, span.len)
+            .unwrap(),
+    }
 }
 
 fn taca_RenderingContext_applyBindings(mut _env: FunctionEnvMut<System>, _bindings: u32) {
@@ -252,9 +255,10 @@ fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32)
     let info = WasmPtr::<ExternPipelineInfo>::new(info)
         .read(&view)
         .unwrap();
-    let attributes = read_span(&view, info.attributes);
+    // dbg!(info);
+    let vertex_attributes = read_span(&view, info.vertex_attributes);
+    let vertex_buffers = read_span(&view, info.vertex_buffers);
     let info = PipelineInfo {
-        attributes,
         fragment: PipelineShaderInfo {
             entry_point: read_string(&view, info.fragment.entry_point),
             shader: info.fragment.shader,
@@ -263,6 +267,8 @@ fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32)
             entry_point: read_string(&view, info.vertex.entry_point),
             shader: info.vertex.shader,
         },
+        vertex_attributes,
+        vertex_buffers,
     };
     create_pipeline(system, info);
     0

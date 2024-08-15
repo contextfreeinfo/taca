@@ -34,25 +34,25 @@ pub fn main() void {
         .type = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
     });
-    // const decor_pipeline = ctx.newPipeline(.{
-    //     .vertex = .{
-    //         .shader = ctx.newShader(@embedFile("shader.opt.spv")),
-    //     },
-    //     .vertex_attributes = &[_]taca.VertexAttribute{
-    //         .{},
-    //         .{ .buffer_index = 1 },
-    //     },
-    //     .vertex_buffers = &[_]taca.VertexBufferLayout{
-    //         .{},
-    //         .{ .step = .instance },
-    //     },
-    // });
+    const decor_pipeline = ctx.newPipeline(.{
+        .vertex = .{
+            .shader = ctx.newShader(@embedFile("shader.opt.spv")),
+        },
+        .vertex_attributes = &[_]taca.VertexAttribute{
+            .{},
+            .{ .buffer_index = 1 },
+        },
+        .vertex_buffers = &[_]taca.VertexBufferLayout{
+            .{},
+            .{ .step = .instance },
+        },
+    });
     // TODO Use decor_vertex as instance data.
     // TODO New shader
     stage = .{
         .count = 0,
         .decor_index = decor_index,
-        // .decor_pipeline = decor_pipeline,
+        .decor_pipeline = decor_pipeline,
         .decor_vertex = decor_vertex,
     };
 }
@@ -79,7 +79,7 @@ var stage: ?Stage = null;
 const Stage = struct {
     count: u32,
     decor_index: *taca.Buffer,
-    // decor_pipeline: *taca.Pipeline,
+    decor_pipeline: *taca.Pipeline,
     decor_vertex: *taca.Buffer,
 };
 
