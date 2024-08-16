@@ -38,13 +38,9 @@ pub fn main() void {
         .vertex = .{
             .shader = ctx.newShader(@embedFile("shader.opt.spv")),
         },
-        .vertex_attributes = &[_]taca.VertexAttribute{
-            .{},
-            .{ .buffer_index = 1 },
-        },
         .vertex_buffers = &[_]taca.VertexBufferLayout{
             .{},
-            .{ .step = .instance },
+            .{ .first_attribute = 1, .step = .instance },
         },
     });
     // TODO Use decor_vertex as instance data.

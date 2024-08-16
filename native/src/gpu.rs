@@ -81,7 +81,6 @@ pub struct Span {
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct VertexAttribute {
-    pub buffer_index: u32,
     pub shader_location: u32,
     pub value_offset: u32,
 }
@@ -95,6 +94,7 @@ struct VertexAttributesInfo {
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct VertexBufferInfo {
+    first_attribute: u32,
     step: u32,
     stride: u32,
 }
@@ -171,7 +171,8 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
         },
         ..info
     };
-    // TODO
+    // TODO Fill in remaining defaults.
+    // TODO Unify with the entirely automated defaults. Or pass empty in here?
 }
 
 pub fn end_pass(system: &mut System) {

@@ -126,12 +126,12 @@ pub const Texture = extern struct {};
 // TODO Text metrics and rendering
 
 pub const VertexAttribute = extern struct {
-    buffer_index: usize = 0,
     shader_location: usize = 0,
     value_offset: usize = 0,
 };
 
 pub const VertexBufferLayout = extern struct {
+    first_attribute: usize = 0,
     step: Step = .vertex,
     stride: usize = 0,
 };
@@ -212,10 +212,10 @@ const ExternPipelineInfo = extern struct {
 
     pub fn from(info: PipelineInfo) ExternPipelineInfo {
         return .{
-            .vertex_attributes = Span(VertexAttribute).from(info.vertex_attributes),
-            .vertex_buffers = Span(VertexBufferLayout).from(info.vertex_buffers),
             .fragment = ExternPipelineShaderInfo.from(info.fragment),
             .vertex = ExternPipelineShaderInfo.from(info.vertex),
+            .vertex_attributes = Span(VertexAttribute).from(info.vertex_attributes),
+            .vertex_buffers = Span(VertexBufferLayout).from(info.vertex_buffers),
         };
     }
 };

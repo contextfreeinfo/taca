@@ -144,11 +144,14 @@ fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
 where
     T: Copy + ValueType,
 {
-    WasmPtr::<T>::new(span.ptr)
-        .slice(&view, span.len)
-        .unwrap()
-        .read_to_vec()
-        .unwrap()
+    match span.len {
+        0 => vec![],
+        _ => WasmPtr::<T>::new(span.ptr)
+            .slice(&view, span.len)
+            .unwrap()
+            .read_to_vec()
+            .unwrap(),
+    }
 }
 
 fn read_string(view: &MemoryView, span: Span) -> String {
