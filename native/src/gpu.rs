@@ -140,8 +140,38 @@ pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
     system.buffers.push(Buffer { buffer, usage });
 }
 
-pub fn create_pipeline(_system: &mut System, _info: PipelineInfo) {
-    // let shader = &system.shaders[info.vertex.shader as usize];
+pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
+    fn choose_entry<'a>(entry: String, default: &'a str) -> String {
+        match entry.as_str() {
+            "" => default.to_string(),
+            _ => entry,
+        }
+    }
+    fn choose_shader(shader: u32, other: u32) -> u32 {
+        match shader {
+            0 => match other {
+                0 => 1,
+                _ => other,
+            },
+            _ => shader,
+        }
+    }
+    let fragment_shader = choose_shader(info.fragment.shader, info.vertex.shader);
+    let vertex_shader = choose_shader(info.vertex.shader, info.fragment.shader);
+    let fragment_entry = choose_entry(info.fragment.entry_point, FRAGMENT_ENTRY_DEFAULT);
+    let vertex_entry = choose_entry(info.vertex.entry_point, VERTEX_ENTRY_DEFAULT);
+    let info = PipelineInfo {
+        fragment: PipelineShaderInfo {
+            entry_point: fragment_entry,
+            shader: fragment_shader,
+        },
+        vertex: PipelineShaderInfo {
+            entry_point: vertex_entry,
+            shader: vertex_shader,
+        },
+        ..info
+    };
+    // TODO
 }
 
 pub fn end_pass(system: &mut System) {
@@ -222,7 +252,7 @@ fn pipeline_ensure(system: &mut System) {
         return;
     };
     let device = &gfx.device;
-    let min_binding_size = uniforms_binding_size_find(&system.shaders[0]);
+    let min_binding_size = uniforms_binding_size_find(shader);
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
         entries: &[wgpu::BindGroupLayoutEntry {
@@ -242,7 +272,7 @@ fn pipeline_ensure(system: &mut System) {
         bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
         push_constant_ranges: &[],
     });
-    let vertex_entry_point = "vertex_main";
+    let vertex_entry_point = VERTEX_ENTRY_DEFAULT;
     let attr_info = vertex_attributes_build(shader, vertex_entry_point);
     // dbg!(&attr_info);
     let vertex_buffer_layout = wgpu::VertexBufferLayout {
@@ -264,7 +294,7 @@ fn pipeline_ensure(system: &mut System) {
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader.compiled,
-            entry_point: "fragment_main",
+            entry_point: FRAGMENT_ENTRY_DEFAULT,
             compilation_options: Default::default(),
             targets: &[Some(TextureFormat::Bgra8Unorm.into())],
         }),
@@ -431,3 +461,6 @@ fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttribut
         stride: offset,
     }
 }
+
+const FRAGMENT_ENTRY_DEFAULT: &str = "fragment_main";
+const VERTEX_ENTRY_DEFAULT: &str = "vertex_main";
