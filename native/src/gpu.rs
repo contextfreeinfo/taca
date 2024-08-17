@@ -99,6 +99,14 @@ pub struct VertexBufferInfo {
     stride: u32,
 }
 
+/// Like wgpu::VertexBufferLayout except with a Vec of attributes.
+#[derive(Clone, Debug)]
+pub struct VertexBufferLayout {
+    array_stride: wgpu::BufferAddress,
+    step_mode: wgpu::VertexStepMode,
+    attributes: Vec<wgpu::VertexAttribute>,
+}
+
 pub fn buffered_ensure<'a>(system: &'a mut System) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
@@ -141,6 +149,7 @@ pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
 }
 
 pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
+    // TODO Pass empty in here for defaults.
     fn choose_entry<'a>(entry: String, default: &'a str) -> String {
         match entry.as_str() {
             "" => default.to_string(),
@@ -156,23 +165,83 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
             _ => shader,
         }
     }
+    let fragment_entry_point = choose_entry(info.fragment.entry_point, FRAGMENT_ENTRY_DEFAULT);
     let fragment_shader = choose_shader(info.fragment.shader, info.vertex.shader);
+    let vertex_entry_point = choose_entry(info.vertex.entry_point, VERTEX_ENTRY_DEFAULT);
     let vertex_shader = choose_shader(info.vertex.shader, info.fragment.shader);
-    let fragment_entry = choose_entry(info.fragment.entry_point, FRAGMENT_ENTRY_DEFAULT);
-    let vertex_entry = choose_entry(info.vertex.entry_point, VERTEX_ENTRY_DEFAULT);
     let info = PipelineInfo {
         fragment: PipelineShaderInfo {
-            entry_point: fragment_entry,
+            entry_point: fragment_entry_point.clone(),
             shader: fragment_shader,
         },
         vertex: PipelineShaderInfo {
-            entry_point: vertex_entry,
+            entry_point: vertex_entry_point.clone(),
             shader: vertex_shader,
         },
         ..info
     };
-    // TODO Fill in remaining defaults.
-    // TODO Unify with the entirely automated defaults. Or pass empty in here?
+    let Some(buffers) = vertex_buffer_layouts_build(system, info) else {
+        return;
+    };
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let device = &gfx.device;
+    let fragment_shader = &system.shaders[fragment_shader as usize - 1];
+    let vertex_shader = &system.shaders[vertex_shader as usize - 1];
+    let min_binding_size = uniforms_binding_size_find(vertex_shader);
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size,
+            },
+            count: None,
+        }],
+    });
+    system.uniforms_bind_group_layout = Some(bind_group_layout);
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
+        push_constant_ranges: &[],
+    });
+    // dbg!(&attr_info);
+    let vertex_buffer_layout: Vec<_> = buffers
+        .iter()
+        .map(|buffer| wgpu::VertexBufferLayout {
+            array_stride: buffer.array_stride,
+            step_mode: buffer.step_mode,
+            attributes: &buffer.attributes,
+        })
+        .collect();
+    // let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
+    // dbg!(&surface_formats);
+    let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: None,
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &vertex_shader.compiled,
+            entry_point: &vertex_entry_point,
+            compilation_options: Default::default(),
+            buffers: &vertex_buffer_layout,
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &fragment_shader.compiled,
+            entry_point: &fragment_entry_point,
+            compilation_options: Default::default(),
+            targets: &[Some(TextureFormat::Bgra8Unorm.into())],
+        }),
+        primitive: Default::default(),
+        depth_stencil: None,
+        multisample: MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    });
+    system.pipelines.push(pipeline);
 }
 
 pub fn end_pass(system: &mut System) {
@@ -355,6 +424,13 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     }
 }
 
+fn step_mode_translate(step: u32) -> wgpu::VertexStepMode {
+    match step {
+        0 => wgpu::VertexStepMode::Vertex,
+        _ => wgpu::VertexStepMode::Instance,
+    }
+}
+
 pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     pipelined_ensure(system);
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
@@ -460,6 +536,105 @@ fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttribut
         attributes,
         // TODO Padding/alignment above and here.
         stride: offset,
+    }
+}
+
+fn vertex_buffer_layouts_build(
+    system: &System,
+    info: PipelineInfo,
+) -> Option<Vec<VertexBufferLayout>> {
+    let shader = system.shaders.get(info.vertex.shader as usize - 1)?;
+    let entry = shader
+        .module
+        .entry_points
+        .iter()
+        .find(|it| it.name == info.vertex.entry_point)
+        .unwrap();
+    let types = &shader.module.types;
+    let mut layouts = vec![];
+    let mut layout = VertexBufferLayout {
+        array_stride: 0,
+        step_mode: match () {
+            _ if info.vertex_buffers.is_empty() || info.vertex_buffers[0].first_attribute > 0 => {
+                wgpu::VertexStepMode::Vertex
+            }
+            _ => step_mode_translate(info.vertex_buffers[0].step),
+        },
+        attributes: vec![],
+    };
+    let mut total_attrs = 0;
+    for arg in entry.function.arguments.iter() {
+        let Some(Binding::Location { location, .. }) = arg.binding else {
+            continue;
+        };
+        let format = vertex_format_from_naga_type(&types[arg.ty].inner);
+        let attr = wgpu::VertexAttribute {
+            format,
+            offset: layout.array_stride,
+            shader_location: location,
+        };
+        // Find which buffer we're at.
+        loop {
+            let next_buffer_index = layouts.len() + 1;
+            if next_buffer_index >= info.vertex_buffers.len() {
+                // No buffer descriptions left, so stay here.
+                break;
+            }
+            let next_buffer_info = info.vertex_buffers[next_buffer_index];
+            if total_attrs < next_buffer_info.first_attribute {
+                // We're not yet to the index starting the next buffer, so stay here.
+                break;
+            }
+            if total_attrs > next_buffer_info.first_attribute {
+                // Don't allow going backward.
+                return None;
+            }
+            // We're at the next buffer.
+            layouts.push(layout);
+            layout = VertexBufferLayout {
+                array_stride: 0,
+                step_mode: step_mode_translate(next_buffer_info.step),
+                attributes: vec![],
+            };
+            // But keep looping since technically it could be empty or something?
+        }
+        layout.attributes.push(attr);
+        // TODO Align.
+        layout.array_stride += format.size();
+        total_attrs += 1;
+    }
+    layouts.push(layout);
+    Some(layouts)
+}
+
+fn vertex_format_from_naga_type(type_inner: &naga::TypeInner) -> VertexFormat {
+    match type_inner {
+        naga::TypeInner::Scalar(naga::Scalar { kind, width }) => match (kind, width) {
+            (ScalarKind::Sint, 4) => VertexFormat::Sint32,
+            (ScalarKind::Uint, 4) => VertexFormat::Uint32,
+            (ScalarKind::Float, 4) => VertexFormat::Float32,
+            _ => todo!(),
+        },
+        naga::TypeInner::Vector {
+            size,
+            scalar: naga::Scalar { kind, width },
+        } => match (kind, width, size) {
+            (ScalarKind::Float, 4, VectorSize::Bi) => VertexFormat::Float32x2,
+            (ScalarKind::Float, 4, VectorSize::Tri) => VertexFormat::Float32x3,
+            (ScalarKind::Float, 4, VectorSize::Quad) => VertexFormat::Float32x4,
+            _ => todo!(),
+        },
+        naga::TypeInner::Matrix { .. } => todo!(),
+        naga::TypeInner::Atomic(_) => todo!(),
+        naga::TypeInner::Pointer { .. } => todo!(),
+        naga::TypeInner::ValuePointer { .. } => todo!(),
+        naga::TypeInner::Array { .. } => todo!(),
+        naga::TypeInner::Struct { .. } => todo!(),
+        naga::TypeInner::Image { .. } => todo!(),
+        naga::TypeInner::Sampler { .. } => todo!(),
+        naga::TypeInner::AccelerationStructure => todo!(),
+        naga::TypeInner::RayQuery => todo!(),
+        naga::TypeInner::BindingArray { .. } => todo!(),
     }
 }
 
