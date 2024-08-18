@@ -218,6 +218,7 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
             attributes: &buffer.attributes,
         })
         .collect();
+    // dbg!(&vertex_buffer_layout);
     // let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
     // dbg!(&surface_formats);
     let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -568,11 +569,6 @@ fn vertex_buffer_layouts_build(
             continue;
         };
         let format = vertex_format_from_naga_type(&types[arg.ty].inner);
-        let attr = wgpu::VertexAttribute {
-            format,
-            offset: layout.array_stride,
-            shader_location: location,
-        };
         // Find which buffer we're at.
         loop {
             let next_buffer_index = layouts.len() + 1;
@@ -598,6 +594,11 @@ fn vertex_buffer_layouts_build(
             };
             // But keep looping since technically it could be empty or something?
         }
+        let attr = wgpu::VertexAttribute {
+            format,
+            offset: layout.array_stride,
+            shader_location: location,
+        };
         layout.attributes.push(attr);
         // TODO Align.
         layout.array_stride += format.size();

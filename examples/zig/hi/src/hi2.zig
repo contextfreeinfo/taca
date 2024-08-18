@@ -20,7 +20,7 @@ pub fn main() void {
         .type = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     });
-    _ = ctx.newShader(@embedFile("shader.opt.spv"));
+    const shader = ctx.newShader(@embedFile("shader2.opt.spv"));
     // More things.
     const decor_vertex = ctx.newBuffer(.{
         .slice = taca.BufferSlice.new(&[_][2]f32{
@@ -35,8 +35,12 @@ pub fn main() void {
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
     });
     const decor_pipeline = ctx.newPipeline(.{
+        .fragment = .{
+            .entry_point = "fragment_decor",
+        },
         .vertex = .{
-            .shader = ctx.newShader(@embedFile("shader.opt.spv")),
+            .entry_point = "vertex_decor",
+            .shader = shader,
         },
         .vertex_buffers = &[_]taca.VertexBufferLayout{
             .{},
