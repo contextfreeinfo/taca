@@ -43,7 +43,7 @@ pub struct ExternPipelineShaderInfo {
     pub shader: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PipelineInfo {
     pub fragment: PipelineShaderInfo,
     pub vertex: PipelineShaderInfo,
@@ -51,7 +51,7 @@ pub struct PipelineInfo {
     pub vertex_buffers: Vec<VertexBufferInfo>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PipelineShaderInfo {
     pub entry_point: String,
     pub shader: u32,
@@ -83,12 +83,6 @@ pub struct Span {
 pub struct VertexAttribute {
     pub shader_location: u32,
     pub value_offset: u32,
-}
-
-#[derive(Debug)]
-struct VertexAttributesInfo {
-    attributes: Vec<wgpu::VertexAttribute>,
-    stride: u64,
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]
@@ -316,66 +310,7 @@ fn pipeline_ensure(system: &mut System) {
     if !system.pipelines.is_empty() {
         return;
     }
-    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
-        return;
-    };
-    let Some(shader) = system.shaders.get(0) else {
-        return;
-    };
-    let device = &gfx.device;
-    let min_binding_size = uniforms_binding_size_find(shader);
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size,
-            },
-            count: None,
-        }],
-    });
-    system.uniforms_bind_group_layout = Some(bind_group_layout);
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
-        push_constant_ranges: &[],
-    });
-    let vertex_entry_point = VERTEX_ENTRY_DEFAULT;
-    let attr_info = vertex_attributes_build(shader, vertex_entry_point);
-    // dbg!(&attr_info);
-    let vertex_buffer_layout = wgpu::VertexBufferLayout {
-        array_stride: attr_info.stride,
-        // TODO Which vertex and which instance?
-        step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &attr_info.attributes,
-    };
-    // let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
-    // dbg!(&surface_formats);
-    let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader.compiled,
-            entry_point: vertex_entry_point,
-            compilation_options: Default::default(),
-            buffers: &[vertex_buffer_layout],
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader.compiled,
-            entry_point: FRAGMENT_ENTRY_DEFAULT,
-            compilation_options: Default::default(),
-            targets: &[Some(TextureFormat::Bgra8Unorm.into())],
-        }),
-        primitive: Default::default(),
-        depth_stencil: None,
-        multisample: MultisampleState::default(),
-        multiview: None,
-        cache: None,
-    });
-    system.pipelines.push(pipeline);
+    create_pipeline(system, Default::default());
 }
 
 pub fn pipelined_ensure<'a>(system: &'a mut System) {
@@ -477,67 +412,6 @@ fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {
         }
     }
     None
-}
-
-fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttributesInfo {
-    let entry = shader
-        .module
-        .entry_points
-        .iter()
-        .find(|it| it.name == entry_point)
-        .unwrap();
-    let types = &shader.module.types;
-    let mut offset = 0;
-    let attributes: Vec<_> = entry
-        .function
-        .arguments
-        .iter()
-        .filter_map(|arg| {
-            let Some(Binding::Location { location, .. }) = arg.binding else {
-                return None;
-            };
-            let format = match &types[arg.ty].inner {
-                naga::TypeInner::Scalar(naga::Scalar { kind, width }) => match (kind, width) {
-                    (ScalarKind::Sint, 4) => VertexFormat::Sint32,
-                    (ScalarKind::Uint, 4) => VertexFormat::Uint32,
-                    (ScalarKind::Float, 4) => VertexFormat::Float32,
-                    _ => todo!(),
-                },
-                naga::TypeInner::Vector {
-                    size,
-                    scalar: naga::Scalar { kind, width },
-                } => match (kind, width, size) {
-                    (ScalarKind::Float, 4, VectorSize::Bi) => VertexFormat::Float32x2,
-                    (ScalarKind::Float, 4, VectorSize::Tri) => VertexFormat::Float32x3,
-                    (ScalarKind::Float, 4, VectorSize::Quad) => VertexFormat::Float32x4,
-                    _ => todo!(),
-                },
-                naga::TypeInner::Matrix { .. } => todo!(),
-                naga::TypeInner::Atomic(_) => todo!(),
-                naga::TypeInner::Pointer { .. } => todo!(),
-                naga::TypeInner::ValuePointer { .. } => todo!(),
-                naga::TypeInner::Array { .. } => todo!(),
-                naga::TypeInner::Struct { .. } => todo!(),
-                naga::TypeInner::Image { .. } => todo!(),
-                naga::TypeInner::Sampler { .. } => todo!(),
-                naga::TypeInner::AccelerationStructure => todo!(),
-                naga::TypeInner::RayQuery => todo!(),
-                naga::TypeInner::BindingArray { .. } => todo!(),
-            };
-            let attr = wgpu::VertexAttribute {
-                format,
-                offset,
-                shader_location: location,
-            };
-            offset += format.size();
-            Some(attr)
-        })
-        .collect();
-    VertexAttributesInfo {
-        attributes,
-        // TODO Padding/alignment above and here.
-        stride: offset,
-    }
 }
 
 fn vertex_buffer_layouts_build(
