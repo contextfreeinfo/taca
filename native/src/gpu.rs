@@ -27,6 +27,20 @@ pub struct Buffer {
     pub usage: BufferUsages,
 }
 
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct Bindings<'a> {
+    pub vertex_buffers: &'a [u32],
+    pub index_buffer: u32,
+}
+
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct ExternBindings {
+    pub vertex_buffers: Span,
+    pub index_buffer: u32,
+}
+
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct ExternPipelineInfo {
@@ -58,6 +72,7 @@ pub struct PipelineShaderInfo {
 }
 
 pub struct RenderFrame {
+    pub buffered: bool,
     pub encoder: CommandEncoder,
     pub frame: SurfaceTexture,
     pub pass: Option<wgpu::RenderPass<'static>>,
@@ -101,7 +116,7 @@ pub struct VertexBufferLayout {
     attributes: Vec<wgpu::VertexAttribute>,
 }
 
-pub fn buffered_ensure<'a>(system: &'a mut System) {
+pub fn bindings_apply(system: &mut System, bindings: Bindings) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
@@ -109,18 +124,44 @@ pub fn buffered_ensure<'a>(system: &'a mut System) {
     let Some(pass) = &mut frame.pass else {
         return;
     };
+    pass.set_index_buffer(
+        system.buffers[bindings.index_buffer as usize - 1]
+            .buffer
+            .slice(..),
+        wgpu::IndexFormat::Uint16,
+    );
+    for (index, buffer) in bindings.vertex_buffers.iter().enumerate() {
+        pass.set_vertex_buffer(
+            index as u32,
+            system.buffers[*buffer as usize - 1].buffer.slice(..),
+        );
+    }
+    frame.buffered = true;
+}
+
+pub fn buffered_ensure(system: &mut System) {
+    pass_ensure(system);
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    if frame.buffered {
+        return;
+    }
     let index = system
         .buffers
         .iter()
-        .find(|it| it.usage == BufferUsages::INDEX)
+        .position(|it| it.usage == BufferUsages::INDEX)
         .unwrap();
     let vertex = system
         .buffers
         .iter()
-        .find(|it| it.usage == BufferUsages::VERTEX)
+        .position(|it| it.usage == BufferUsages::VERTEX)
         .unwrap();
-    pass.set_index_buffer(index.buffer.slice(..), wgpu::IndexFormat::Uint16);
-    pass.set_vertex_buffer(0, vertex.buffer.slice(..));
+    let bindings = Bindings {
+        vertex_buffers: &[vertex as u32 + 1],
+        index_buffer: index as u32 + 1,
+    };
+    bindings_apply(system, bindings);
 }
 
 pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
@@ -276,6 +317,7 @@ pub fn pass_ensure(system: &mut System) {
         let view = frame.texture.create_view(&view_descriptor);
         let encoder = gfx.device.create_command_encoder(&Default::default());
         system.frame = Some(RenderFrame {
+            buffered: false,
             encoder,
             frame,
             pass: None,
@@ -305,6 +347,22 @@ pub fn pass_ensure(system: &mut System) {
     frame.pass = Some(pass.forget_lifetime());
 }
 
+pub fn pipeline_apply(system: &mut System, pipeline: u32) {
+    pipeline_ensure(system);
+    pass_ensure(system);
+    let Some(pipeline) = &system.pipelines.get(pipeline as usize - 1) else {
+        return;
+    };
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    let Some(pass) = &mut frame.pass else {
+        return;
+    };
+    frame.pipelined = true;
+    pass.set_pipeline(pipeline);
+}
+
 fn pipeline_ensure(system: &mut System) {
     if !system.pipelines.is_empty() {
         return;
@@ -312,19 +370,14 @@ fn pipeline_ensure(system: &mut System) {
     create_pipeline(system, Default::default());
 }
 
-pub fn pipelined_ensure<'a>(system: &'a mut System) {
-    pipeline_ensure(system);
-    pass_ensure(system);
-    let Some(frame) = system.frame.as_mut() else {
-        return;
+pub fn pipelined_ensure(system: &mut System) {
+    let needed = match system.frame.as_ref() {
+        Some(frame) => !frame.pipelined,
+        _ => true,
     };
-    if frame.pipelined {
-        return;
+    if needed {
+        pipeline_apply(system, 1);
     }
-    let Some(pass) = &mut frame.pass else {
-        return;
-    };
-    pass.set_pipeline(&system.pipelines[0]);
 }
 
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
@@ -372,6 +425,7 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
         panic!();
     };
     let device = &gfx.device;
+    // TODO Need to support multiple of these!
     if system.uniforms_buffer.is_none() {
         system.uniforms_buffer = Some(device.create_buffer(&BufferDescriptor {
             label: None,
@@ -381,6 +435,7 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
         }));
         system.uniforms_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: system.uniforms_bind_group_layout.as_ref().unwrap(),
+            // TODO Textures also go in here!
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: system.uniforms_buffer.as_ref().unwrap().as_entire_binding(),

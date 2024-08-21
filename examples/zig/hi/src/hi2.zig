@@ -67,7 +67,14 @@ export fn listen(event: taca.EventKind) void {
     // Triangle
     ctx.draw(0, 3, 1);
     // Decor
-    // TODO
+    const decor_vertex = stage.?.decor_vertex;
+    ctx.applyPipeline(stage.?.decor_pipeline);
+    ctx.applyBindings(.{
+        .index_buffer = stage.?.decor_index,
+        // Same buffer for both vertex data and instance centers.
+        .vertex_buffers = &[_]*taca.Buffer{ decor_vertex, decor_vertex },
+    });
+    ctx.draw(0, 6, 4);
     // Text
     const end = (stage.?.count / 10) % (title.len + 1);
     ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);

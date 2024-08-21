@@ -17,9 +17,10 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        buffered_ensure, create_buffer, create_pipeline, end_pass, frame_commit, pass_ensure,
-        pipelined_ensure, shader_create, uniforms_apply, Buffer, BufferSlice, ExternPipelineInfo,
-        PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
+        bindings_apply, buffered_ensure, create_buffer, create_pipeline, end_pass, frame_commit,
+        pass_ensure, pipeline_apply, pipelined_ensure, shader_create, uniforms_apply, Bindings,
+        Buffer, BufferSlice, ExternBindings, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo,
+        RenderFrame, Shader, Span,
     },
     text::TextEngine,
 };
@@ -163,22 +164,24 @@ fn read_string(view: &MemoryView, span: Span) -> String {
     }
 }
 
-fn taca_RenderingContext_applyBindings(mut _env: FunctionEnvMut<System>, _bindings: u32) {
-    // let (platform, store) = env.data_and_store_mut();
-    // let view = platform.memory.as_ref().unwrap().view(&store);
-    // let bindings = WasmPtr::<ExternBindings>::new(bindings)
-    //     .read(&view)
-    //     .unwrap();
-    // let bindings = Bindings {
-    //     vertex_buffers: read_span(&view, bindings.vertex_buffers),
-    //     index_buffer: bindings.index_buffer,
-    // };
-    // apply_bindings(platform, context, bindings);
+fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bindings = WasmPtr::<ExternBindings>::new(bindings)
+        .read(&view)
+        .unwrap();
+    // TODO Reusable buffer to read into!
+    let vertex_buffers = read_span(&view, bindings.vertex_buffers);
+    let bindings = Bindings {
+        vertex_buffers: &vertex_buffers,
+        index_buffer: bindings.index_buffer,
+    };
+    bindings_apply(system, bindings);
 }
 
-fn taca_RenderingContext_applyPipeline(mut _env: FunctionEnvMut<System>, _pipeline: u32) {
-    // let platform = env.data_mut();
-    // apply_pipeline(platform, context, pipeline)
+fn taca_RenderingContext_applyPipeline(mut env: FunctionEnvMut<System>, pipeline: u32) {
+    let system = env.data_mut();
+    pipeline_apply(system, pipeline);
 }
 
 fn taca_RenderingContext_applyUniforms(mut env: FunctionEnvMut<System>, bytes: u32) {
@@ -206,6 +209,7 @@ fn taca_RenderingContext_draw(
 ) {
     let system = env.data_mut();
     pipelined_ensure(system);
+    // TODO Actually ensure we got buffers?
     buffered_ensure(system);
     let Some(RenderFrame {
         pass: Some(pass), ..
@@ -213,7 +217,6 @@ fn taca_RenderingContext_draw(
     else {
         return;
     };
-    // TODO Ensure pipelined and buffered.
     pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
 }
 
