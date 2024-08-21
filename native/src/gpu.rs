@@ -143,7 +143,6 @@ pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
 }
 
 pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
-    // TODO Pass empty in here for defaults.
     fn choose_entry<'a>(entry: String, default: &'a str) -> String {
         match entry.as_str() {
             "" => default.to_string(),

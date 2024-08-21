@@ -34,9 +34,12 @@ export fn listen(event: taca.EventKind) void {
         .count = @floatFromInt(stage.?.count),
         .pointer = state.pointer,
     });
+    // Triangle
     ctx.draw(0, 3, 1);
+    // Text
     const end = (stage.?.count / 10) % (title.len + 1);
     ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);
+    // Next
     stage.?.count +%= 1;
 }
 

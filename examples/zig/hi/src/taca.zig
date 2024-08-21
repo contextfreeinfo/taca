@@ -34,7 +34,7 @@ pub const EventKind = enum(c_int) {
 pub const Pipeline = extern struct {};
 
 pub const PipelineShaderInfo = struct {
-    entry_point: []const u8 = "",
+    entry: []const u8 = "",
     shader: ?*const Shader = null,
 };
 
@@ -221,12 +221,12 @@ const ExternPipelineInfo = extern struct {
 };
 
 const ExternPipelineShaderInfo = extern struct {
-    entry_point: Span(u8),
+    entry: Span(u8),
     shader: ?*const Shader,
 
     pub fn from(info: PipelineShaderInfo) ExternPipelineShaderInfo {
         return .{
-            .entry_point = Span(u8).from(info.entry_point),
+            .entry = Span(u8).from(info.entry),
             .shader = info.shader,
         };
     }

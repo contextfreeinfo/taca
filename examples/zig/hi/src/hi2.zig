@@ -20,7 +20,8 @@ pub fn main() void {
         .type = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     });
-    const shader = ctx.newShader(@embedFile("shader2.opt.spv"));
+    _ = ctx.newShader(@embedFile("shader2.opt.spv"));
+    _ = ctx.newPipeline(.{});
     // More things.
     const decor_vertex = ctx.newBuffer(.{
         .slice = taca.BufferSlice.new(&[_][2]f32{
@@ -35,13 +36,8 @@ pub fn main() void {
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
     });
     const decor_pipeline = ctx.newPipeline(.{
-        .fragment = .{
-            .entry_point = "fragment_decor",
-        },
-        .vertex = .{
-            .entry_point = "vertex_decor",
-            .shader = shader,
-        },
+        .fragment = .{ .entry = "fragment_decor" },
+        .vertex = .{ .entry = "vertex_decor" },
         .vertex_buffers = &[_]taca.VertexBufferLayout{
             .{},
             .{ .first_attribute = 1, .step = .instance },
@@ -68,9 +64,14 @@ export fn listen(event: taca.EventKind) void {
         .count = @floatFromInt(stage.?.count),
         .pointer = state.pointer,
     });
+    // Triangle
     ctx.draw(0, 3, 1);
+    // Decor
+    // TODO
+    // Text
     const end = (stage.?.count / 10) % (title.len + 1);
     ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);
+    // Next
     stage.?.count +%= 1;
 }
 
