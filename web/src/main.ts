@@ -68,7 +68,7 @@ class App {
   }
 
   bufferNew(type: number, info: number) {
-    const infoBytes = this.memoryView(info, 3 * 4);
+    const infoBytes = this.memoryView(info, 2 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
     // TODO Null ptr -> zero buffer for writing.
@@ -240,22 +240,67 @@ class App {
     }
   }
 
+  pipelineNew(info: number) {
+    // TODO Can wit-bindgen or flatbuffers help us here?
+    const infoView = this.memoryView(info, 10 * 4);
+    const readShaderInfo = (offset: number) => {
+      return {
+        entry: this.readString(infoView.byteOffset + offset),
+        shader: getU32(infoView, offset + 2 * 4),
+      };
+    };
+    const pipelineInfo = {
+      fragment: readShaderInfo(0 * 4),
+      vertex: readShaderInfo(3 * 4),
+      vertexAttrs: this.readStructs(
+        info + 6 * 4,
+        2 * 4,
+        (view, offset): VertexAttrInfo => ({
+          shaderLocation: getU32(view, offset),
+          valueOffset: getU32(view, offset + 1 * 4),
+        })
+      ),
+      vertexBuffers: this.readStructs(
+        info + 8 * 4,
+        3 * 4,
+        (view, offset): VertexBufferInfo => ({
+          firstAttr: getU32(view, offset),
+          step: getU32(view, offset + 1 * 4),
+          stride: getU32(view, offset + 2 * 4),
+        })
+      ),
+    };
+    console.log(pipelineInfo);
+    // const { gl } = this;
+  }
+
   pipelines: Pipeline[] = [];
 
   pointerPos: [x: number, y: number] = [0, 0];
 
-  readBytes(spanPtr: number) {
+  readBytes(spanPtr: number, itemSize: number = 1) {
     // Can cache memory bytes when no app calls are being made.
     const memoryBytes = this.memoryBytes();
     const spanView = new DataView(memoryBytes.buffer, spanPtr, 2 * 4);
     // Wasm is explicitly little-endian.
     const contentPtr = getU32(spanView, 0);
-    const contentLen = getU32(spanView, 4);
+    const contentLen = itemSize * getU32(spanView, 4);
     return memoryBytes.subarray(contentPtr, contentPtr + contentLen);
   }
 
   readString(spanPtr: number) {
     return textDecoder.decode(this.readBytes(spanPtr));
+  }
+
+  readStructs<T>(
+    spanPtr: number,
+    itemSize: number,
+    build: (view: DataView, offset: number) => T
+  ): T[] {
+    const view = dataViewOf(this.readBytes(spanPtr, itemSize));
+    return [...Array(view.byteLength / itemSize).keys()].map((i) =>
+      build(view, i * itemSize)
+    );
   }
 
   resizeCanvas() {
@@ -346,7 +391,7 @@ class App {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA,
+      gl.SRGB8_ALPHA8, // <- TODO Makes a difference at all?
       gl.RGBA,
       gl.UNSIGNED_BYTE,
       offscreen
@@ -487,6 +532,10 @@ interface Buffer {
   kind: "index" | "vertex";
 }
 
+function dataViewOf(array: Uint8Array) {
+  return new DataView(array.buffer, array.byteOffset, array.byteLength);
+}
+
 function getU32(view: DataView, byteOffset: number) {
   return view.getUint32(byteOffset, true);
 }
@@ -562,16 +611,14 @@ function makeAppEnv(app: App) {
       return app.bufferNew(type, info);
     },
     taca_RenderingContext_newPipeline(info: number) {
-      // TODO Pipeline
-      console.log("taca_RenderingContext_newPipeline");
+      return app.pipelineNew(info);
     },
     taca_RenderingContext_newShader(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
     taca_Window_newRenderingContext() {
-      // TODO If we only have one, we don't need it at all, right?
-      // TODO Except context for render to texture.
+      // TODO Use this for offscreen contexts for render to texture.
       // TODO Need size? Resizable? Reallocate in same index?
       return 1;
     },
@@ -623,4 +670,15 @@ interface Uniforms {
   // TODO These are needed only once, not per pipeline.
   tacaIndex: number;
   tacaSize: number;
+}
+
+interface VertexAttrInfo {
+  shaderLocation: number;
+  valueOffset: number;
+}
+
+interface VertexBufferInfo {
+  firstAttr: number;
+  step: number;
+  stride: number;
 }
