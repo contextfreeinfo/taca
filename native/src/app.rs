@@ -277,7 +277,7 @@ fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32)
         vertex_buffers,
     };
     create_pipeline(system, info);
-    0
+    system.pipelines.len() as u32
 }
 
 fn taca_RenderingContext_newShader(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {

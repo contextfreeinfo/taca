@@ -268,7 +268,22 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
             module: &fragment_shader.compiled,
             entry_point: &fragment_entry_point,
             compilation_options: Default::default(),
-            targets: &[Some(TextureFormat::Bgra8Unorm.into())],
+            targets: &[Some(wgpu::ColorTargetState {
+                format: TextureFormat::Bgra8Unorm,
+                blend: Some(wgpu::BlendState {
+                    color: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::SrcAlpha,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                    alpha: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::One,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                }),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
         }),
         primitive: Default::default(),
         depth_stencil: None,
@@ -350,7 +365,7 @@ pub fn pass_ensure(system: &mut System) {
 pub fn pipeline_apply(system: &mut System, pipeline: u32) {
     pipeline_ensure(system);
     pass_ensure(system);
-    let Some(pipeline) = &system.pipelines.get(pipeline as usize - 1) else {
+    let Some(pipeline) = system.pipelines.get(pipeline as usize - 1) else {
         return;
     };
     let Some(frame) = system.frame.as_mut() else {

@@ -22,7 +22,7 @@ pub fn main() void {
     });
     _ = ctx.newShader(@embedFile("shader2.opt.spv"));
     _ = ctx.newPipeline(.{});
-    // More things.
+    // Decoration.
     const decor_vertex = ctx.newBuffer(.{
         .slice = taca.BufferSlice.new(&[_][2]f32{
             .{ -0.5, -0.5 },
@@ -43,8 +43,7 @@ pub fn main() void {
             .{ .first_attribute = 1, .step = .instance },
         },
     });
-    // TODO Use decor_vertex as instance data.
-    // TODO New shader
+    // App state.
     stage = .{
         .count = 0,
         .decor_index = decor_index,
@@ -67,8 +66,8 @@ export fn listen(event: taca.EventKind) void {
     // Triangle
     ctx.draw(0, 3, 1);
     // Decor
-    const decor_vertex = stage.?.decor_vertex;
     ctx.applyPipeline(stage.?.decor_pipeline);
+    const decor_vertex = stage.?.decor_vertex;
     ctx.applyBindings(.{
         .index_buffer = stage.?.decor_index,
         // Same buffer for both vertex data and instance centers.

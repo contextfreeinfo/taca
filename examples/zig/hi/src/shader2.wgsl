@@ -46,14 +46,13 @@ fn vertex_decor(
   let sin_r = sin(r);
   let rot = mat2x2f(vec2f(cos_r, sin_r), vec2f(-sin_r, cos_r));
   // Rotate around the origin then again after translation.
-  let result = rot * (rot * point + center);
-  return vec4f(result, 0, 1);
+  let result = rot * (0.2 * rot * point + 0.7 * center);
+  return vec4f(result * uniforms.aspect, 0, 1);
 }
 
 @fragment
 fn fragment_decor(
   @builtin(position) position: vec4f,
 ) -> @location(0) vec4f {
-  // TODO Adjust opacity by count?
-  return vec4f(1);
+  return vec4f(1, 1, 0.8, 0.5);
 }
