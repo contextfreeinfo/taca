@@ -27,12 +27,27 @@ pub struct Buffer {
     pub usage: BufferUsages,
 }
 
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct Bindings<'a> {
+    pub vertex_buffers: &'a [u32],
+    pub index_buffer: u32,
+}
+
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct ExternBindings {
+    pub vertex_buffers: Span,
+    pub index_buffer: u32,
+}
+
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct ExternPipelineInfo {
-    pub attributes: Span,
     pub fragment: ExternPipelineShaderInfo,
     pub vertex: ExternPipelineShaderInfo,
+    pub vertex_attributes: Span,
+    pub vertex_buffers: Span,
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]
@@ -42,20 +57,22 @@ pub struct ExternPipelineShaderInfo {
     pub shader: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PipelineInfo {
-    pub attributes: Vec<VertexAttribute>,
     pub fragment: PipelineShaderInfo,
     pub vertex: PipelineShaderInfo,
+    pub vertex_attributes: Vec<VertexAttribute>,
+    pub vertex_buffers: Vec<VertexBufferInfo>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PipelineShaderInfo {
     pub entry_point: String,
     pub shader: u32,
 }
 
 pub struct RenderFrame {
+    pub buffered: bool,
     pub encoder: CommandEncoder,
     pub frame: SurfaceTexture,
     pub pass: Option<wgpu::RenderPass<'static>>,
@@ -79,17 +96,27 @@ pub struct Span {
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct VertexAttribute {
-    pub format: u32,
-    pub buffer_index: u32,
+    pub shader_location: u32,
+    pub value_offset: u32,
 }
 
-#[derive(Debug)]
-struct VertexAttributesInfo {
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct VertexBufferInfo {
+    first_attribute: u32,
+    step: u32,
+    stride: u32,
+}
+
+/// Like wgpu::VertexBufferLayout except with a Vec of attributes.
+#[derive(Clone, Debug)]
+pub struct VertexBufferLayout {
+    array_stride: wgpu::BufferAddress,
+    step_mode: wgpu::VertexStepMode,
     attributes: Vec<wgpu::VertexAttribute>,
-    stride: u64,
 }
 
-pub fn buffered_ensure<'a>(system: &'a mut System) {
+pub fn bindings_apply(system: &mut System, bindings: Bindings) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
@@ -97,18 +124,44 @@ pub fn buffered_ensure<'a>(system: &'a mut System) {
     let Some(pass) = &mut frame.pass else {
         return;
     };
+    pass.set_index_buffer(
+        system.buffers[bindings.index_buffer as usize - 1]
+            .buffer
+            .slice(..),
+        wgpu::IndexFormat::Uint16,
+    );
+    for (index, buffer) in bindings.vertex_buffers.iter().enumerate() {
+        pass.set_vertex_buffer(
+            index as u32,
+            system.buffers[*buffer as usize - 1].buffer.slice(..),
+        );
+    }
+    frame.buffered = true;
+}
+
+pub fn buffered_ensure(system: &mut System) {
+    pass_ensure(system);
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    if frame.buffered {
+        return;
+    }
     let index = system
         .buffers
         .iter()
-        .find(|it| it.usage == BufferUsages::INDEX)
+        .position(|it| it.usage == BufferUsages::INDEX)
         .unwrap();
     let vertex = system
         .buffers
         .iter()
-        .find(|it| it.usage == BufferUsages::VERTEX)
+        .position(|it| it.usage == BufferUsages::VERTEX)
         .unwrap();
-    pass.set_index_buffer(index.buffer.slice(..), wgpu::IndexFormat::Uint16);
-    pass.set_vertex_buffer(0, vertex.buffer.slice(..));
+    let bindings = Bindings {
+        vertex_buffers: &[vertex as u32 + 1],
+        index_buffer: index as u32 + 1,
+    };
+    bindings_apply(system, bindings);
 }
 
 pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
@@ -130,8 +183,115 @@ pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
     system.buffers.push(Buffer { buffer, usage });
 }
 
-pub fn create_pipeline(_system: &mut System, _info: PipelineInfo) {
-    // let shader = &system.shaders[info.vertex.shader as usize];
+pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
+    fn choose_entry<'a>(entry: String, default: &'a str) -> String {
+        match entry.as_str() {
+            "" => default.to_string(),
+            _ => entry,
+        }
+    }
+    fn choose_shader(shader: u32, other: u32) -> u32 {
+        match shader {
+            0 => match other {
+                0 => 1,
+                _ => other,
+            },
+            _ => shader,
+        }
+    }
+    let fragment_entry_point = choose_entry(info.fragment.entry_point, FRAGMENT_ENTRY_DEFAULT);
+    let fragment_shader = choose_shader(info.fragment.shader, info.vertex.shader);
+    let vertex_entry_point = choose_entry(info.vertex.entry_point, VERTEX_ENTRY_DEFAULT);
+    let vertex_shader = choose_shader(info.vertex.shader, info.fragment.shader);
+    let info = PipelineInfo {
+        fragment: PipelineShaderInfo {
+            entry_point: fragment_entry_point.clone(),
+            shader: fragment_shader,
+        },
+        vertex: PipelineShaderInfo {
+            entry_point: vertex_entry_point.clone(),
+            shader: vertex_shader,
+        },
+        ..info
+    };
+    let Some(buffers) = vertex_buffer_layouts_build(system, info) else {
+        return;
+    };
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let device = &gfx.device;
+    let fragment_shader = &system.shaders[fragment_shader as usize - 1];
+    let vertex_shader = &system.shaders[vertex_shader as usize - 1];
+    let min_binding_size = uniforms_binding_size_find(vertex_shader);
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size,
+            },
+            count: None,
+        }],
+    });
+    system.uniforms_bind_group_layout = Some(bind_group_layout);
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
+        push_constant_ranges: &[],
+    });
+    // dbg!(&attr_info);
+    let vertex_buffer_layout: Vec<_> = buffers
+        .iter()
+        .map(|buffer| wgpu::VertexBufferLayout {
+            array_stride: buffer.array_stride,
+            step_mode: buffer.step_mode,
+            attributes: &buffer.attributes,
+        })
+        .collect();
+    // dbg!(&vertex_buffer_layout);
+    // let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
+    // dbg!(&surface_formats);
+    let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: None,
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &vertex_shader.compiled,
+            entry_point: &vertex_entry_point,
+            compilation_options: Default::default(),
+            buffers: &vertex_buffer_layout,
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &fragment_shader.compiled,
+            entry_point: &fragment_entry_point,
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: TextureFormat::Bgra8Unorm,
+                blend: Some(wgpu::BlendState {
+                    color: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::SrcAlpha,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                    alpha: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::One,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                }),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: Default::default(),
+        depth_stencil: None,
+        multisample: MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    });
+    system.pipelines.push(pipeline);
 }
 
 pub fn end_pass(system: &mut System) {
@@ -172,6 +332,7 @@ pub fn pass_ensure(system: &mut System) {
         let view = frame.texture.create_view(&view_descriptor);
         let encoder = gfx.device.create_command_encoder(&Default::default());
         system.frame = Some(RenderFrame {
+            buffered: false,
             encoder,
             frame,
             pass: None,
@@ -201,85 +362,37 @@ pub fn pass_ensure(system: &mut System) {
     frame.pass = Some(pass.forget_lifetime());
 }
 
+pub fn pipeline_apply(system: &mut System, pipeline: u32) {
+    pipeline_ensure(system);
+    pass_ensure(system);
+    let Some(pipeline) = system.pipelines.get(pipeline as usize - 1) else {
+        return;
+    };
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    let Some(pass) = &mut frame.pass else {
+        return;
+    };
+    frame.pipelined = true;
+    pass.set_pipeline(pipeline);
+}
+
 fn pipeline_ensure(system: &mut System) {
     if !system.pipelines.is_empty() {
         return;
     }
-    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
-        return;
-    };
-    let Some(shader) = system.shaders.get(0) else {
-        return;
-    };
-    let device = &gfx.device;
-    let min_binding_size = uniforms_binding_size_find(&system.shaders[0]);
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size,
-            },
-            count: None,
-        }],
-    });
-    system.uniforms_bind_group_layout = Some(bind_group_layout);
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
-        push_constant_ranges: &[],
-    });
-    let vertex_entry_point = "vertex_main";
-    let attr_info = vertex_attributes_build(shader, vertex_entry_point);
-    // dbg!(&attr_info);
-    let vertex_buffer_layout = wgpu::VertexBufferLayout {
-        array_stride: attr_info.stride,
-        // TODO Which vertex and which instance?
-        step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &attr_info.attributes,
-    };
-    // let surface_formats = gfx.surface.get_capabilities(&gfx.adapter).formats;
-    // dbg!(&surface_formats);
-    let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader.compiled,
-            entry_point: vertex_entry_point,
-            compilation_options: Default::default(),
-            buffers: &[vertex_buffer_layout],
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader.compiled,
-            entry_point: "fragment_main",
-            compilation_options: Default::default(),
-            targets: &[Some(TextureFormat::Bgra8Unorm.into())],
-        }),
-        primitive: Default::default(),
-        depth_stencil: None,
-        multisample: MultisampleState::default(),
-        multiview: None,
-        cache: None,
-    });
-    system.pipelines.push(pipeline);
+    create_pipeline(system, Default::default());
 }
 
-pub fn pipelined_ensure<'a>(system: &'a mut System) {
-    pipeline_ensure(system);
-    pass_ensure(system);
-    let Some(frame) = system.frame.as_mut() else {
-        return;
+pub fn pipelined_ensure(system: &mut System) {
+    let needed = match system.frame.as_ref() {
+        Some(frame) => !frame.pipelined,
+        _ => true,
     };
-    if frame.pipelined {
-        return;
+    if needed {
+        pipeline_apply(system, 1);
     }
-    let Some(pass) = &mut frame.pass else {
-        return;
-    };
-    pass.set_pipeline(&system.pipelines[0]);
 }
 
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
@@ -314,12 +427,20 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     }
 }
 
+fn step_mode_translate(step: u32) -> wgpu::VertexStepMode {
+    match step {
+        0 => wgpu::VertexStepMode::Vertex,
+        _ => wgpu::VertexStepMode::Instance,
+    }
+}
+
 pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     pipelined_ensure(system);
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
     let device = &gfx.device;
+    // TODO Need to support multiple of these!
     if system.uniforms_buffer.is_none() {
         system.uniforms_buffer = Some(device.create_buffer(&BufferDescriptor {
             label: None,
@@ -329,6 +450,7 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
         }));
         system.uniforms_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: system.uniforms_bind_group_layout.as_ref().unwrap(),
+            // TODO Textures also go in here!
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: system.uniforms_buffer.as_ref().unwrap().as_entire_binding(),
@@ -361,63 +483,105 @@ fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {
     None
 }
 
-fn vertex_attributes_build(shader: &Shader, entry_point: &str) -> VertexAttributesInfo {
+fn vertex_buffer_layouts_build(
+    system: &System,
+    info: PipelineInfo,
+) -> Option<Vec<VertexBufferLayout>> {
+    let shader = system.shaders.get(info.vertex.shader as usize - 1)?;
     let entry = shader
         .module
         .entry_points
         .iter()
-        .find(|it| it.name == entry_point)
+        .find(|it| it.name == info.vertex.entry_point)
         .unwrap();
     let types = &shader.module.types;
-    let mut offset = 0;
-    let attributes: Vec<_> = entry
-        .function
-        .arguments
-        .iter()
-        .filter_map(|arg| {
-            let Some(Binding::Location { location, .. }) = arg.binding else {
+    let mut layouts = vec![];
+    let mut layout = VertexBufferLayout {
+        array_stride: 0,
+        step_mode: match () {
+            _ if info.vertex_buffers.is_empty() || info.vertex_buffers[0].first_attribute > 0 => {
+                wgpu::VertexStepMode::Vertex
+            }
+            _ => step_mode_translate(info.vertex_buffers[0].step),
+        },
+        attributes: vec![],
+    };
+    // TODO Match on location in case order varies? Require order?
+    let mut total_attrs = 0;
+    for arg in entry.function.arguments.iter() {
+        let Some(Binding::Location { location, .. }) = arg.binding else {
+            continue;
+        };
+        let format = vertex_format_from_naga_type(&types[arg.ty].inner);
+        // Find which buffer we're at.
+        loop {
+            let next_buffer_index = layouts.len() + 1;
+            if next_buffer_index >= info.vertex_buffers.len() {
+                // No buffer descriptions left, so stay here.
+                break;
+            }
+            let next_buffer_info = info.vertex_buffers[next_buffer_index];
+            if total_attrs < next_buffer_info.first_attribute {
+                // We're not yet to the index starting the next buffer, so stay here.
+                break;
+            }
+            if total_attrs > next_buffer_info.first_attribute {
+                // Don't allow going backward.
                 return None;
+            }
+            // We're at the next buffer.
+            layouts.push(layout);
+            layout = VertexBufferLayout {
+                array_stride: 0,
+                step_mode: step_mode_translate(next_buffer_info.step),
+                attributes: vec![],
             };
-            let format = match &types[arg.ty].inner {
-                naga::TypeInner::Scalar(naga::Scalar { kind, width }) => match (kind, width) {
-                    (ScalarKind::Sint, 4) => VertexFormat::Sint32,
-                    (ScalarKind::Uint, 4) => VertexFormat::Uint32,
-                    (ScalarKind::Float, 4) => VertexFormat::Float32,
-                    _ => todo!(),
-                },
-                naga::TypeInner::Vector {
-                    size,
-                    scalar: naga::Scalar { kind, width },
-                } => match (kind, width, size) {
-                    (ScalarKind::Float, 4, VectorSize::Bi) => VertexFormat::Float32x2,
-                    (ScalarKind::Float, 4, VectorSize::Tri) => VertexFormat::Float32x3,
-                    (ScalarKind::Float, 4, VectorSize::Quad) => VertexFormat::Float32x4,
-                    _ => todo!(),
-                },
-                naga::TypeInner::Matrix { .. } => todo!(),
-                naga::TypeInner::Atomic(_) => todo!(),
-                naga::TypeInner::Pointer { .. } => todo!(),
-                naga::TypeInner::ValuePointer { .. } => todo!(),
-                naga::TypeInner::Array { .. } => todo!(),
-                naga::TypeInner::Struct { .. } => todo!(),
-                naga::TypeInner::Image { .. } => todo!(),
-                naga::TypeInner::Sampler { .. } => todo!(),
-                naga::TypeInner::AccelerationStructure => todo!(),
-                naga::TypeInner::RayQuery => todo!(),
-                naga::TypeInner::BindingArray { .. } => todo!(),
-            };
-            let attr = wgpu::VertexAttribute {
-                format,
-                offset,
-                shader_location: location,
-            };
-            offset += format.size();
-            Some(attr)
-        })
-        .collect();
-    VertexAttributesInfo {
-        attributes,
-        // TODO Padding/alignment above and here.
-        stride: offset,
+            // But keep looping since technically it could be empty or something?
+        }
+        let attr = wgpu::VertexAttribute {
+            format,
+            offset: layout.array_stride,
+            shader_location: location,
+        };
+        layout.attributes.push(attr);
+        // TODO Align.
+        layout.array_stride += format.size();
+        total_attrs += 1;
+    }
+    layouts.push(layout);
+    Some(layouts)
+}
+
+fn vertex_format_from_naga_type(type_inner: &naga::TypeInner) -> VertexFormat {
+    match type_inner {
+        naga::TypeInner::Scalar(naga::Scalar { kind, width }) => match (kind, width) {
+            (ScalarKind::Sint, 4) => VertexFormat::Sint32,
+            (ScalarKind::Uint, 4) => VertexFormat::Uint32,
+            (ScalarKind::Float, 4) => VertexFormat::Float32,
+            _ => todo!(),
+        },
+        naga::TypeInner::Vector {
+            size,
+            scalar: naga::Scalar { kind, width },
+        } => match (kind, width, size) {
+            (ScalarKind::Float, 4, VectorSize::Bi) => VertexFormat::Float32x2,
+            (ScalarKind::Float, 4, VectorSize::Tri) => VertexFormat::Float32x3,
+            (ScalarKind::Float, 4, VectorSize::Quad) => VertexFormat::Float32x4,
+            _ => todo!(),
+        },
+        naga::TypeInner::Matrix { .. } => todo!(),
+        naga::TypeInner::Atomic(_) => todo!(),
+        naga::TypeInner::Pointer { .. } => todo!(),
+        naga::TypeInner::ValuePointer { .. } => todo!(),
+        naga::TypeInner::Array { .. } => todo!(),
+        naga::TypeInner::Struct { .. } => todo!(),
+        naga::TypeInner::Image { .. } => todo!(),
+        naga::TypeInner::Sampler { .. } => todo!(),
+        naga::TypeInner::AccelerationStructure => todo!(),
+        naga::TypeInner::RayQuery => todo!(),
+        naga::TypeInner::BindingArray { .. } => todo!(),
     }
 }
+
+const FRAGMENT_ENTRY_DEFAULT: &str = "fragment_main";
+const VERTEX_ENTRY_DEFAULT: &str = "vertex_main";

@@ -17,11 +17,12 @@ pub fn main() void {
         }),
     });
     _ = ctx.newBuffer(.{
-        .type = .index,
+        .kind = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     });
-    _ = ctx.newShader(@embedFile("shader.opt.spv"));
-    // More things.
+    _ = ctx.newShader(@embedFile("shader2.opt.spv"));
+    _ = ctx.newPipeline(.{});
+    // Decoration.
     const decor_vertex = ctx.newBuffer(.{
         .slice = taca.BufferSlice.new(&[_][2]f32{
             .{ -0.5, -0.5 },
@@ -31,28 +32,22 @@ pub fn main() void {
         }),
     });
     const decor_index = ctx.newBuffer(.{
-        .type = .index,
+        .kind = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
     });
-    // const decor_pipeline = ctx.newPipeline(.{
-    //     .vertex = .{
-    //         .shader = ctx.newShader(@embedFile("shader.opt.spv")),
-    //     },
-    //     .vertex_attributes = &[_]taca.VertexAttribute{
-    //         .{},
-    //         .{ .buffer_index = 1 },
-    //     },
-    //     .vertex_buffers = &[_]taca.VertexBufferLayout{
-    //         .{},
-    //         .{ .step = .instance },
-    //     },
-    // });
-    // TODO Use decor_vertex as instance data.
-    // TODO New shader
+    const decor_pipeline = ctx.newPipeline(.{
+        .fragment = .{ .entry = "fragment_decor" },
+        .vertex = .{ .entry = "vertex_decor" },
+        .vertex_buffers = &[_]taca.VertexBufferLayout{
+            .{},
+            .{ .first_attribute = 1, .step = .instance },
+        },
+    });
+    // App state.
     stage = .{
         .count = 0,
         .decor_index = decor_index,
-        // .decor_pipeline = decor_pipeline,
+        .decor_pipeline = decor_pipeline,
         .decor_vertex = decor_vertex,
     };
 }
@@ -68,9 +63,21 @@ export fn listen(event: taca.EventKind) void {
         .count = @floatFromInt(stage.?.count),
         .pointer = state.pointer,
     });
+    // Triangle
     ctx.draw(0, 3, 1);
+    // Decor
+    ctx.applyPipeline(stage.?.decor_pipeline);
+    const decor_vertex = stage.?.decor_vertex;
+    ctx.applyBindings(.{
+        .index_buffer = stage.?.decor_index,
+        // Same buffer for both vertex data and instance centers.
+        .vertex_buffers = &[_]*taca.Buffer{ decor_vertex, decor_vertex },
+    });
+    ctx.draw(0, 6, 4);
+    // Text
     const end = (stage.?.count / 10) % (title.len + 1);
     ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);
+    // Next
     stage.?.count +%= 1;
 }
 
@@ -79,7 +86,7 @@ var stage: ?Stage = null;
 const Stage = struct {
     count: u32,
     decor_index: *taca.Buffer,
-    // decor_pipeline: *taca.Pipeline,
+    decor_pipeline: *taca.Pipeline,
     decor_vertex: *taca.Buffer,
 };
 

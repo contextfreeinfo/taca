@@ -48,27 +48,86 @@ class App {
     new ResizeObserver(() => (this.resizeNeeded = true)).observe(config.canvas);
   }
 
-  #attributesBuild(program: WebGLProgram) {
-    const attributes: Attribute[] = [];
+  #attributesBuild(program: WebGLProgram, pipelineInfo: PipelineInfo) {
+    const vertexAttrs: AttrInfo[] = [];
+    const vertexBuffers: BufferInfo[] = [];
+    const preBuffers = pipelineInfo.vertexBuffers;
     const { gl } = this;
     const attribCount = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+    let offset = 0;
+    let bufferIndex = 0;
+    const initBufferInfo = (firstAttr: number): BufferInfo => {
+      const result = {
+        firstAttr,
+        step: 0,
+        stride: 0,
+        ...((pipelineInfo.vertexBuffers[bufferIndex] ?? {}) as BufferInfo | {}),
+      };
+      vertexBuffers.push(result);
+      return result;
+    };
+    let bufferInfo = initBufferInfo(0);
     for (let i = 0; i < attribCount; i += 1) {
+      buffers: while (bufferIndex + 1 < preBuffers.length) {
+        if (i >= preBuffers[bufferIndex + 1].firstAttr) {
+          bufferInfo.stride = offset;
+          bufferIndex += 1;
+          bufferInfo = initBufferInfo(i);
+          offset = 0;
+        } else {
+          break buffers;
+        }
+      }
       const info = gl.getActiveAttrib(program, i) ?? fail();
       const loc = gl.getAttribLocation(program, info.name);
-      // const type = {
-      //   [gl.FLOAT_VEC2]: "vec2f",
-      //   [gl.FLOAT_VEC4]: "vec4f",
-      // }[info.type];
-      attributes.push({ count: info.size, loc, type: info.type });
+      const [size, type] =
+        {
+          [gl.FLOAT]: [1, gl.FLOAT],
+          [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+          [gl.FLOAT_VEC4]: [4, gl.FLOAT],
+        }[info.type] ?? fail();
+      const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
+      // Pad for alignment.
+      offset = Math.ceil(offset / typeSize) * typeSize;
+      vertexAttrs.push({
+        count: info.size,
+        loc,
+        offset,
+        size,
+        type,
+      });
+      offset += size * typeSize;
     }
-    attributes.sort((a, b) => a.loc - b.loc);
-    this.#vertexArrayCreate(attributes);
-    // console.log(attributes);
-    return attributes;
+    bufferInfo.stride = offset;
+    const result: PipelineInfo = {
+      ...pipelineInfo,
+      vertexAttrs,
+      vertexBuffers,
+    };
+    return result;
   }
 
+  bindingApply(bindingsPtr: number) {
+    const { buffers } = this;
+    // Minimize allocations because this is in the draw loop.
+    const view = this.memoryView();
+    const vertexPtr = getU32(view, bindingsPtr);
+    const vertexLen = getU32(view, bindingsPtr + 4);
+    const index = buffers[getU32(view, bindingsPtr + 8) - 1];
+    // TODO Predefine bindings to avoid allocations?
+    const vertex = new Array<Buffer>(vertexLen);
+    for (var i = 0; i < vertexLen; i += 1) {
+      vertex[i] = buffers[getU32(view, vertexPtr + 4 * i) - 1];
+    }
+    this.binding = { index, vertex };
+    this.buffered = false;
+  }
+
+  binding: Binding | null = null;
+  bindingDefault: Binding | null = null;
+
   bufferNew(type: number, info: number) {
-    const infoBytes = this.memoryView(info, 3 * 4);
+    const infoBytes = this.memoryViewMake(info, 2 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
     // TODO Null ptr -> zero buffer for writing.
@@ -89,16 +148,83 @@ class App {
     return this.buffers.length;
   }
 
+  buffered = false;
+
+  #bufferedEnsure() {
+    if (!this.buffered) {
+      this.#pipelinedEnsure();
+      if (!this.binding) {
+        let { bindingDefault } = this;
+        if (!this.bindingDefault) {
+          const { buffers } = this;
+          const find = (kind: string) =>
+            buffers.find((buffer) => buffer.kind == kind) ?? fail();
+          this.bindingDefault = bindingDefault = {
+            index: find("index"),
+            vertex: [find("vertex")],
+          };
+        }
+        this.binding = bindingDefault;
+      }
+      this.#buffersBind();
+    }
+  }
+
   buffers: Buffer[] = [];
+
+  #buffersBind() {
+    // If at least two buffers, presumes one is data and one index.
+    const { binding, gl, pipeline } = this;
+    // Vertex buffer.
+    const attrs = pipeline!.attributes;
+    const vertexBuffers = binding!.vertex;
+    const vertexBufferInfos = pipeline!.buffers;
+    let vertexBufferIndex = -1;
+    let vertex: Buffer;
+    let vertexInfo: BufferInfo;
+    let nextAttrIndex = -1;
+    let stride = 0;
+    for (let a = 0; a < attrs.length; a += 1) {
+      if (a >= nextAttrIndex) {
+        // Move forward in buffers.
+        vertexBufferIndex += 1;
+        vertex = vertexBuffers[vertexBufferIndex];
+        vertexInfo = vertexBufferInfos[vertexBufferIndex];
+        nextAttrIndex =
+          vertexBufferInfos[vertexBufferIndex + 1]?.firstAttr ??
+          Number.MAX_SAFE_INTEGER;
+        // Work out drawing.
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+        stride = vertexInfo.stride;
+      }
+      const attr = attrs[a];
+      const { loc, offset, size, type } = attr;
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, size, type, false, stride, offset);
+      gl.vertexAttribDivisor(loc, vertexInfo!.step ? 1 : 0);
+    }
+    // TODO Instance buffer.
+    // Index buffer.
+    const index = binding!.index;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
+    this.buffered = true;
+  }
 
   canvas: HTMLCanvasElement;
 
   config: AppConfig;
 
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
-    this.#pipelinedEnsure();
+    // console.log(`draw(${itemBegin}, ${itemCount}, ${instanceCount})`);
+    this.#bufferedEnsure();
     const { gl } = this;
-    gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
+    gl.drawElementsInstanced(
+      gl.TRIANGLES,
+      itemCount,
+      gl.UNSIGNED_SHORT,
+      itemBegin,
+      instanceCount
+    );
   }
 
   drawText(text: string, x: number, y: number) {
@@ -137,8 +263,8 @@ class App {
   exports: AppExports = undefined as any;
 
   frameCommit() {
-    this.passBegun = false;
-    this.pipeline = null;
+    this.buffered = this.passBegun = false;
+    this.binding = this.pipeline = null;
   }
 
   frameCount: number = 0;
@@ -176,17 +302,24 @@ class App {
 
   #memoryBuffer: ArrayBuffer | null = null;
   #memoryBufferBytes: Uint8Array | null = null;
+  #memoryBufferView: DataView | null = null;
 
   memoryBytes() {
     if (this.#memoryBuffer != this.memory.buffer) {
       // Either on first access or on internal reallocation.
       this.#memoryBuffer = this.memory.buffer;
       this.#memoryBufferBytes = new Uint8Array(this.#memoryBuffer);
+      this.#memoryBufferView = new DataView(this.#memoryBuffer);
     }
     return this.#memoryBufferBytes!;
   }
 
-  memoryView(ptr: number, len: number) {
+  memoryView() {
+    this.memoryBytes();
+    return this.#memoryBufferView!;
+  }
+
+  memoryViewMake(ptr: number, len: number) {
     return new DataView(this.memory.buffer, ptr, len);
   }
 
@@ -209,48 +342,111 @@ class App {
     let { gl, pipelines } = this;
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
     gl.useProgram(pipeline.program);
+    // Presume we need new buffer binding when the program changes.
+    this.buffered = false;
+  }
+
+  #pipelineBuild(pipelineInfo: PipelineInfo) {
+    // console.log(pipelineInfo);
+    const { gl, pipelines, shaders } = this;
+    const shaderMake = (info: ShaderInfo, stage: ShaderStage) =>
+      shaderToGlsl(shaders[info.shader - 1], stage, info.entry);
+    const vertex = shaderMake(pipelineInfo.vertex, ShaderStage.Vertex);
+    const fragment = shaderMake(pipelineInfo.fragment, ShaderStage.Fragment);
+    // console.log(vertex);
+    // console.log(fragment);
+    const program = shaderProgramBuild(gl, vertex, fragment);
+    pipelineInfo = this.#attributesBuild(program, pipelineInfo);
+    const uniforms = this.#uniformsBuild(program);
+    pipelines.push({
+      attributes: pipelineInfo.vertexAttrs,
+      buffers: pipelineInfo.vertexBuffers,
+      program,
+      uniforms,
+    });
+    // console.log(pipelineInfo);
+    // console.log(this.pipelines);
+    return pipelineInfo;
   }
 
   #pipelineEnsure() {
-    const {
-      gl,
-      pipelines,
-      shaders: [shader],
-    } = this;
-    if (pipelines.length) return;
-    const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vertex_main");
-    const fragment = shaderToGlsl(
-      shader,
-      ShaderStage.Fragment,
-      "fragment_main"
-    );
-    const program = shaderProgramBuild(gl, vertex, fragment);
-    // console.log(vertex);
-    // console.log(fragment);
-    const attributes = this.#attributesBuild(program);
-    const uniforms = this.#uniformsBuild(program);
-    pipelines.push({ attributes, program, uniforms });
+    if (!this.pipelines.length) {
+      this.#pipelineBuild(pipelineInfoDefault());
+    }
   }
 
   #pipelinedEnsure() {
     if (!this.pipeline) {
       this.#pipelineEnsure();
       if (!this.passBegun) this.passBegin();
-      if (this.pipelines.length == 1) this.pipelineApply(1);
+      if (this.pipelines.length > 0) this.pipelineApply(1);
     }
+  }
+
+  pipelineNew(info: number) {
+    let pipelineInfo = this.pipelineInfoRead(info);
+    pipelineInfo = this.#pipelineBuild(pipelineInfo);
+    return this.pipelines.length;
+  }
+
+  private pipelineInfoRead(info: number): PipelineInfo {
+    // TODO Can wit-bindgen or flatbuffers automate some of this?
+    const infoView = this.memoryViewMake(info, 10 * 4);
+    const readShaderInfo = (offset: number) => {
+      return {
+        entry: this.readString(infoView.byteOffset + offset),
+        shader: getU32(infoView, offset + 2 * 4),
+      };
+    };
+    const pipelineInfo: PipelineInfo = {
+      fragment: readShaderInfo(0 * 4),
+      vertex: readShaderInfo(3 * 4),
+      vertexAttrs: this.readAny(
+        info + 6 * 4,
+        2 * 4,
+        (view, offset): AttrInfo => ({
+          count: 1,
+          loc: getU32(view, offset),
+          offset: getU32(view, offset + 1 * 4),
+          size: 0,
+          type: 0,
+        })
+      ),
+      vertexBuffers: this.readAny(
+        info + 8 * 4,
+        3 * 4,
+        (view, offset): BufferInfo => ({
+          firstAttr: getU32(view, offset),
+          step: getU32(view, offset + 1 * 4),
+          stride: getU32(view, offset + 2 * 4),
+        })
+      ),
+    };
+    return pipelineInfoDefault(pipelineInfo);
   }
 
   pipelines: Pipeline[] = [];
 
   pointerPos: [x: number, y: number] = [0, 0];
 
-  readBytes(spanPtr: number) {
+  readAny<T>(
+    spanPtr: number,
+    itemSize: number,
+    build: (view: DataView, offset: number) => T
+  ): T[] {
+    const view = dataViewOf(this.readBytes(spanPtr, itemSize));
+    return [...Array(view.byteLength / itemSize).keys()].map((i) =>
+      build(view, i * itemSize)
+    );
+  }
+
+  readBytes(spanPtr: number, itemSize: number = 1) {
     // Can cache memory bytes when no app calls are being made.
     const memoryBytes = this.memoryBytes();
     const spanView = new DataView(memoryBytes.buffer, spanPtr, 2 * 4);
     // Wasm is explicitly little-endian.
     const contentPtr = getU32(spanView, 0);
-    const contentLen = getU32(spanView, 4);
+    const contentLen = itemSize * getU32(spanView, 4);
     return memoryBytes.subarray(contentPtr, contentPtr + contentLen);
   }
 
@@ -346,7 +542,7 @@ class App {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA,
+      gl.SRGB8_ALPHA8, // <- TODO Makes a difference at all?
       gl.RGBA,
       gl.UNSIGNED_BYTE,
       offscreen
@@ -395,6 +591,7 @@ class App {
     let size = -1;
     let tacaIndex = 0;
     let tacaSize = 0;
+    // console.log(`uniforms: ${count}`);
     for (let i = 0; i < count; i += 1) {
       const name = gl.getActiveUniformBlockName(program, i);
       // console.log(`uniform: ${name}`);
@@ -416,58 +613,6 @@ class App {
     return { count, size, tacaIndex, tacaSize };
   }
 
-  #vertexArrayCreate(attributes: Attribute[]) {
-    // If only two buffers, presumse one is data and one index.
-    // This leaves them bound if only two.
-    // TODO Rename this function.
-    // There's a limited number of vaos, so better to avoid them from user code.
-    const { buffers, gl } = this;
-    if (buffers.length >= 2) {
-      // Vertex buffer.
-      const vertex =
-        buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
-      gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
-      function loopAttributes(
-        handle: (
-          loc: number,
-          size: number,
-          type: number,
-          offset: number
-        ) => void
-      ) {
-        let offset = 0;
-        for (const attr of attributes) {
-          const { loc } = attr;
-          const [size, type] =
-            {
-              [gl.FLOAT]: [1, gl.FLOAT],
-              [gl.FLOAT_VEC2]: [2, gl.FLOAT],
-              [gl.FLOAT_VEC4]: [4, gl.FLOAT],
-            }[attr.type] ?? fail();
-          const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
-          // Pad for alignment.
-          offset = Math.ceil(offset / typeSize) * typeSize;
-          handle(loc, size, type, offset);
-          offset += size * typeSize;
-        }
-        return offset;
-      }
-      // Loop once to get total size.
-      const itemSize = loopAttributes(() => {});
-      // Then again to prep the attributes.
-      loopAttributes((loc, size, type, offset) => {
-        gl.enableVertexAttribArray(loc);
-        // console.log(size, vertex.itemSize, offset);
-        // TODO Item size vs alignment seems very off.
-        gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
-      });
-      // TODO Instance buffer.
-      // Index buffer.
-      const index = buffers.find((buffer) => buffer.kind == "index") ?? fail();
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
-    }
-  }
-
   vertexBuffer: Buffer | null = null;
 }
 
@@ -476,15 +621,33 @@ interface AppExports {
   _start: () => void;
 }
 
-interface Attribute {
+interface AttrInfo {
   count: number;
   loc: number;
+  offset: number;
+  size: number;
   type: number;
+}
+
+interface Binding {
+  // TODO images/textures
+  index: Buffer;
+  vertex: Buffer[];
 }
 
 interface Buffer {
   buffer: WebGLBuffer;
   kind: "index" | "vertex";
+}
+
+interface BufferInfo {
+  firstAttr: number;
+  step: number;
+  stride: number;
+}
+
+function dataViewOf(array: Uint8Array) {
+  return new DataView(array.buffer, array.byteOffset, array.byteLength);
 }
 
 function getU32(view: DataView, byteOffset: number) {
@@ -531,10 +694,10 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
 function makeAppEnv(app: App) {
   return {
     taca_RenderingContext_applyBindings(bindings: number) {
-      // TODO Bindings
+      app.bindingApply(bindings);
     },
     taca_RenderingContext_applyPipeline(pipeline: number) {
-      // TODO Pipeline
+      app.pipelineApply(pipeline);
     },
     taca_RenderingContext_applyUniforms(uniforms: number) {
       app.uniformsApply(uniforms);
@@ -562,16 +725,14 @@ function makeAppEnv(app: App) {
       return app.bufferNew(type, info);
     },
     taca_RenderingContext_newPipeline(info: number) {
-      // TODO Pipeline
-      console.log("taca_RenderingContext_newPipeline");
+      return app.pipelineNew(info);
     },
     taca_RenderingContext_newShader(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
     taca_Window_newRenderingContext() {
-      // TODO If we only have one, we don't need it at all, right?
-      // TODO Except context for render to texture.
+      // TODO Use this for offscreen contexts for render to texture.
       // TODO Need size? Resizable? Reallocate in same index?
       return 1;
     },
@@ -586,7 +747,7 @@ function makeAppEnv(app: App) {
       // TODO Include time.
       const { clientWidth, clientHeight } = app.canvas;
       const [pointerX, pointerY] = app.pointerPos;
-      const view = app.memoryView(result, 4 * 4);
+      const view = app.memoryViewMake(result, 4 * 4);
       setF32(view, 0, pointerX);
       setF32(view, 4, pointerY);
       setF32(view, 8, clientWidth);
@@ -596,9 +757,33 @@ function makeAppEnv(app: App) {
 }
 
 interface Pipeline {
-  attributes: Attribute[];
+  attributes: AttrInfo[];
+  buffers: BufferInfo[];
   program: WebGLProgram;
   uniforms: Uniforms;
+}
+
+interface PipelineInfo {
+  fragment: ShaderInfo;
+  vertex: ShaderInfo;
+  vertexAttrs: AttrInfo[];
+  vertexBuffers: BufferInfo[];
+}
+
+function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
+  const fragment: Partial<ShaderInfo> = info.fragment ?? {};
+  const vertex: Partial<ShaderInfo> = info.vertex ?? {};
+  fragment.entry ||= "fragment_main";
+  vertex.entry ||= "vertex_main";
+  // The second `|| 1` isn't needed, but it's less risky against reorder.
+  fragment.shader ||= vertex.shader || 1;
+  vertex.shader ||= fragment.shader || 1;
+  return {
+    fragment: fragment as ShaderInfo,
+    vertex: vertex as ShaderInfo,
+    vertexAttrs: info.vertexAttrs ?? [],
+    vertexBuffers: info.vertexBuffers ?? [],
+  };
 }
 
 function setF32(view: DataView, byteOffset: number, value: number) {
@@ -608,6 +793,11 @@ function setF32(view: DataView, byteOffset: number, value: number) {
 // function setU32(view: DataView, byteOffset: number, value: number) {
 //   return view.setUint32(byteOffset, value, true);
 // }
+
+interface ShaderInfo {
+  entry: string;
+  shader: number;
+}
 
 const textDecoder = new TextDecoder();
 

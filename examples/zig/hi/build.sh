@@ -11,4 +11,6 @@ finish-wasm() {
     cp zig-out/bin/$1.opt.wasm.lz4 $PUB_DIR/$1.taca
 }
 
-build-shader shader && zig build && finish-wasm hi && finish-wasm hi2
+build-shader shader && build-shader shader2 && \
+    zig build && \
+    finish-wasm hi && finish-wasm hi2

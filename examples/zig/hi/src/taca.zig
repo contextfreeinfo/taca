@@ -7,7 +7,7 @@ pub const Bindings = struct {
 pub const Buffer = extern struct {};
 
 pub const BufferInfo = extern struct {
-    type: BufferType = .vertex,
+    kind: BufferType = .vertex,
     slice: BufferSlice,
 };
 
@@ -34,7 +34,7 @@ pub const EventKind = enum(c_int) {
 pub const Pipeline = extern struct {};
 
 pub const PipelineShaderInfo = struct {
-    entry_point: []const u8 = "",
+    entry: []const u8 = "",
     shader: ?*const Shader = null,
 };
 
@@ -91,7 +91,7 @@ pub const RenderingContext = struct {
     }
 
     pub fn newBuffer(info: BufferInfo) *Buffer {
-        return taca_RenderingContext_newBuffer(info.type, &info.slice);
+        return taca_RenderingContext_newBuffer(info.kind, &info.slice);
     }
 
     pub fn newPipeline(info: PipelineInfo) *Pipeline {
@@ -126,12 +126,12 @@ pub const Texture = extern struct {};
 // TODO Text metrics and rendering
 
 pub const VertexAttribute = extern struct {
-    buffer_index: usize = 0,
     shader_location: usize = 0,
     value_offset: usize = 0,
 };
 
 pub const VertexBufferLayout = extern struct {
+    first_attribute: usize = 0,
     step: Step = .vertex,
     stride: usize = 0,
 };
@@ -212,21 +212,21 @@ const ExternPipelineInfo = extern struct {
 
     pub fn from(info: PipelineInfo) ExternPipelineInfo {
         return .{
-            .vertex_attributes = Span(VertexAttribute).from(info.vertex_attributes),
-            .vertex_buffers = Span(VertexBufferLayout).from(info.vertex_buffers),
             .fragment = ExternPipelineShaderInfo.from(info.fragment),
             .vertex = ExternPipelineShaderInfo.from(info.vertex),
+            .vertex_attributes = Span(VertexAttribute).from(info.vertex_attributes),
+            .vertex_buffers = Span(VertexBufferLayout).from(info.vertex_buffers),
         };
     }
 };
 
 const ExternPipelineShaderInfo = extern struct {
-    entry_point: Span(u8),
+    entry: Span(u8),
     shader: ?*const Shader,
 
     pub fn from(info: PipelineShaderInfo) ExternPipelineShaderInfo {
         return .{
-            .entry_point = Span(u8).from(info.entry_point),
+            .entry = Span(u8).from(info.entry),
             .shader = info.shader,
         };
     }
@@ -275,7 +275,7 @@ extern fn taca_RenderingContext_endPass(
 ) void;
 
 extern fn taca_RenderingContext_newBuffer(
-    typ: BufferType,
+    kind: BufferType,
     info: *const BufferSlice,
 ) callconv(.C) *Buffer;
 
