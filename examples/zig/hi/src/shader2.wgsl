@@ -54,5 +54,8 @@ fn vertex_decor(
 fn fragment_decor(
   @builtin(position) position: vec4f,
 ) -> @location(0) vec4f {
-  return vec4f(1, 1, 0.8, 0.5);
+  // If we don't reference uniforms, naga leaves them out, which causes trouble.
+  // TODO Solve the missing uniforms problem.
+  let phase = 0.5 + 0.2 * sin(uniforms.count * 2e-2);
+  return vec4f(1, 1, 0.8, phase);
 }

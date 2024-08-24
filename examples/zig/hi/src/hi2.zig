@@ -17,7 +17,7 @@ pub fn main() void {
         }),
     });
     _ = ctx.newBuffer(.{
-        .type = .index,
+        .kind = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     });
     _ = ctx.newShader(@embedFile("shader2.opt.spv"));
@@ -32,7 +32,7 @@ pub fn main() void {
         }),
     });
     const decor_index = ctx.newBuffer(.{
-        .type = .index,
+        .kind = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2, 1, 3, 2 }),
     });
     const decor_pipeline = ctx.newPipeline(.{

@@ -16,7 +16,7 @@ pub fn main() void {
         }),
     });
     _ = ctx.newBuffer(.{
-        .type = .index,
+        .kind = .index,
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     });
     _ = ctx.newShader(@embedFile("shader.opt.spv"));

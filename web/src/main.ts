@@ -48,23 +48,63 @@ class App {
     new ResizeObserver(() => (this.resizeNeeded = true)).observe(config.canvas);
   }
 
-  #attributesBuild(program: WebGLProgram) {
-    const attributes: Attribute[] = [];
+  #attributesBuild(program: WebGLProgram, pipelineInfo: PipelineInfo) {
+    const vertexAttrs: AttrInfo[] = [];
+    const vertexBuffers: BufferInfo[] = [];
+    const preBuffers = pipelineInfo.vertexBuffers;
     const { gl } = this;
     const attribCount = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+    let offset = 0;
+    let bufferIndex = 0;
+    const initBufferInfo = (firstAttr: number): BufferInfo => {
+      const result = {
+        firstAttr,
+        step: 0,
+        stride: 0,
+        ...((pipelineInfo.vertexBuffers[bufferIndex] ?? {}) as BufferInfo | {}),
+      };
+      vertexBuffers.push(result);
+      return result;
+    };
+    let bufferInfo = initBufferInfo(0);
     for (let i = 0; i < attribCount; i += 1) {
+      buffers: while (bufferIndex + 1 < preBuffers.length) {
+        if (i >= preBuffers[bufferIndex + 1].firstAttr) {
+          bufferInfo.stride = offset;
+          bufferIndex += 1;
+          bufferInfo = initBufferInfo(i);
+          offset = 0;
+        } else {
+          break buffers;
+        }
+      }
       const info = gl.getActiveAttrib(program, i) ?? fail();
       const loc = gl.getAttribLocation(program, info.name);
-      // const type = {
-      //   [gl.FLOAT_VEC2]: "vec2f",
-      //   [gl.FLOAT_VEC4]: "vec4f",
-      // }[info.type];
-      attributes.push({ count: info.size, loc, type: info.type });
+      const [size, type] =
+        {
+          [gl.FLOAT]: [1, gl.FLOAT],
+          [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+          [gl.FLOAT_VEC4]: [4, gl.FLOAT],
+        }[info.type] ?? fail();
+      const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
+      // Pad for alignment.
+      offset = Math.ceil(offset / typeSize) * typeSize;
+      vertexAttrs.push({
+        count: info.size,
+        loc,
+        offset,
+        size,
+        type,
+      });
+      offset += size * typeSize;
     }
-    attributes.sort((a, b) => a.loc - b.loc);
-    this.#vertexArrayCreate(attributes);
-    // console.log(attributes);
-    return attributes;
+    bufferInfo.stride = offset;
+    const result: PipelineInfo = {
+      ...pipelineInfo,
+      vertexAttrs,
+      vertexBuffers,
+    };
+    return result;
   }
 
   bufferNew(type: number, info: number) {
@@ -89,6 +129,15 @@ class App {
     return this.buffers.length;
   }
 
+  buffered = false;
+
+  #bufferedEnsure() {
+    if (!this.buffered) {
+      this.#pipelinedEnsure();
+      this.#buffersBind(this.pipeline!);
+    }
+  }
+
   buffers: Buffer[] = [];
 
   canvas: HTMLCanvasElement;
@@ -96,7 +145,7 @@ class App {
   config: AppConfig;
 
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
-    this.#pipelinedEnsure();
+    this.#bufferedEnsure();
     const { gl } = this;
     gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
   }
@@ -137,7 +186,7 @@ class App {
   exports: AppExports = undefined as any;
 
   frameCommit() {
-    this.passBegun = false;
+    this.buffered = this.passBegun = false;
     this.pipeline = null;
   }
 
@@ -211,37 +260,51 @@ class App {
     gl.useProgram(pipeline.program);
   }
 
-  #pipelineEnsure() {
-    const {
-      gl,
-      pipelines,
-      shaders: [shader],
-    } = this;
-    if (pipelines.length) return;
-    const vertex = shaderToGlsl(shader, ShaderStage.Vertex, "vertex_main");
-    const fragment = shaderToGlsl(
-      shader,
-      ShaderStage.Fragment,
-      "fragment_main"
-    );
-    const program = shaderProgramBuild(gl, vertex, fragment);
+  #pipelineBuild(pipelineInfo: PipelineInfo) {
+    const { gl, pipelines, shaders } = this;
+    const shaderMake = (info: ShaderInfo, stage: ShaderStage) =>
+      shaderToGlsl(shaders[info.shader - 1], stage, info.entry);
+    const vertex = shaderMake(pipelineInfo.vertex, ShaderStage.Vertex);
+    const fragment = shaderMake(pipelineInfo.fragment, ShaderStage.Fragment);
     // console.log(vertex);
     // console.log(fragment);
-    const attributes = this.#attributesBuild(program);
+    const program = shaderProgramBuild(gl, vertex, fragment);
+    pipelineInfo = this.#attributesBuild(program, pipelineInfo);
     const uniforms = this.#uniformsBuild(program);
-    pipelines.push({ attributes, program, uniforms });
+    pipelines.push({
+      attributes: pipelineInfo.vertexAttrs,
+      buffers: pipelineInfo.vertexBuffers,
+      program,
+      uniforms,
+    });
+    this.#buffersBind(pipelines.at(-1)!);
+    return pipelineInfo;
+  }
+
+  #pipelineEnsure() {
+    if (!this.pipelines.length) {
+      this.#pipelineBuild(pipelineInfoDefault());
+    }
   }
 
   #pipelinedEnsure() {
     if (!this.pipeline) {
       this.#pipelineEnsure();
       if (!this.passBegun) this.passBegin();
-      if (this.pipelines.length == 1) this.pipelineApply(1);
+      if (this.pipelines.length > 0) this.pipelineApply(1);
     }
   }
 
   pipelineNew(info: number) {
-    // TODO Can wit-bindgen or flatbuffers help us here?
+    let pipelineInfo = this.pipelineInfoRead(info);
+    console.log(pipelineInfo);
+    pipelineInfo = this.#pipelineBuild(pipelineInfo);
+    console.log(pipelineInfo);
+    // const { gl } = this;
+  }
+
+  private pipelineInfoRead(info: number): PipelineInfo {
+    // TODO Can wit-bindgen or flatbuffers automate some of this?
     const infoView = this.memoryView(info, 10 * 4);
     const readShaderInfo = (offset: number) => {
       return {
@@ -249,29 +312,31 @@ class App {
         shader: getU32(infoView, offset + 2 * 4),
       };
     };
-    const pipelineInfo = {
+    const pipelineInfo: PipelineInfo = {
       fragment: readShaderInfo(0 * 4),
       vertex: readShaderInfo(3 * 4),
       vertexAttrs: this.readStructs(
         info + 6 * 4,
         2 * 4,
-        (view, offset): VertexAttrInfo => ({
-          shaderLocation: getU32(view, offset),
-          valueOffset: getU32(view, offset + 1 * 4),
+        (view, offset): AttrInfo => ({
+          count: 1,
+          loc: getU32(view, offset),
+          offset: getU32(view, offset + 1 * 4),
+          size: 0,
+          type: 0,
         })
       ),
       vertexBuffers: this.readStructs(
         info + 8 * 4,
         3 * 4,
-        (view, offset): VertexBufferInfo => ({
+        (view, offset): BufferInfo => ({
           firstAttr: getU32(view, offset),
           step: getU32(view, offset + 1 * 4),
           stride: getU32(view, offset + 2 * 4),
         })
       ),
     };
-    console.log(pipelineInfo);
-    // const { gl } = this;
+    return pipelineInfoDefault(pipelineInfo);
   }
 
   pipelines: Pipeline[] = [];
@@ -440,6 +505,7 @@ class App {
     let size = -1;
     let tacaIndex = 0;
     let tacaSize = 0;
+    // console.log(`uniforms: ${count}`);
     for (let i = 0; i < count; i += 1) {
       const name = gl.getActiveUniformBlockName(program, i);
       // console.log(`uniform: ${name}`);
@@ -461,55 +527,25 @@ class App {
     return { count, size, tacaIndex, tacaSize };
   }
 
-  #vertexArrayCreate(attributes: Attribute[]) {
-    // If only two buffers, presumse one is data and one index.
-    // This leaves them bound if only two.
-    // TODO Rename this function.
-    // There's a limited number of vaos, so better to avoid them from user code.
+  #buffersBind(pipeline: Pipeline) {
+    // If at least two buffers, presumes one is data and one index.
     const { buffers, gl } = this;
     if (buffers.length >= 2) {
       // Vertex buffer.
       const vertex =
         buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
       gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
-      function loopAttributes(
-        handle: (
-          loc: number,
-          size: number,
-          type: number,
-          offset: number
-        ) => void
-      ) {
-        let offset = 0;
-        for (const attr of attributes) {
-          const { loc } = attr;
-          const [size, type] =
-            {
-              [gl.FLOAT]: [1, gl.FLOAT],
-              [gl.FLOAT_VEC2]: [2, gl.FLOAT],
-              [gl.FLOAT_VEC4]: [4, gl.FLOAT],
-            }[attr.type] ?? fail();
-          const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
-          // Pad for alignment.
-          offset = Math.ceil(offset / typeSize) * typeSize;
-          handle(loc, size, type, offset);
-          offset += size * typeSize;
-        }
-        return offset;
-      }
-      // Loop once to get total size.
-      const itemSize = loopAttributes(() => {});
-      // Then again to prep the attributes.
-      loopAttributes((loc, size, type, offset) => {
+      const { stride } = pipeline.buffers[0];
+      for (const attr of pipeline.attributes) {
+        const { loc, offset, size, type } = attr;
         gl.enableVertexAttribArray(loc);
-        // console.log(size, vertex.itemSize, offset);
-        // TODO Item size vs alignment seems very off.
-        gl.vertexAttribPointer(loc, size, type, false, itemSize, offset);
-      });
+        gl.vertexAttribPointer(loc, size, type, false, stride, offset);
+      }
       // TODO Instance buffer.
       // Index buffer.
       const index = buffers.find((buffer) => buffer.kind == "index") ?? fail();
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
+      this.buffered = true;
     }
   }
 
@@ -521,15 +557,23 @@ interface AppExports {
   _start: () => void;
 }
 
-interface Attribute {
+interface AttrInfo {
   count: number;
   loc: number;
+  offset: number;
+  size: number;
   type: number;
 }
 
 interface Buffer {
   buffer: WebGLBuffer;
   kind: "index" | "vertex";
+}
+
+interface BufferInfo {
+  firstAttr: number;
+  step: number;
+  stride: number;
 }
 
 function dataViewOf(array: Uint8Array) {
@@ -643,9 +687,33 @@ function makeAppEnv(app: App) {
 }
 
 interface Pipeline {
-  attributes: Attribute[];
+  attributes: AttrInfo[];
+  buffers: BufferInfo[];
   program: WebGLProgram;
   uniforms: Uniforms;
+}
+
+interface PipelineInfo {
+  fragment: ShaderInfo;
+  vertex: ShaderInfo;
+  vertexAttrs: AttrInfo[];
+  vertexBuffers: BufferInfo[];
+}
+
+function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
+  const fragment: Partial<ShaderInfo> = info.fragment ?? {};
+  const vertex: Partial<ShaderInfo> = info.vertex ?? {};
+  fragment.entry ||= "fragment_main";
+  vertex.entry ||= "vertex_main";
+  // The second `|| 1` isn't needed, but it's less risky against reorder.
+  fragment.shader ||= vertex.shader || 1;
+  vertex.shader ||= fragment.shader || 1;
+  return {
+    fragment: fragment as ShaderInfo,
+    vertex: vertex as ShaderInfo,
+    vertexAttrs: info.vertexAttrs ?? [],
+    vertexBuffers: info.vertexBuffers ?? [],
+  };
 }
 
 function setF32(view: DataView, byteOffset: number, value: number) {
@@ -655,6 +723,11 @@ function setF32(view: DataView, byteOffset: number, value: number) {
 // function setU32(view: DataView, byteOffset: number, value: number) {
 //   return view.setUint32(byteOffset, value, true);
 // }
+
+interface ShaderInfo {
+  entry: string;
+  shader: number;
+}
 
 const textDecoder = new TextDecoder();
 
@@ -670,15 +743,4 @@ interface Uniforms {
   // TODO These are needed only once, not per pipeline.
   tacaIndex: number;
   tacaSize: number;
-}
-
-interface VertexAttrInfo {
-  shaderLocation: number;
-  valueOffset: number;
-}
-
-interface VertexBufferInfo {
-  firstAttr: number;
-  step: number;
-  stride: number;
 }

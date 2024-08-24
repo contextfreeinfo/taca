@@ -7,7 +7,7 @@ pub const Bindings = struct {
 pub const Buffer = extern struct {};
 
 pub const BufferInfo = extern struct {
-    type: BufferType = .vertex,
+    kind: BufferType = .vertex,
     slice: BufferSlice,
 };
 
@@ -91,7 +91,7 @@ pub const RenderingContext = struct {
     }
 
     pub fn newBuffer(info: BufferInfo) *Buffer {
-        return taca_RenderingContext_newBuffer(info.type, &info.slice);
+        return taca_RenderingContext_newBuffer(info.kind, &info.slice);
     }
 
     pub fn newPipeline(info: PipelineInfo) *Pipeline {
@@ -275,7 +275,7 @@ extern fn taca_RenderingContext_endPass(
 ) void;
 
 extern fn taca_RenderingContext_newBuffer(
-    typ: BufferType,
+    kind: BufferType,
     info: *const BufferSlice,
 ) callconv(.C) *Buffer;
 
