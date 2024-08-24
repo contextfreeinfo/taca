@@ -120,6 +120,7 @@ class App {
       vertex[i] = buffers[getU32(view, vertexPtr + 4 * i) - 1];
     }
     this.binding = { index, vertex };
+    this.buffered = false;
   }
 
   binding: Binding | null = null;
@@ -175,13 +176,32 @@ class App {
     // If at least two buffers, presumes one is data and one index.
     const { binding, gl, pipeline } = this;
     // Vertex buffer.
-    const vertex = binding!.vertex[0];
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
-    const { stride } = pipeline!.buffers[0];
-    for (const attr of pipeline!.attributes) {
+    const attrs = pipeline!.attributes;
+    const vertexBuffers = binding!.vertex;
+    const vertexBufferInfos = pipeline!.buffers;
+    let vertexBufferIndex = -1;
+    let vertex: Buffer;
+    let vertexInfo: BufferInfo;
+    let nextAttrIndex = -1;
+    let stride = 0;
+    for (let a = 0; a < attrs.length; a += 1) {
+      if (a >= nextAttrIndex) {
+        // Move forward in buffers.
+        vertexBufferIndex += 1;
+        vertex = vertexBuffers[vertexBufferIndex];
+        vertexInfo = vertexBufferInfos[vertexBufferIndex];
+        nextAttrIndex =
+          vertexBufferInfos[vertexBufferIndex + 1]?.firstAttr ??
+          Number.MAX_SAFE_INTEGER;
+        // Work out drawing.
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+        stride = vertexInfo.stride;
+      }
+      const attr = attrs[a];
       const { loc, offset, size, type } = attr;
       gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, size, type, false, stride, offset);
+      gl.vertexAttribDivisor(loc, vertexInfo!.step ? 1 : 0);
     }
     // TODO Instance buffer.
     // Index buffer.
@@ -198,7 +218,13 @@ class App {
     // console.log(`draw(${itemBegin}, ${itemCount}, ${instanceCount})`);
     this.#bufferedEnsure();
     const { gl } = this;
-    gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
+    gl.drawElementsInstanced(
+      gl.TRIANGLES,
+      itemCount,
+      gl.UNSIGNED_SHORT,
+      itemBegin,
+      instanceCount
+    );
   }
 
   drawText(text: string, x: number, y: number) {
@@ -238,7 +264,7 @@ class App {
 
   frameCommit() {
     this.buffered = this.passBegun = false;
-    this.pipeline = null;
+    this.binding = this.pipeline = null;
   }
 
   frameCount: number = 0;
@@ -321,6 +347,7 @@ class App {
   }
 
   #pipelineBuild(pipelineInfo: PipelineInfo) {
+    // console.log(pipelineInfo);
     const { gl, pipelines, shaders } = this;
     const shaderMake = (info: ShaderInfo, stage: ShaderStage) =>
       shaderToGlsl(shaders[info.shader - 1], stage, info.entry);
@@ -337,6 +364,8 @@ class App {
       program,
       uniforms,
     });
+    // console.log(pipelineInfo);
+    // console.log(this.pipelines);
     return pipelineInfo;
   }
 
@@ -356,10 +385,7 @@ class App {
 
   pipelineNew(info: number) {
     let pipelineInfo = this.pipelineInfoRead(info);
-    console.log(pipelineInfo);
     pipelineInfo = this.#pipelineBuild(pipelineInfo);
-    console.log(pipelineInfo);
-    // console.log(this.pipelines);
     return this.pipelines.length;
   }
 
