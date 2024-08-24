@@ -107,8 +107,26 @@ class App {
     return result;
   }
 
+  bindingApply(bindingsPtr: number) {
+    const { buffers } = this;
+    // Minimize allocations because this is in the draw loop.
+    const view = this.memoryView();
+    const vertexPtr = getU32(view, bindingsPtr);
+    const vertexLen = getU32(view, bindingsPtr + 4);
+    const index = buffers[getU32(view, bindingsPtr + 8) - 1];
+    // TODO Predefine bindings to avoid allocations?
+    const vertex = new Array<Buffer>(vertexLen);
+    for (var i = 0; i < vertexLen; i += 1) {
+      vertex[i] = buffers[getU32(view, vertexPtr + 4 * i) - 1];
+    }
+    this.binding = { index, vertex };
+  }
+
+  binding: Binding | null = null;
+  bindingDefault: Binding | null = null;
+
   bufferNew(type: number, info: number) {
-    const infoBytes = this.memoryView(info, 2 * 4);
+    const infoBytes = this.memoryViewMake(info, 2 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
     // TODO Null ptr -> zero buffer for writing.
@@ -134,17 +152,50 @@ class App {
   #bufferedEnsure() {
     if (!this.buffered) {
       this.#pipelinedEnsure();
-      this.#buffersBind(this.pipeline!);
+      if (!this.binding) {
+        let { bindingDefault } = this;
+        if (!this.bindingDefault) {
+          const { buffers } = this;
+          const find = (kind: string) =>
+            buffers.find((buffer) => buffer.kind == kind) ?? fail();
+          this.bindingDefault = bindingDefault = {
+            index: find("index"),
+            vertex: [find("vertex")],
+          };
+        }
+        this.binding = bindingDefault;
+      }
+      this.#buffersBind();
     }
   }
 
   buffers: Buffer[] = [];
+
+  #buffersBind() {
+    // If at least two buffers, presumes one is data and one index.
+    const { binding, gl, pipeline } = this;
+    // Vertex buffer.
+    const vertex = binding!.vertex[0];
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+    const { stride } = pipeline!.buffers[0];
+    for (const attr of pipeline!.attributes) {
+      const { loc, offset, size, type } = attr;
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, size, type, false, stride, offset);
+    }
+    // TODO Instance buffer.
+    // Index buffer.
+    const index = binding!.index;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
+    this.buffered = true;
+  }
 
   canvas: HTMLCanvasElement;
 
   config: AppConfig;
 
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
+    // console.log(`draw(${itemBegin}, ${itemCount}, ${instanceCount})`);
     this.#bufferedEnsure();
     const { gl } = this;
     gl.drawElements(gl.TRIANGLES, itemCount, gl.UNSIGNED_SHORT, itemBegin);
@@ -225,17 +276,24 @@ class App {
 
   #memoryBuffer: ArrayBuffer | null = null;
   #memoryBufferBytes: Uint8Array | null = null;
+  #memoryBufferView: DataView | null = null;
 
   memoryBytes() {
     if (this.#memoryBuffer != this.memory.buffer) {
       // Either on first access or on internal reallocation.
       this.#memoryBuffer = this.memory.buffer;
       this.#memoryBufferBytes = new Uint8Array(this.#memoryBuffer);
+      this.#memoryBufferView = new DataView(this.#memoryBuffer);
     }
     return this.#memoryBufferBytes!;
   }
 
-  memoryView(ptr: number, len: number) {
+  memoryView() {
+    this.memoryBytes();
+    return this.#memoryBufferView!;
+  }
+
+  memoryViewMake(ptr: number, len: number) {
     return new DataView(this.memory.buffer, ptr, len);
   }
 
@@ -258,6 +316,8 @@ class App {
     let { gl, pipelines } = this;
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
     gl.useProgram(pipeline.program);
+    // Presume we need new buffer binding when the program changes.
+    this.buffered = false;
   }
 
   #pipelineBuild(pipelineInfo: PipelineInfo) {
@@ -277,7 +337,6 @@ class App {
       program,
       uniforms,
     });
-    this.#buffersBind(pipelines.at(-1)!);
     return pipelineInfo;
   }
 
@@ -300,12 +359,13 @@ class App {
     console.log(pipelineInfo);
     pipelineInfo = this.#pipelineBuild(pipelineInfo);
     console.log(pipelineInfo);
-    // const { gl } = this;
+    // console.log(this.pipelines);
+    return this.pipelines.length;
   }
 
   private pipelineInfoRead(info: number): PipelineInfo {
     // TODO Can wit-bindgen or flatbuffers automate some of this?
-    const infoView = this.memoryView(info, 10 * 4);
+    const infoView = this.memoryViewMake(info, 10 * 4);
     const readShaderInfo = (offset: number) => {
       return {
         entry: this.readString(infoView.byteOffset + offset),
@@ -315,7 +375,7 @@ class App {
     const pipelineInfo: PipelineInfo = {
       fragment: readShaderInfo(0 * 4),
       vertex: readShaderInfo(3 * 4),
-      vertexAttrs: this.readStructs(
+      vertexAttrs: this.readAny(
         info + 6 * 4,
         2 * 4,
         (view, offset): AttrInfo => ({
@@ -326,7 +386,7 @@ class App {
           type: 0,
         })
       ),
-      vertexBuffers: this.readStructs(
+      vertexBuffers: this.readAny(
         info + 8 * 4,
         3 * 4,
         (view, offset): BufferInfo => ({
@@ -343,6 +403,17 @@ class App {
 
   pointerPos: [x: number, y: number] = [0, 0];
 
+  readAny<T>(
+    spanPtr: number,
+    itemSize: number,
+    build: (view: DataView, offset: number) => T
+  ): T[] {
+    const view = dataViewOf(this.readBytes(spanPtr, itemSize));
+    return [...Array(view.byteLength / itemSize).keys()].map((i) =>
+      build(view, i * itemSize)
+    );
+  }
+
   readBytes(spanPtr: number, itemSize: number = 1) {
     // Can cache memory bytes when no app calls are being made.
     const memoryBytes = this.memoryBytes();
@@ -355,17 +426,6 @@ class App {
 
   readString(spanPtr: number) {
     return textDecoder.decode(this.readBytes(spanPtr));
-  }
-
-  readStructs<T>(
-    spanPtr: number,
-    itemSize: number,
-    build: (view: DataView, offset: number) => T
-  ): T[] {
-    const view = dataViewOf(this.readBytes(spanPtr, itemSize));
-    return [...Array(view.byteLength / itemSize).keys()].map((i) =>
-      build(view, i * itemSize)
-    );
   }
 
   resizeCanvas() {
@@ -527,28 +587,6 @@ class App {
     return { count, size, tacaIndex, tacaSize };
   }
 
-  #buffersBind(pipeline: Pipeline) {
-    // If at least two buffers, presumes one is data and one index.
-    const { buffers, gl } = this;
-    if (buffers.length >= 2) {
-      // Vertex buffer.
-      const vertex =
-        buffers.find((buffer) => buffer.kind == "vertex") ?? fail();
-      gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
-      const { stride } = pipeline.buffers[0];
-      for (const attr of pipeline.attributes) {
-        const { loc, offset, size, type } = attr;
-        gl.enableVertexAttribArray(loc);
-        gl.vertexAttribPointer(loc, size, type, false, stride, offset);
-      }
-      // TODO Instance buffer.
-      // Index buffer.
-      const index = buffers.find((buffer) => buffer.kind == "index") ?? fail();
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
-      this.buffered = true;
-    }
-  }
-
   vertexBuffer: Buffer | null = null;
 }
 
@@ -563,6 +601,12 @@ interface AttrInfo {
   offset: number;
   size: number;
   type: number;
+}
+
+interface Binding {
+  // TODO images/textures
+  index: Buffer;
+  vertex: Buffer[];
 }
 
 interface Buffer {
@@ -624,10 +668,10 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
 function makeAppEnv(app: App) {
   return {
     taca_RenderingContext_applyBindings(bindings: number) {
-      // TODO Bindings
+      app.bindingApply(bindings);
     },
     taca_RenderingContext_applyPipeline(pipeline: number) {
-      // TODO Pipeline
+      app.pipelineApply(pipeline);
     },
     taca_RenderingContext_applyUniforms(uniforms: number) {
       app.uniformsApply(uniforms);
@@ -677,7 +721,7 @@ function makeAppEnv(app: App) {
       // TODO Include time.
       const { clientWidth, clientHeight } = app.canvas;
       const [pointerX, pointerY] = app.pointerPos;
-      const view = app.memoryView(result, 4 * 4);
+      const view = app.memoryViewMake(result, 4 * 4);
       setF32(view, 0, pointerX);
       setF32(view, 4, pointerY);
       setF32(view, 8, clientWidth);

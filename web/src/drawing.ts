@@ -57,15 +57,15 @@ export class TexturePipeline {
       size[1],
     ]);
     gl.useProgram(program);
+    gl.bindBuffer(gl.UNIFORM_BUFFER, drawInfoBuffer);
+    gl.bufferData(gl.UNIFORM_BUFFER, drawInfoArray, gl.STREAM_DRAW);
+    gl.bindBufferBase(gl.UNIFORM_BUFFER, textureArrayBinding, drawInfoBuffer);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(sampler, 0);
     // For fixed system things, vertex array objects are probably fine.
     gl.bindVertexArray(vertexArray);
     try {
-      gl.bindBuffer(gl.UNIFORM_BUFFER, drawInfoBuffer);
-      gl.bufferData(gl.UNIFORM_BUFFER, drawInfoArray, gl.STREAM_DRAW);
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, textureArrayBinding, drawInfoBuffer);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.uniform1i(sampler, 0);
       gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     } finally {
       gl.bindVertexArray(null);
