@@ -1,10 +1,11 @@
 PUB_DIR=../../../web/public/apps/c3
 
-dxc -T vs_6_0 -E vertex_main -spirv -Fo build/vertex.spv src/shader.hlsl && \
-dxc -T ps_6_0 -E fragment_main -spirv -Fo build/fragment.spv src/shader.hlsl && \
+mkdir -p out && \
+dxc -T vs_6_0 -E vertex_main -spirv -Fo out/vertex.spv src/shader.hlsl && \
+dxc -T ps_6_0 -E fragment_main -spirv -Fo out/fragment.spv src/shader.hlsl && \
 c3c compile --reloc=none --target wasm32 -g0 --link-libc=no --no-entry -Os \
-    src/*.c3 --output-dir build && \
-wasm-opt -Os build/out.wasm -o build/out.opt.wasm && \
-lz4 -f9 build/out.opt.wasm build/fly.taca && \
+    src/*.c3 --output-dir out && \
+wasm-opt -Os out/out.wasm -o out/out.opt.wasm && \
+lz4 -f9 out/out.opt.wasm out/fly.taca && \
 mkdir -p $PUB_DIR && \
-cp build/fly.taca $PUB_DIR/
+cp out/fly.taca $PUB_DIR/
