@@ -1,8 +1,7 @@
-module fly;
-import std::io;
-
-fn int main(String[] args)
+fn void main() @export("_start")
 {
-	io::printn("Hi there!");
-	return 0;
+}
+
+fn void listen(int event) @export("listen")
+{
 }
