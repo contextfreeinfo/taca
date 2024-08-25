@@ -13,20 +13,13 @@ fn void main() @public @export("_start")
     Shader* vertex = taca::shader_new($embed("../out/vertex.spv"));
     taca::buffer_new(INDEX, { &PLAYER_INDEX, $sizeof(PLAYER_INDEX) });
     taca::buffer_new(VERTEX, { &PLAYER_VERTEX, $sizeof(PLAYER_VERTEX) });
+    taca::pipeline_new({
+        .fragment = { .shader = fragment },
+        .vertex = { .shader = vertex },
+    });
 }
 
 fn void listen(int event) @public @export("listen")
 {
+    taca::draw(0, PLAYER_INDEX.len, 1);
 }
-
-const short[*] PLAYER_INDEX =
-{
-    0, 1, 2,
-};
-
-const float[*] PLAYER_VERTEX =
-{
-    0, 1, 0, 0,
-    1, -1, 0, 0,
-    -1, -1, 0, 0,
-};

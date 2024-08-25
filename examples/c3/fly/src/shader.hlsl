@@ -1,5 +1,5 @@
 struct VSInput {
-    float4 position : POSITION;
+    float3 position : POSITION;
 };
 
 struct PSInput {
@@ -8,7 +8,7 @@ struct PSInput {
 
 PSInput vertex_main(VSInput input) {
     PSInput output;
-    output.position = input.position;
+    output.position = float4(input.position, 1);
     return output;
 }
 

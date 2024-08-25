@@ -17,10 +17,10 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        bindings_apply, buffered_ensure, create_buffer, create_pipeline, end_pass, frame_commit,
-        pass_ensure, pipeline_apply, pipelined_ensure, shader_create, uniforms_apply, Bindings,
-        Buffer, BufferSlice, ExternBindings, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo,
-        RenderFrame, Shader, Span,
+        bindings_apply, bound_ensure, buffered_ensure, create_buffer, create_pipeline, end_pass,
+        frame_commit, pass_ensure, pipeline_apply, pipelined_ensure, shader_create, uniforms_apply,
+        Bindings, Buffer, BufferSlice, ExternBindings, ExternPipelineInfo, PipelineInfo,
+        PipelineShaderInfo, RenderFrame, Shader, Span,
     },
     text::TextEngine,
 };
@@ -211,6 +211,7 @@ fn taca_RenderingContext_draw(
     pipelined_ensure(system);
     // TODO Actually ensure we got buffers?
     buffered_ensure(system);
+    bound_ensure(system);
     let Some(RenderFrame {
         pass: Some(pass), ..
     }) = &mut system.frame

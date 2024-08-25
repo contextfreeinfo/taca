@@ -72,6 +72,7 @@ pub struct PipelineShaderInfo {
 }
 
 pub struct RenderFrame {
+    pub bound: bool,
     pub buffered: bool,
     pub encoder: CommandEncoder,
     pub frame: SurfaceTexture,
@@ -137,6 +138,18 @@ pub fn bindings_apply(system: &mut System, bindings: Bindings) {
         );
     }
     frame.buffered = true;
+}
+
+pub fn bound_ensure(system: &mut System) {
+    pass_ensure(system);
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    if frame.bound {
+        return;
+    }
+    // We apparently need something bound, and neither size 0 nor 1 works.
+    uniforms_apply(system, &[0; 4]);
 }
 
 pub fn buffered_ensure(system: &mut System) {
@@ -332,6 +345,7 @@ pub fn pass_ensure(system: &mut System) {
         let view = frame.texture.create_view(&view_descriptor);
         let encoder = gfx.device.create_command_encoder(&Default::default());
         system.frame = Some(RenderFrame {
+            bound: false,
             buffered: false,
             encoder,
             frame,
@@ -467,6 +481,7 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
         return;
     };
     pass.set_bind_group(0, system.uniforms_bind_group.as_ref().unwrap(), &[]);
+    frame.bound = true;
 }
 
 fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {

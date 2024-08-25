@@ -84,6 +84,7 @@ class App {
         {
           [gl.FLOAT]: [1, gl.FLOAT],
           [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+          [gl.FLOAT_VEC3]: [3, gl.FLOAT],
           [gl.FLOAT_VEC4]: [4, gl.FLOAT],
         }[info.type] ?? fail();
       const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
