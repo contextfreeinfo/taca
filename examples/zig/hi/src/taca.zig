@@ -7,7 +7,7 @@ pub const Bindings = struct {
 pub const Buffer = extern struct {};
 
 pub const BufferInfo = extern struct {
-    kind: BufferType = .vertex,
+    kind: BufferKind = .vertex,
     slice: BufferSlice,
 };
 
@@ -22,7 +22,7 @@ pub const BufferSlice = extern struct {
     }
 };
 
-pub const BufferType = enum(c_int) {
+pub const BufferKind = enum(c_int) {
     vertex,
     index,
 };
@@ -275,7 +275,7 @@ extern fn taca_RenderingContext_endPass(
 ) void;
 
 extern fn taca_RenderingContext_newBuffer(
-    kind: BufferType,
+    kind: BufferKind,
     info: *const BufferSlice,
 ) callconv(.C) *Buffer;
 
