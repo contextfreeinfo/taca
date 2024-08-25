@@ -5,6 +5,10 @@ fn void main() @public @export("_start")
 {
     taca::print("Hi from C3!");
     taca::title_set("Flyin'");
+    // Using string formatting completely hangs the browser tab.
+    // Don't know why yet.
+    // string::new_format("hi");
+    // taca::print(string::new_format("hi"));
     Shader* fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader* vertex = taca::shader_new($embed("../out/vertex.spv"));
     taca::buffer_new(INDEX, { &PLAYER_INDEX, $sizeof(PLAYER_INDEX) });
