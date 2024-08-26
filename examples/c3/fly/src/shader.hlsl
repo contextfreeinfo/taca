@@ -13,5 +13,5 @@ PSInput vertex_main(VSInput input) {
 }
 
 float4 fragment_main(PSInput input) : SV_TARGET {
-    return float4(0.0, 1.0, 0.0, 1.0);
+    return float4(0, 1, 0, 1);
 }

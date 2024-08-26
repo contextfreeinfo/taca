@@ -8,12 +8,12 @@ extern fn void draw(
     uint instance_count,
 ) @extern("taca_RenderingContext_draw");
 
-extern fn Shader* buffer_new(
+extern fn Buffer buffer_new(
     BufferKind kind,
     SliceRaw slice,
 ) @extern("taca_RenderingContext_newBuffer");
 
-extern fn Pipeline* pipeline_new(
+extern fn Pipeline pipeline_new(
     PipelineInfo info,
 ) @extern("taca_RenderingContext_newPipeline");
 
@@ -21,7 +21,7 @@ extern fn void print(
     char[] text,
 ) @extern("taca_Window_print");
 
-extern fn Shader* shader_new(
+extern fn Shader shader_new(
     char[] bytes,
 ) @extern("taca_RenderingContext_newShader");
 
@@ -37,7 +37,7 @@ struct AttributeInfo
     usz value_offset;
 }
 
-distinct Buffer = void;
+distinct Buffer = void*;
 
 struct BufferInfo
 {
@@ -52,7 +52,7 @@ enum BufferKind : uint
     INDEX,
 }
 
-distinct Pipeline = void;
+distinct Pipeline = void*;
 
 struct PipelineInfo
 {
@@ -65,10 +65,10 @@ struct PipelineInfo
 struct PipelineShaderInfo
 {
     char[] entry;
-    Shader* shader;
+    Shader shader;
 }
 
-distinct Shader = void;
+distinct Shader = void*;
 
 enum Step : uint
 {

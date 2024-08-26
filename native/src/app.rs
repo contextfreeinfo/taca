@@ -106,6 +106,13 @@ impl App {
     pub fn start(&mut self, graphics: &Graphics) {
         let system = self.env.as_mut(&mut self.store);
         system.text = Some(Arc::new(Mutex::new(TextEngine::new(graphics))));
+        // TODO I think should be either _initialize *or* _start that we call,
+        // TODO but C3 makes only an _initialize, so I have to manually export
+        // TODO _start there, which doesn't call _initialize, so maybe call
+        // TODO both? Presumably no language will generate both on its own.
+        // if let Ok(initialize) = self.instance.exports.get_function("_initialize") {
+        //     initialize.call(&mut self.store, &[]).unwrap();
+        // }
         let start = self.instance.exports.get_function("_start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
