@@ -618,6 +618,7 @@ class App {
 }
 
 interface AppExports {
+  _initialize: (() => void) | undefined;
   listen: ((event: number) => void) | undefined;
   _start: () => void;
 }
@@ -670,6 +671,9 @@ async function loadApp(config: AppConfig) {
   app.init(instance);
   // TODO Fold config into start once we get fully off miniquad.
   const exports = app.exports;
+  if (exports._initialize) {
+    exports._initialize();
+  }
   exports._start();
   if (exports.listen) {
     const update = () => {

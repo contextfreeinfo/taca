@@ -110,9 +110,9 @@ impl App {
         // TODO but C3 makes only an _initialize, so I have to manually export
         // TODO _start there, which doesn't call _initialize, so maybe call
         // TODO both? Presumably no language will generate both on its own.
-        // if let Ok(initialize) = self.instance.exports.get_function("_initialize") {
-        //     initialize.call(&mut self.store, &[]).unwrap();
-        // }
+        if let Ok(initialize) = self.instance.exports.get_function("_initialize") {
+            initialize.call(&mut self.store, &[]).unwrap();
+        }
         let start = self.instance.exports.get_function("_start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }

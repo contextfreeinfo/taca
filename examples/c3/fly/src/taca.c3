@@ -29,6 +29,10 @@ extern fn void title_set(
     char[] title,
 ) @extern("taca_Window_setTitle");
 
+extern fn void uniforms_set(
+    SliceRaw slice,
+) @extern("taca_RenderingContext_applyUniforms");
+
 // Types
 
 struct AttributeInfo
