@@ -4,7 +4,7 @@ const window = taca.Window;
 
 const title = "Hi from Zig!";
 
-pub fn main() void {
+export fn start() void {
     window.setTitle(title);
     window.print(title);
     const y = @sqrt(3.0) / 4.0;
@@ -23,7 +23,7 @@ pub fn main() void {
     stage = .{};
 }
 
-export fn listen(event: taca.EventKind) void {
+export fn update(event: taca.EventKind) void {
     // TODO Branch on event kind.
     _ = event;
     const state = window.state();

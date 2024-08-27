@@ -27,7 +27,7 @@ use crate::{
 
 pub struct App {
     pub env: FunctionEnv<System>,
-    listen: Function,
+    update: Function,
     pub instance: Instance,
     pub store: Store,
 }
@@ -63,19 +63,19 @@ impl App {
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-        let listen = instance.exports.get_function("listen").unwrap().clone();
+        let update = instance.exports.get_function("update").unwrap().clone();
         let app = env.as_mut(&mut store);
         app.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
         App {
             env,
             instance,
-            listen,
+            update,
             store,
         }
     }
 
     pub fn listen(&mut self) {
-        self.listen.call(&mut self.store, &[Value::I32(0)]).unwrap();
+        self.update.call(&mut self.store, &[Value::I32(0)]).unwrap();
         let system = self.env.as_mut(&mut self.store);
         frame_commit(system);
     }
@@ -113,7 +113,7 @@ impl App {
         if let Ok(initialize) = self.instance.exports.get_function("_initialize") {
             initialize.call(&mut self.store, &[]).unwrap();
         }
-        let start = self.instance.exports.get_function("_start").unwrap();
+        let start = self.instance.exports.get_function("start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
 }

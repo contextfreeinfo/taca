@@ -619,8 +619,8 @@ class App {
 
 interface AppExports {
   _initialize: (() => void) | undefined;
-  listen: ((event: number) => void) | undefined;
-  _start: () => void;
+  start: () => void;
+  update: ((event: number) => void) | undefined;
 }
 
 interface AttrInfo {
@@ -674,11 +674,11 @@ async function loadApp(config: AppConfig) {
   if (exports._initialize) {
     exports._initialize();
   }
-  exports._start();
-  if (exports.listen) {
+  exports.start();
+  if (exports.update) {
     const update = () => {
       try {
-        exports.listen!(0);
+        exports.update!(0);
       } finally {
         app.frameEnd();
       }

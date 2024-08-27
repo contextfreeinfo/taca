@@ -2,12 +2,11 @@ module fly @private;
 import std::math;
 import taca;
 
-fn void main() @public @export("_start")
+fn void start() @export("start")
 {
     taca::print("Hi from C3!");
     taca::title_set("Flyin'");
-    // Getting closer to working here.
-    taca::print(string::tformat("(%s)", 123));
+    taca::print(string::tformat("===> %s <===", 30));
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));
     taca::buffer_new(INDEX, { &PLAYER_INDEX, $sizeof(PLAYER_INDEX) });
@@ -18,7 +17,7 @@ fn void main() @public @export("_start")
     });
 }
 
-fn void listen(int event) @public @export("listen")
+fn void update(int event) @export("update")
 {
     float fov = (float)math::deg_to_rad(45);
     Uniforms uniforms = {
