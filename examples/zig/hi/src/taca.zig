@@ -174,7 +174,6 @@ pub const Window = extern struct {
 };
 
 pub const WindowState = extern struct {
-    // TODO Should size be integer?
     pointer: [2]f32,
     size: [2]f32,
 };

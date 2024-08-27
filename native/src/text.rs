@@ -12,7 +12,30 @@ use crate::{
     gpu::RenderFrame,
 };
 
+pub struct Font {
+    pub color: Color,
+    pub name: String,
+    pub size: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum TextAlignX {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum TextAlignY {
+    Baseline,
+    Top,
+    Middle,
+    Bottom,
+}
+
 pub struct TextEngine {
+    pub align_x: TextAlignX,
+    pub align_y: TextAlignY,
     pub atlas: TextAtlas,
     pub attrs: Arc<Attrs<'static>>,
     pub buffer: Buffer,
@@ -23,12 +46,6 @@ pub struct TextEngine {
     pub viewport: Viewport,
 }
 
-pub struct Font {
-    pub color: Color,
-    pub name: String,
-    pub size: f32,
-}
-
 impl TextEngine {
     pub fn new(gfx: &Graphics) -> Self {
         let cache = Cache::new(&gfx.device);
@@ -37,6 +54,8 @@ impl TextEngine {
             TextRenderer::new(&mut atlas, &gfx.device, MultisampleState::default(), None);
         let viewport = Viewport::new(&gfx.device, &cache);
         Self {
+            align_x: TextAlignX::Left,
+            align_y: TextAlignY::Baseline,
             atlas,
             attrs: Arc::new(Attrs::new().family(Family::SansSerif)),
             buffer: Buffer::new_empty(Metrics::new(30.0, 40.0)),
@@ -56,6 +75,8 @@ impl TextEngine {
         // Pretend we're static since we actually do outlive the pass.
         let static_self: &'static mut Self = unsafe { &mut *(self as *mut _) };
         let Self {
+            align_x,
+            align_y,
             ref mut atlas,
             attrs,
             buffer,
@@ -100,6 +121,7 @@ impl TextEngine {
                 height: size.height,
             },
         );
+        // dbg!(&align_x, &align_y);
         text_renderer
             .prepare(
                 &device,
@@ -109,8 +131,19 @@ impl TextEngine {
                 &viewport,
                 [TextArea {
                     buffer: &buffer,
-                    left: x - text_size.0 * 0.5,
-                    top: y - text_size.1 * 0.5,
+                    left: x - text_size.0
+                        * match align_x {
+                            TextAlignX::Left => 0.0,
+                            TextAlignX::Center => 0.5,
+                            TextAlignX::Right => 1.0,
+                        },
+                    top: y - text_size.1
+                        * match align_y {
+                            TextAlignY::Top => 0.0,
+                            TextAlignY::Middle => 0.5,
+                            // TODO Baseline.
+                            TextAlignY::Baseline | TextAlignY::Bottom => 1.0,
+                        },
                     scale: 1.0,
                     bounds: TextBounds {
                         left: 0,
@@ -150,6 +183,23 @@ fn adjust_metrics(buffer: &mut Buffer, font: &Font, font_system: &mut FontSystem
     let height = font.size * max_height;
     return (width, height);
     // buffer.set_metrics(font_system, Metrics::new(font.size / max_height, font_size * 1.5));
+}
+
+pub fn to_text_align_x(x: u32) -> TextAlignX {
+    match x {
+        1 => TextAlignX::Center,
+        2 => TextAlignX::Right,
+        _ => TextAlignX::Left,
+    }
+}
+
+pub fn to_text_align_y(y: u32) -> TextAlignY {
+    match y {
+        1 => TextAlignY::Top,
+        2 => TextAlignY::Middle,
+        3 => TextAlignY::Bottom,
+        _ => TextAlignY::Baseline,
+    }
 }
 
 const DEFAULT_TEXT: &str = "The quick brown fox jumped over the yellow dog.";

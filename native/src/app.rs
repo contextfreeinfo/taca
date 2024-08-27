@@ -22,7 +22,7 @@ use crate::{
         Bindings, Buffer, BufferSlice, ExternBindings, ExternPipelineInfo, PipelineInfo,
         PipelineShaderInfo, RenderFrame, Shader, Span,
     },
-    text::TextEngine,
+    text::{to_text_align_x, to_text_align_y, TextEngine},
 };
 
 pub struct App {
@@ -60,6 +60,7 @@ impl App {
                 "taca_Window_print" => Function::new_typed_with_env(&mut store, &env, taca_Window_print),
                 "taca_Window_setTitle" => Function::new_typed_with_env(&mut store, &env, taca_Window_setTitle),
                 "taca_Window_state" => Function::new_typed_with_env(&mut store, &env, taca_Window_state),
+                "taca_textAlign" => Function::new_typed_with_env(&mut store, &env, taca_textAlign),
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
@@ -236,6 +237,14 @@ fn taca_RenderingContext_drawText(mut env: FunctionEnvMut<System>, text: u32, x:
     pass_ensure(system);
     let text_engine = system.text.clone().unwrap();
     text_engine.lock().unwrap().draw(system, &text, x, y);
+}
+
+fn taca_textAlign(mut env: FunctionEnvMut<System>, x: u32, y: u32) {
+    let system = env.data_mut();
+    let text_engine = system.text.clone().unwrap();
+    let mut text_engine = text_engine.lock().unwrap();
+    text_engine.align_x = to_text_align_x(x);
+    text_engine.align_y = to_text_align_y(y);
 }
 
 fn taca_RenderingContext_drawTexture(

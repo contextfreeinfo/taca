@@ -25,6 +25,11 @@ extern fn Shader shader_new(
     char[] bytes,
 ) @extern("taca_RenderingContext_newShader");
 
+extern fn void text_align(
+    TextAlignX x,
+    TextAlignY y,
+) @extern("taca_textAlign");
+
 extern fn void text_draw(
     char[] bytes,
     float x,
@@ -38,6 +43,10 @@ extern fn void title_set(
 extern fn void uniforms_set(
     SliceRaw slice,
 ) @extern("taca_RenderingContext_applyUniforms");
+
+extern fn WindowState window_state(
+    // Nothing
+) @extern("taca_Window_state");
 
 // Types
 
@@ -84,4 +93,25 @@ enum Step : uint
 {
     VERTEX,
     INSTANCE,
+}
+
+enum TextAlignX : uint
+{
+    LEFT,
+    CENTER,
+    RIGHT,
+}
+
+enum TextAlignY : uint
+{
+    BASELINE,
+    TOP,
+    MIDDLE,
+    BOTTOM,
+}
+
+struct WindowState
+{
+    float[2] pointer;
+    float[2] size;
 }

@@ -21,6 +21,8 @@ fn void start() @export("start")
 
 fn void update(int event) @export("update")
 {
+    WindowState window = taca::window_state();
+    game.score = (int)window.size[0];
     float fov = (float)math::deg_to_rad(45);
     // TODO Do we want up fixed or based on some rotation angle?
     Vec3f up = { 1, 1, 0 };
@@ -31,8 +33,12 @@ fn void update(int event) @export("update")
     };
     taca::uniforms_set({ &uniforms, $sizeof(uniforms) });
     taca::draw(0, PLAYER_INDEX.len, 1);
-    // TODO Left and right justification for text.
-    taca::text_draw(string::tformat("Score: %s", game.score), 100, 20);
+    // Stats
+    taca::text_align(LEFT, TOP);
+    taca::text_draw(string::tformat("Score: %s", game.score), 10, 10);
+    taca::text_align(RIGHT, TOP);
+    float right = window.size[0] - 10;
+    taca::text_draw(string::tformat("Time: %d", window.size[1]), right, 10);
 }
 
 Game game;

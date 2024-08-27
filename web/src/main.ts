@@ -236,6 +236,31 @@ class App {
       this.textTexture = this.textDraw(text, this.textTexture || undefined);
       this.textTextureText = text;
     }
+    const {
+      size: [sizeX, sizeY],
+    } = this.textures[this.textTexture - 1];
+    const [alignX, alignY] = this.textAlignVals;
+    // TODO Other alignments.
+    switch (alignX) {
+      case "left": {
+        x += sizeX / 2;
+        break;
+      }
+      case "right": {
+        x -= sizeX / 2;
+        break;
+      }
+    }
+    switch (alignY) {
+      case "bottom": {
+        y -= sizeY / 2;
+        break;
+      }
+      case "top": {
+        y += sizeY / 2;
+        break;
+      }
+    }
     this.drawTexture(this.textTexture, x, y);
   }
 
@@ -489,6 +514,16 @@ class App {
     }
   }
 
+  textAlign(x: number, y: number) {
+    this.textAlignVals = [
+      ([undefined, "center", "right"][x] ?? "left") as CanvasTextAlign,
+      ([undefined, "top", "middle", "bottom"][y] ??
+        "alphabetic") as CanvasTextBaseline,
+    ];
+  }
+
+  textAlignVals: [CanvasTextAlign, CanvasTextBaseline] = ["left", "alphabetic"];
+
   textDraw(text: string, textureIndex?: number) {
     const { gl, offscreen, offscreenContext, textures } = this;
     const font = "30px sans-serif";
@@ -725,6 +760,9 @@ function makeAppEnv(app: App) {
     taca_RenderingContext_drawText(text: number, x: number, y: number) {
       app.drawText(app.readString(text), x, y);
     },
+    taca_textAlign(x: number, y: number) {
+      app.textAlign(x, y);
+    },
     taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
       // TODO Source and dest rect? Instanced?
       app.drawTexture(texture, x, y);
@@ -811,6 +849,7 @@ interface ShaderInfo {
 const textDecoder = new TextDecoder();
 
 interface Texture {
+  // TODO Also store a baseline for all textures that for non-text is y size.
   size: [number, number];
   texture: WebGLTexture;
   usedSize: [number, number];
