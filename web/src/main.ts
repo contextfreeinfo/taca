@@ -6,7 +6,7 @@ import {
   shaderToGlsl,
   ShaderStage,
 } from "../pkg/cana";
-import { TexturePipeline, shaderProgramBuild } from "./drawing";
+import { TexturePipeline, fragmentMunge, shaderProgramBuild } from "./drawing";
 import { fail } from "./util";
 
 export interface AppConfig {
@@ -353,7 +353,9 @@ class App {
     const shaderMake = (info: ShaderInfo, stage: ShaderStage) =>
       shaderToGlsl(shaders[info.shader - 1], stage, info.entry);
     const vertex = shaderMake(pipelineInfo.vertex, ShaderStage.Vertex);
-    const fragment = shaderMake(pipelineInfo.fragment, ShaderStage.Fragment);
+    const fragment = fragmentMunge(
+      shaderMake(pipelineInfo.fragment, ShaderStage.Fragment)
+    );
     // console.log(vertex);
     // console.log(fragment);
     const program = shaderProgramBuild(gl, vertex, fragment);
@@ -474,6 +476,8 @@ class App {
     if (this.tacaBuffer) {
       const { gl } = this;
       for (const pipeline of this.pipelines) {
+        // This helps flip the y axis to match wgpu.
+        // TODO Instead render to texture then flip the texture.
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.tacaBuffer);
         const tacaBytes = new Uint8Array(pipeline.uniforms.tacaSize);
         const tacaView = new DataView(tacaBytes.buffer);

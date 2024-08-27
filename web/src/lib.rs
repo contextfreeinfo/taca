@@ -60,28 +60,8 @@ pub fn shader_to_glsl(shader: &Shader, stage: ShaderStage, entry_point: &str) ->
     );
     match stage {
         ShaderStage::Vertex => glsl,
-        ShaderStage::Fragment => munge_fragment(&glsl),
+        ShaderStage::Fragment => glsl,
     }
-}
-
-fn munge_fragment(glsl: &str) -> String {
-    // TODO Move this munging to js?
-    let mut result = String::new();
-    for line in glsl.split('\n') {
-        if line.starts_with("uniform ") {
-            // Put in our own uniform first.
-            result.push_str("struct taca_uniform_struct { vec2 size; };\n");
-            result.push_str("uniform taca_uniform_block { taca_uniform_struct taca; };\n");
-        }
-        // TODO Ensure word boundaries! Or figure out how to modify naga modules directly.
-        let line = line.replace(
-            "gl_FragCoord",
-            "vec4(gl_FragCoord.x, taca.size.y - gl_FragCoord.y, gl_FragCoord.zw)",
-        );
-        result.push_str(&line);
-        result.push('\n');
-    }
-    result
 }
 
 fn translate_to_glsl(

@@ -1,7 +1,7 @@
 cbuffer Uniforms : register(b0)
 {
-    matrix view;
-    matrix proj;
+    float4x4 view;
+    float4x4 proj;
 };
 
 struct VSInput

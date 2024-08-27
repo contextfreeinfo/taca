@@ -25,6 +25,12 @@ extern fn Shader shader_new(
     char[] bytes,
 ) @extern("taca_RenderingContext_newShader");
 
+extern fn void text_draw(
+    char[] bytes,
+    float x,
+    float y,
+) @extern("taca_RenderingContext_drawText");
+
 extern fn void title_set(
     char[] title,
 ) @extern("taca_Window_setTitle");

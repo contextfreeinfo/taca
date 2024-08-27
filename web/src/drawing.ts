@@ -80,6 +80,20 @@ export class TexturePipeline {
   vertexArray: WebGLVertexArrayObject;
 }
 
+export function fragmentMunge(glsl: string) {
+  // This helps flip the y axis to match wgpu.
+  // TODO Instead render to texture then flip the texture.
+  const bonus = [
+    "struct taca_uniform_struct { vec2 size; };",
+    "uniform taca_uniform_block { taca_uniform_struct taca; };",
+  ].join("\n");
+  glsl = glsl.replace(/((?:^precision [^;]+;\n){2})/m, `$1${bonus}\n`);
+  const inverted =
+    "vec4(gl_FragCoord.x, taca.size.y - gl_FragCoord.y, gl_FragCoord.zw)";
+  glsl = glsl.replace(/gl_FragCoord/g, inverted);
+  return glsl;
+}
+
 export function shaderProgramBuild(
   gl: WebGL2RenderingContext,
   vertex: string,
