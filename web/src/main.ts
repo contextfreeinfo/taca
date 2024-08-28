@@ -237,7 +237,7 @@ class App {
       this.textTextureText = text;
     }
     const {
-      size: [sizeX, sizeY],
+      usedSize: [sizeX, sizeY],
     } = this.textures[this.textTexture - 1];
     const [alignX, alignY] = this.textAlignVals;
     // TODO Other alignments.
@@ -252,6 +252,7 @@ class App {
       }
     }
     switch (alignY) {
+      case "alphabetic":
       case "bottom": {
         y -= sizeY / 2;
         break;

@@ -121,7 +121,20 @@ impl TextEngine {
                 height: size.height,
             },
         );
-        // dbg!(&align_x, &align_y);
+        let left = x - text_size.0
+            * match align_x {
+                TextAlignX::Left => 0.0,
+                TextAlignX::Center => 0.5,
+                TextAlignX::Right => 1.0,
+            };
+        let top = y - text_size.1
+            * match align_y {
+                TextAlignY::Top => 0.0,
+                TextAlignY::Middle => 0.5,
+                // TODO Baseline.
+                TextAlignY::Baseline | TextAlignY::Bottom => 1.0,
+            };
+        // dbg!(&align_x, &align_y, left, top);
         text_renderer
             .prepare(
                 &device,
@@ -131,19 +144,8 @@ impl TextEngine {
                 &viewport,
                 [TextArea {
                     buffer: &buffer,
-                    left: x - text_size.0
-                        * match align_x {
-                            TextAlignX::Left => 0.0,
-                            TextAlignX::Center => 0.5,
-                            TextAlignX::Right => 1.0,
-                        },
-                    top: y - text_size.1
-                        * match align_y {
-                            TextAlignY::Top => 0.0,
-                            TextAlignY::Middle => 0.5,
-                            // TODO Baseline.
-                            TextAlignY::Baseline | TextAlignY::Bottom => 1.0,
-                        },
+                    left,
+                    top,
                     scale: 1.0,
                     bounds: TextBounds {
                         left: 0,
