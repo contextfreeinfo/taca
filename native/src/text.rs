@@ -41,17 +41,16 @@ pub struct TextEngine {
     pub buffer: Buffer,
     pub font: Font,
     pub font_system: FontSystem,
+    pub renderer_index: usize,
+    pub renderers: Vec<TextRenderer>,
     pub swash_cache: SwashCache,
-    pub text_renderer: TextRenderer,
     pub viewport: Viewport,
 }
 
 impl TextEngine {
     pub fn new(gfx: &Graphics) -> Self {
         let cache = Cache::new(&gfx.device);
-        let mut atlas = TextAtlas::new(&gfx.device, &gfx.queue, &cache, TextureFormat::Bgra8Unorm);
-        let text_renderer =
-            TextRenderer::new(&mut atlas, &gfx.device, MultisampleState::default(), None);
+        let atlas = TextAtlas::new(&gfx.device, &gfx.queue, &cache, TextureFormat::Bgra8Unorm);
         let viewport = Viewport::new(&gfx.device, &cache);
         Self {
             align_x: TextAlignX::Left,
@@ -65,12 +64,15 @@ impl TextEngine {
                 size: 30.0,
             },
             font_system: FontSystem::new(),
+            renderer_index: 0,
+            renderers: vec![],
             swash_cache: SwashCache::new(),
-            text_renderer,
             viewport,
         }
     }
 
+    /// Note that text rendering currently is cpu expensive and slowly leaks
+    /// memory. Not sure why the leak.
     pub fn draw(&mut self, system: &mut System, text: &str, x: f32, y: f32) {
         // Pretend we're static since we actually do outlive the pass.
         let static_self: &'static mut Self = unsafe { &mut *(self as *mut _) };
@@ -82,10 +84,13 @@ impl TextEngine {
             buffer,
             ref font,
             ref mut font_system,
+            renderer_index,
+            ref mut renderers,
             ref mut swash_cache,
-            text_renderer,
             viewport,
         } = static_self;
+        let renderer_index = *renderer_index;
+        static_self.renderer_index += 1;
         let Some(RenderFrame {
             pass: Some(ref mut pass),
             ..
@@ -102,6 +107,12 @@ impl TextEngine {
         else {
             panic!()
         };
+        if renderer_index == renderers.len() {
+            let text_renderer =
+                TextRenderer::new(atlas, &device, MultisampleState::default(), None);
+            renderers.push(text_renderer);
+        }
+        let text_renderer = &mut renderers[renderer_index];
         // Metrics
         let metrics_text = match text.len() {
             0 => DEFAULT_TEXT,

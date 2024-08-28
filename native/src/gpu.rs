@@ -330,9 +330,17 @@ pub fn frame_commit(system: &mut System) {
     // dbg!(&command_buffer);
     gfx.queue.submit([command_buffer]);
     frame.frame.present();
+    if let Some(text) = &system.text {
+        let mut text = text.lock().unwrap();
+        text.renderer_index = 0;
+    }
 }
 
 pub fn pass_ensure(system: &mut System) {
+    pass_ensure_load(system, wgpu::LoadOp::Clear(wgpu::Color::BLACK));
+}
+
+pub fn pass_ensure_load(system: &mut System, load: wgpu::LoadOp<wgpu::Color>) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;
     };
@@ -367,7 +375,7 @@ pub fn pass_ensure(system: &mut System) {
             view,
             resolve_target: None,
             ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                load,
                 store: wgpu::StoreOp::Store,
             },
         })],
