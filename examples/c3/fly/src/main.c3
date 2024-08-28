@@ -24,11 +24,11 @@ fn void update(int event) @export("update")
     WindowState window = taca::window_state();
     game.score = (int)window.size[0];
     float fov = (float)math::deg_to_rad(45);
+    float aspect = window.size[0] / window.size[1];
     // TODO Do we want up fixed or based on some rotation angle?
-    Vec3f up = { 1, 1, 0 };
+    Vec3f up = { 0, 1, 0 };
     Uniforms uniforms = {
-        // .proj = matrix4f_perspective(fov, 16f / 9f, 0.1, 100).transpose(),
-        .proj = math::MATRIX4F_IDENTITY.scale({ 0.5, 0.5, 0.5 }).transpose(),
+        .proj = matrix4f_perspective(fov, aspect, 0.1, 100).transpose(),
         .view = vector::matrix4f_look_at(game.pos, { 0, 0, 0 }, up).transpose(),
     };
     taca::uniforms_set({ &uniforms, $sizeof(uniforms) });

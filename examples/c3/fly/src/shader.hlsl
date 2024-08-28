@@ -20,8 +20,8 @@ PSInput vertex_main(VSInput input)
 {
     PSInput output;
     float4 pos_world = float4(input.position, 1);
-    float4 pos_view = mul(pos_world, view);
-    output.position = mul(pos_view, proj);
+    float4 pos_proj = mul(proj, pos_world);
+    output.position = mul(view, pos_proj);
     return output;
 }
 

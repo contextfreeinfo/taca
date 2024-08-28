@@ -134,7 +134,7 @@ impl TextEngine {
                 // TODO Baseline.
                 TextAlignY::Baseline | TextAlignY::Bottom => 1.0,
             };
-        // dbg!(&align_x, &align_y, left, top);
+        // dbg!(text, &align_x, &align_y, left, top, size);
         text_renderer
             .prepare(
                 &device,
