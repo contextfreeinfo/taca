@@ -1,4 +1,5 @@
 module fly @private;
+import glb;
 import std::math;
 import taca;
 
@@ -6,6 +7,12 @@ fn void start() @export("start")
 {
     taca::print("Hi from C3!");
     taca::title_set("Flyin'");
+    if (catch glb::load($embed("ship.glb"))) {
+        taca::print("Fail!");
+        // TODO Failure indicator?
+        // TODO Apparently, !! doesn't crash wasm?
+        return;
+    }
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));
     taca::buffer_new(INDEX, { &PLAYER_INDEX, $sizeof(PLAYER_INDEX) });

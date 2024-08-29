@@ -107,13 +107,13 @@ impl App {
     pub fn start(&mut self, graphics: &Graphics) {
         let system = self.env.as_mut(&mut self.store);
         system.text = Some(Arc::new(Mutex::new(TextEngine::new(graphics))));
-        // TODO I think should be either _initialize *or* _start that we call,
-        // TODO but C3 makes only an _initialize, so I have to manually export
-        // TODO _start there, which doesn't call _initialize, so maybe call
-        // TODO both? Presumably no language will generate both on its own.
+        // Some wasi builds make _initialize even without main/_start.
+        // If _start exists, it's supposed to do any initialize on its own, I think.
         if let Ok(initialize) = self.instance.exports.get_function("_initialize") {
             initialize.call(&mut self.store, &[]).unwrap();
         }
+        // Part of why to move away from main/_start so we know any _initialize
+        // is separate from our own start.
         let start = self.instance.exports.get_function("start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
