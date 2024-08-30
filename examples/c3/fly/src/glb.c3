@@ -1,4 +1,6 @@
 module glb @private;
+import std::collections::object;
+import std::encoding::json;
 import taca;
 
 fault Fault {
@@ -34,7 +36,15 @@ fn void! load(char[] bytes) @public {
     } else {
         bin_header = *bin_ptr;
     }
-    // taca::print(string::tformat("%x vs %x", header.magic, magic));
+    char* json_bytes = (char*)(json_ptr + 1);
+    String json_string = (String)json_bytes[:json_ptr.length];
+    // taca::print(json_bytes);
+    // Read json data.
+    Object* json = json::parse_string(json_string)!;
+    Object* primitives =
+        json.get("meshes").get_at(0).get("primitives").get_at(0)!;
+    int indices = primitives.get_int("indices")!;
+    taca::print(string::tformat("indices at %s", indices));
 }
 
 // Be lazy and just presume we're little endian. Always true within wasm.
