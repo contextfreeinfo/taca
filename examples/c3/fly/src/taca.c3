@@ -50,68 +50,59 @@ extern fn WindowState window_state(
 
 // Types
 
-struct AttributeInfo
-{
+struct AttributeInfo {
     usz shader_location;
     usz value_offset;
 }
 
 distinct Buffer = void*;
 
-struct BufferInfo
-{
+struct BufferInfo {
     usz first_attribute;
     Step step;
     usz stride;
 }
 
-enum BufferKind : uint
-{
+enum BufferKind : uint {
     VERTEX,
     INDEX,
 }
 
 distinct Pipeline = void*;
 
-struct PipelineInfo
-{
+struct PipelineInfo {
     PipelineShaderInfo fragment;
     PipelineShaderInfo vertex;
     AttributeInfo[] vertex_attributes;
     BufferInfo[] vertex_buffers;
 }
 
-struct PipelineShaderInfo
-{
+struct PipelineShaderInfo {
     char[] entry;
     Shader shader;
 }
 
 distinct Shader = void*;
 
-enum Step : uint
-{
+enum Step : uint {
     VERTEX,
     INSTANCE,
 }
 
-enum TextAlignX : uint
-{
+enum TextAlignX : uint {
     LEFT,
     CENTER,
     RIGHT,
 }
 
-enum TextAlignY : uint
-{
+enum TextAlignY : uint {
     BASELINE,
     TOP,
     MIDDLE,
     BOTTOM,
 }
 
-struct WindowState
-{
+struct WindowState {
     float[2] pointer;
     float[2] size;
 }

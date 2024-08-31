@@ -3,8 +3,7 @@ import glb;
 import std::math;
 import taca;
 
-fn void start() @export("start")
-{
+fn void start() @export("start") {
     taca::print("Hi from C3!");
     taca::title_set("Flyin'");
     Mesh! ship = glb::load($embed("ship.glb"));
@@ -30,8 +29,7 @@ fn void start() @export("start")
     };
 }
 
-fn void update(int event) @export("update")
-{
+fn void update(int event) @export("update") {
     WindowState window = taca::window_state();
     game.score = (int)window.size[0];
     float fov = (float)math::deg_to_rad(45);
@@ -54,15 +52,13 @@ fn void update(int event) @export("update")
 
 Game game;
 
-struct Game
-{
+struct Game {
     Vec3f pos;
     int score;
     Mesh ship;
 }
 
-struct Uniforms
-{
+struct Uniforms {
     Matrix4f proj;
     Matrix4f view;
 }
