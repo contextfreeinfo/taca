@@ -11,6 +11,10 @@ extern fn Buffer buffer_new(
     char[] bytes,
 ) @extern("taca_RenderingContext_newBuffer");
 
+extern fn void depth_enable(
+    bool enable,
+) @extern("taca_depthEnable");
+
 extern fn void draw(
     uint item_begin,
     uint item_count,
@@ -80,6 +84,7 @@ enum BufferKind : uint {
 distinct Pipeline = void*;
 
 struct PipelineInfo {
+    bool depth_test;
     PipelineShaderInfo fragment;
     PipelineShaderInfo vertex;
     AttributeInfo[] vertex_attributes;

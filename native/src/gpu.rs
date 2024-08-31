@@ -44,6 +44,7 @@ pub struct ExternBindings {
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct ExternPipelineInfo {
+    pub depth_test: bool,
     pub fragment: ExternPipelineShaderInfo,
     pub vertex: ExternPipelineShaderInfo,
     pub vertex_attributes: Span,
@@ -59,6 +60,7 @@ pub struct ExternPipelineShaderInfo {
 
 #[derive(Clone, Debug, Default)]
 pub struct PipelineInfo {
+    pub depth_test: bool,
     pub fragment: PipelineShaderInfo,
     pub vertex: PipelineShaderInfo,
     pub vertex_attributes: Vec<VertexAttribute>,

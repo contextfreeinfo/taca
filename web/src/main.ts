@@ -368,6 +368,7 @@ class App {
   pipelineApply(pipelinePtr: number) {
     let { gl, pipelines } = this;
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
+    (pipeline.depthTest ? gl.enable : gl.disable).call(gl, gl.DEPTH_TEST);
     gl.useProgram(pipeline.program);
     // Presume we need new buffer binding when the program changes.
     this.buffered = false;
@@ -390,6 +391,7 @@ class App {
     pipelines.push({
       attributes: pipelineInfo.vertexAttrs,
       buffers: pipelineInfo.vertexBuffers,
+      depthTest: pipelineInfo.depthTest,
       program,
       uniforms,
     });
@@ -420,7 +422,7 @@ class App {
 
   private pipelineInfoRead(info: number): PipelineInfo {
     // TODO Can wit-bindgen or flatbuffers automate some of this?
-    const infoView = this.memoryViewMake(info, 10 * 4);
+    const infoView = this.memoryViewMake(info, 11 * 4);
     const readShaderInfo = (offset: number) => {
       return {
         entry: this.readString(infoView.byteOffset + offset),
@@ -428,10 +430,11 @@ class App {
       };
     };
     const pipelineInfo: PipelineInfo = {
-      fragment: readShaderInfo(0 * 4),
-      vertex: readShaderInfo(3 * 4),
+      depthTest: !!getU32(infoView, 0),
+      fragment: readShaderInfo(1 * 4),
+      vertex: readShaderInfo(4 * 4),
       vertexAttrs: this.readAny(
-        info + 6 * 4,
+        info + 7 * 4,
         2 * 4,
         (view, offset): AttrInfo => ({
           count: 1,
@@ -442,7 +445,7 @@ class App {
         })
       ),
       vertexBuffers: this.readAny(
-        info + 8 * 4,
+        info + 9 * 4,
         3 * 4,
         (view, offset): BufferInfo => ({
           firstAttr: getU32(view, offset),
@@ -807,11 +810,13 @@ function makeAppEnv(app: App) {
 interface Pipeline {
   attributes: AttrInfo[];
   buffers: BufferInfo[];
+  depthTest: boolean;
   program: WebGLProgram;
   uniforms: Uniforms;
 }
 
 interface PipelineInfo {
+  depthTest: boolean;
   fragment: ShaderInfo;
   vertex: ShaderInfo;
   vertexAttrs: AttrInfo[];
@@ -827,6 +832,7 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
   fragment.shader ||= vertex.shader || 1;
   vertex.shader ||= fragment.shader || 1;
   return {
+    depthTest: info.depthTest ?? false,
     fragment: fragment as ShaderInfo,
     vertex: vertex as ShaderInfo,
     vertexAttrs: info.vertexAttrs ?? [],

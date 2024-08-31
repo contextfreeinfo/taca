@@ -282,6 +282,7 @@ fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32)
     let vertex_attributes = read_span(&view, info.vertex_attributes);
     let vertex_buffers = read_span(&view, info.vertex_buffers);
     let info = PipelineInfo {
+        depth_test: info.depth_test,
         fragment: PipelineShaderInfo {
             entry_point: read_string(&view, info.fragment.entry_point),
             shader: info.fragment.shader,

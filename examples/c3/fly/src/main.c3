@@ -23,6 +23,7 @@ fn void start() @export("start") {
     };
     // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     taca::pipeline_new({
+        .depth_test = true,
         .fragment = { .shader = fragment },
         .vertex = { .shader = vertex },
         .vertex_buffers = {
@@ -31,7 +32,7 @@ fn void start() @export("start") {
         },
     });
     game = {
-        .pos = { 0, 8, -4 },
+        .pos = { -8, 4, -4 },
         .score = 0,
         .ship = ship_buf,
     };

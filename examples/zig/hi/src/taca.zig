@@ -39,6 +39,7 @@ pub const PipelineShaderInfo = struct {
 };
 
 pub const PipelineInfo = struct {
+    depth_test: bool = false,
     // Attributes are specified separately from buffers to make it easier to
     // avoid memory allocation when prepping for ffi.
     fragment: PipelineShaderInfo = .{},
@@ -204,6 +205,7 @@ const ExternBindings = extern struct {
 };
 
 const ExternPipelineInfo = extern struct {
+    depth_test: bool,
     fragment: ExternPipelineShaderInfo,
     vertex: ExternPipelineShaderInfo,
     vertex_attributes: Span(VertexAttribute),
@@ -211,6 +213,7 @@ const ExternPipelineInfo = extern struct {
 
     pub fn from(info: PipelineInfo) ExternPipelineInfo {
         return .{
+            .depth_test = info.depth_test,
             .fragment = ExternPipelineShaderInfo.from(info.fragment),
             .vertex = ExternPipelineShaderInfo.from(info.vertex),
             .vertex_attributes = Span(VertexAttribute).from(info.vertex_attributes),
