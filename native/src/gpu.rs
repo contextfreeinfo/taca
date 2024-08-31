@@ -532,6 +532,7 @@ fn vertex_buffer_layouts_build(
     // TODO Match on location in case order varies? Require order?
     let mut total_attrs = 0;
     for arg in entry.function.arguments.iter() {
+        // dbg!(arg);
         let Some(Binding::Location { location, .. }) = arg.binding else {
             continue;
         };

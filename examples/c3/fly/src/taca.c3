@@ -2,16 +2,20 @@ module taca;
 
 // Functions
 
+extern fn void binding_apply(
+    Binding binding,
+) @extern("taca_RenderingContext_applyBindings");
+
+extern fn Buffer buffer_new(
+    BufferKind kind,
+    char[] bytes,
+) @extern("taca_RenderingContext_newBuffer");
+
 extern fn void draw(
     uint item_begin,
     uint item_count,
     uint instance_count,
 ) @extern("taca_RenderingContext_draw");
-
-extern fn Buffer buffer_new(
-    BufferKind kind,
-    SliceRaw slice,
-) @extern("taca_RenderingContext_newBuffer");
 
 extern fn Pipeline pipeline_new(
     PipelineInfo info,
@@ -41,7 +45,7 @@ extern fn void title_set(
 ) @extern("taca_Window_setTitle");
 
 extern fn void uniforms_set(
-    SliceRaw slice,
+    char[] bytes,
 ) @extern("taca_RenderingContext_applyUniforms");
 
 extern fn WindowState window_state(
@@ -53,6 +57,11 @@ extern fn WindowState window_state(
 struct AttributeInfo {
     usz shader_location;
     usz value_offset;
+}
+
+struct Binding {
+    Buffer[] vertex_buffers;
+    Buffer index_buffer;
 }
 
 distinct Buffer = void*;

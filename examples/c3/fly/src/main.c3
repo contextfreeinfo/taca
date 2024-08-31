@@ -15,17 +15,25 @@ fn void start() @export("start") {
     }
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));
-    taca::buffer_new(INDEX, { ship.idx, ship.idx.len });
-    taca::buffer_new(VERTEX, { ship.pos, ship.pos.len });
-    taca::buffer_new(VERTEX, { ship.norm, ship.norm.len });
+    MeshBuf ship_buf = {
+        .idx = taca::buffer_new(INDEX, ship.idx),
+        .idx_len = ship.idx.len / ushort.sizeof,
+        .pos = taca::buffer_new(VERTEX, ship.pos),
+        .norm = taca::buffer_new(VERTEX, ship.norm),
+    };
+    // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     taca::pipeline_new({
         .fragment = { .shader = fragment },
         .vertex = { .shader = vertex },
+        .vertex_buffers = {
+            {},
+            { .first_attribute = 1 },
+        },
     });
     game = {
-        .pos = { 0, 4, -10 },
+        .pos = { 0, 8, -4 },
         .score = 0,
-        .ship = ship,
+        .ship = ship_buf,
     };
 }
 
@@ -40,8 +48,12 @@ fn void update(int event) @export("update") {
         .proj = matrix4f_perspective(fov, aspect, 0.1, 100).transpose(),
         .view = vector::matrix4f_look_at(game.pos, { 0, 0, 0 }, up).transpose(),
     };
-    taca::uniforms_set({ &uniforms, $sizeof(uniforms) });
-    taca::draw(0, game.ship.idx.len / ushort.sizeof, 1);
+    taca::uniforms_set(value_as_slice(char, uniforms));
+    taca::binding_apply({
+        .index_buffer = game.ship.idx,
+        .vertex_buffers = { game.ship.pos, game.ship.norm },
+    });
+    taca::draw(0, game.ship.idx_len, 1);
     // Stats
     taca::text_align(LEFT, TOP);
     taca::text_draw(string::tformat("Score: %s", game.score), 10, 10);
@@ -50,12 +62,28 @@ fn void update(int event) @export("update") {
     taca::text_draw(string::tformat("Time: %d", window.size[1]), right, 10);
 }
 
+macro slice_as_slice($Type, slice) {
+    assert((slice.len * $sizeof(slice[0])) % $Type.sizeof == 0);
+    return (($Type*)(void*)slice)[:slice.len * $sizeof(slice[0]) / $Type.sizeof];
+}
+
+macro value_as_slice($Type, value) {
+    return (($Type*)&value)[:$sizeof(value)];
+}
+
 Game game;
 
 struct Game {
     Vec3f pos;
     int score;
-    Mesh ship;
+    MeshBuf ship;
+}
+
+struct MeshBuf {
+    Buffer idx;
+    usz idx_len;
+    Buffer norm;
+    Buffer pos;
 }
 
 struct Uniforms {
