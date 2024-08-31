@@ -7,7 +7,8 @@ fn void start() @export("start")
 {
     taca::print("Hi from C3!");
     taca::title_set("Flyin'");
-    if (catch glb::load($embed("ship.glb"))) {
+    Mesh! ship = glb::load($embed("ship.glb"));
+    if (catch ship) {
         taca::print("Fail!");
         // TODO Failure indicator?
         // TODO Apparently, !! doesn't crash wasm?
@@ -15,14 +16,17 @@ fn void start() @export("start")
     }
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));
-    taca::buffer_new(INDEX, { &PLAYER_INDEX, $sizeof(PLAYER_INDEX) });
-    taca::buffer_new(VERTEX, { &PLAYER_VERTEX, $sizeof(PLAYER_VERTEX) });
+    taca::buffer_new(INDEX, { ship.idx, ship.idx.len });
+    taca::buffer_new(VERTEX, { ship.pos, ship.pos.len });
+    taca::buffer_new(VERTEX, { ship.norm, ship.norm.len });
     taca::pipeline_new({
         .fragment = { .shader = fragment },
         .vertex = { .shader = vertex },
     });
     game = {
-        .pos = { 0, 0, 5 },
+        .pos = { 0, 4, -10 },
+        .score = 0,
+        .ship = ship,
     };
 }
 
@@ -39,7 +43,7 @@ fn void update(int event) @export("update")
         .view = vector::matrix4f_look_at(game.pos, { 0, 0, 0 }, up).transpose(),
     };
     taca::uniforms_set({ &uniforms, $sizeof(uniforms) });
-    taca::draw(0, PLAYER_INDEX.len, 1);
+    taca::draw(0, game.ship.idx.len / ushort.sizeof, 1);
     // Stats
     taca::text_align(LEFT, TOP);
     taca::text_draw(string::tformat("Score: %s", game.score), 10, 10);
@@ -54,6 +58,7 @@ struct Game
 {
     Vec3f pos;
     int score;
+    Mesh ship;
 }
 
 struct Uniforms
