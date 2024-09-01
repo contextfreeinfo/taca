@@ -108,8 +108,16 @@ impl TextEngine {
             panic!()
         };
         if renderer_index == renderers.len() {
+            // TODO Reference from elsewhere.
+            let depth = Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::Always,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            });
             let text_renderer =
-                TextRenderer::new(atlas, &device, MultisampleState::default(), None);
+                TextRenderer::new(atlas, &device, MultisampleState::default(), depth);
             renderers.push(text_renderer);
         }
         let text_renderer = &mut renderers[renderer_index];

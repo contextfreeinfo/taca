@@ -119,6 +119,12 @@ pub struct VertexBufferLayout {
     attributes: Vec<wgpu::VertexAttribute>,
 }
 
+pub struct TextureData {
+    #[allow(unused)]
+    pub texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+}
+
 pub fn bindings_apply(system: &mut System, bindings: Bindings) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
@@ -199,6 +205,10 @@ pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
 }
 
 pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
+    let (depth_write_enabled, depth_compare) = match info.depth_test {
+        true => (true, wgpu::CompareFunction::Less),
+        false => (false, wgpu::CompareFunction::Always),
+    };
     fn choose_entry<'a>(entry: String, default: &'a str) -> String {
         match entry.as_str() {
             "" => default.to_string(),
@@ -301,7 +311,13 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
             })],
         }),
         primitive: Default::default(),
-        depth_stencil: None,
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled,
+            depth_compare,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
         multisample: MultisampleState::default(),
         multiview: None,
         cache: None,
@@ -381,6 +397,14 @@ pub fn pass_ensure_load(system: &mut System, load: wgpu::LoadOp<wgpu::Color>) {
                 store: wgpu::StoreOp::Store,
             },
         })],
+        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+            view: &gfx.depth_texture.view,
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: wgpu::StoreOp::Store,
+            }),
+            stencil_ops: None,
+        }),
         ..Default::default()
     });
     frame.pass = Some(pass.forget_lifetime());
