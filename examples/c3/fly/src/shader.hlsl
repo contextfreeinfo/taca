@@ -6,18 +6,17 @@ cbuffer Uniforms : register(b0) {
 struct VSInput {
     float3 pos : POSITION;
     float3 norm : NORMAL;
-    // TODO Other vertex attributes
+    float3 offset : TEXCOORD0;
 };
 
 struct PSInput {
     float4 pos : SV_POSITION;
     float norm : TEXCOORD0;
-    // TODO Other varying outputs
 };
 
 PSInput vertex_main(VSInput input) {
     PSInput output;
-    float4 pos_world = float4(input.pos, 1);
+    float4 pos_world = float4(input.pos + input.offset, 1);
     float4 pos_proj = mul(proj, pos_world);
     output.pos = mul(view, pos_proj);
     output.norm = dot(input.norm, normalize(float3(1, 1, 0)));

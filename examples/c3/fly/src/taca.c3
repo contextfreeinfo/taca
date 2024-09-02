@@ -11,9 +11,11 @@ extern fn Buffer buffer_new(
     char[] bytes,
 ) @extern("taca_RenderingContext_newBuffer");
 
-extern fn void depth_enable(
-    bool enable,
-) @extern("taca_depthEnable");
+extern fn void buffer_update(
+    Buffer buffer,
+    char[] bytes,
+    usz buffer_offset = 0,
+) @extern("taca_buffer_update");
 
 extern fn void draw(
     uint item_begin,
@@ -48,7 +50,7 @@ extern fn void title_set(
     char[] title,
 ) @extern("taca_Window_setTitle");
 
-extern fn void uniforms_set(
+extern fn void uniforms_set( // TODO update?
     char[] bytes,
 ) @extern("taca_RenderingContext_applyUniforms");
 
@@ -79,6 +81,14 @@ struct BufferInfo {
 enum BufferKind : uint {
     VERTEX,
     INDEX,
+}
+
+struct BufferUpdate {
+    Buffer buffer;
+    char[] bytes;
+    usz begin;
+    usz item_size;
+    usz stride;
 }
 
 distinct Pipeline = void*;

@@ -40,7 +40,9 @@ class App {
       this.pointerPos = [touch.clientX - rect.left, touch.clientY - rect.top];
     });
     this.config = config;
-    this.gl = config.canvas.getContext("webgl2")!;
+    const gl = (this.gl = config.canvas.getContext("webgl2")!);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     this.texturePipeline = new TexturePipeline(this.gl);
     // Resize will fail if we couldn't get a context.
     this.resizeCanvas();
@@ -131,22 +133,32 @@ class App {
     const infoBytes = this.memoryViewMake(info, 2 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
-    // TODO Null ptr -> zero buffer for writing.
-    const data = this.memoryBytes().subarray(ptr, ptr + size);
+    const data = ptr
+      ? this.memoryBytes().subarray(ptr, ptr + size)
+      : new Uint8Array(size);
     const { gl } = this;
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    const buffer = gl.createBuffer();
-    buffer || fail();
-    this.buffers.push({
-      buffer: buffer!,
-      kind: ["vertex", "index"][type] as "vertex" | "index",
-    });
+    const buffer = gl.createBuffer() ?? fail();
+    const kind = ["vertex", "index"][type] as "vertex" | "index";
+    const usage = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
+    // TODO Change to numbers for kind or just cache these elsewhere?
     const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
     gl.bindBuffer(target, buffer);
-    const usageValue = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
-    gl.bufferData(target, data, usageValue);
+    gl.bufferData(target, data, usage);
+    this.buffers.push({ buffer, kind, mutable: !ptr, size });
     return this.buffers.length;
+  }
+
+  bufferUpdate(bufferPtr: number, slice: number, offset: number) {
+    const { buffers, gl } = this;
+    const { buffer, kind, mutable } = buffers[bufferPtr - 1];
+    const bytes = this.readBytes(slice);
+    // TODO Is this checked automatically?
+    mutable || fail();
+    const target = { vertex: gl.ARRAY_BUFFER, index: gl.ELEMENT_ARRAY_BUFFER }[
+      kind
+    ];
+    gl.bindBuffer(target, buffer);
+    gl.bufferSubData(target, offset, bytes);
   }
 
   buffered = false;
@@ -683,6 +695,8 @@ interface Binding {
 interface Buffer {
   buffer: WebGLBuffer;
   kind: "index" | "vertex";
+  mutable: boolean;
+  size: number;
 }
 
 interface BufferInfo {
@@ -774,6 +788,9 @@ function makeAppEnv(app: App) {
     taca_RenderingContext_endPass() {},
     taca_RenderingContext_newBuffer(type: number, info: number) {
       return app.bufferNew(type, info);
+    },
+    taca_buffer_update(buffer: number, bytes: number, offset: number) {
+      return app.bufferUpdate(buffer, bytes, offset);
     },
     taca_RenderingContext_newPipeline(info: number) {
       return app.pipelineNew(info);

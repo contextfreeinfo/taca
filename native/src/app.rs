@@ -17,10 +17,10 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        bindings_apply, bound_ensure, buffered_ensure, create_buffer, create_pipeline, end_pass,
-        frame_commit, pass_ensure, pipeline_apply, pipelined_ensure, shader_create, uniforms_apply,
-        Bindings, Buffer, BufferSlice, ExternBindings, ExternPipelineInfo, PipelineInfo,
-        PipelineShaderInfo, RenderFrame, Shader, Span,
+        bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
+        create_pipeline, end_pass, frame_commit, pass_ensure, pipeline_apply, pipelined_ensure,
+        shader_create, uniforms_apply, Bindings, Buffer, BufferSlice, ExternBindings,
+        ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
     text::{to_text_align_x, to_text_align_y, TextEngine},
 };
@@ -53,6 +53,7 @@ impl App {
                 "taca_RenderingContext_drawTexture" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawTexture),
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
+                "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
                 "taca_RenderingContext_newPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newPipeline),
                 "taca_RenderingContext_newShader" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newShader),
                 "taca_Window_get" => Function::new_typed_with_env(&mut store, &env, taca_Window_get),
@@ -265,11 +266,23 @@ fn taca_RenderingContext_newBuffer(mut env: FunctionEnvMut<System>, typ: u32, sl
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
-    let contents = view
-        .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
-        .unwrap();
-    create_buffer(system, &contents, typ);
+    let contents = match slice.ptr {
+        0 => None,
+        _ => Some(
+            view.copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
+                .unwrap(),
+        ),
+    };
+    create_buffer(system, contents.as_deref(), slice.size, typ);
     system.buffers.len() as u32
+}
+
+fn taca_buffer_update(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, offset: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let bytes = read_span::<u8>(&view, bytes);
+    buffer_update(system, buffer, &bytes, offset);
 }
 
 fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32) -> u32 {

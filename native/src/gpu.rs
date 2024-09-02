@@ -19,7 +19,6 @@ use crate::{app::System, display::MaybeGraphics};
 pub struct BufferSlice {
     pub ptr: u32,
     pub size: u32,
-    pub item_size: u32,
 }
 
 pub struct Buffer {
@@ -160,6 +159,16 @@ pub fn bound_ensure(system: &mut System) {
     uniforms_apply(system, &[0; 4]);
 }
 
+pub fn buffer_update(system: &mut System, buffer: u32, bytes: &[u8], offset: u32) {
+    pipelined_ensure(system);
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        panic!();
+    };
+    let buffer = &system.buffers[buffer as usize - 1].buffer;
+    gfx.queue
+        .write_buffer(buffer, offset as wgpu::BufferAddress, bytes);
+}
+
 pub fn buffered_ensure(system: &mut System) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
@@ -171,12 +180,12 @@ pub fn buffered_ensure(system: &mut System) {
     let index = system
         .buffers
         .iter()
-        .position(|it| it.usage == BufferUsages::INDEX)
+        .position(|it| it.usage.contains(BufferUsages::INDEX))
         .unwrap();
     let vertex = system
         .buffers
         .iter()
-        .position(|it| it.usage == BufferUsages::VERTEX)
+        .position(|it| it.usage.contains(BufferUsages::VERTEX))
         .unwrap();
     let bindings = Bindings {
         vertex_buffers: &[vertex as u32 + 1],
@@ -185,20 +194,31 @@ pub fn buffered_ensure(system: &mut System) {
     bindings_apply(system, bindings);
 }
 
-pub fn create_buffer(system: &mut System, contents: &[u8], typ: u32) {
+pub fn create_buffer(system: &mut System, contents: Option<&[u8]>, size: u32, typ: u32) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
-    let usage = match typ {
+    let usage = match contents {
+        Some(_) => BufferUsages::empty(),
+        None => BufferUsages::COPY_DST,
+    } | match typ {
         0 => BufferUsages::VERTEX,
         1 => BufferUsages::INDEX,
         _ => panic!(),
     };
-    let buffer = gfx.device.create_buffer_init(&BufferInitDescriptor {
-        label: None,
-        contents,
-        usage,
-    });
+    let buffer = match contents {
+        Some(contents) => gfx.device.create_buffer_init(&BufferInitDescriptor {
+            label: None,
+            contents,
+            usage,
+        }),
+        None => gfx.device.create_buffer(&BufferDescriptor {
+            label: None,
+            size: size as wgpu::BufferAddress,
+            usage,
+            mapped_at_creation: false,
+        }),
+    };
     // dbg!(&buffer);
     // dbg!(&contents);
     system.buffers.push(Buffer { buffer, usage });

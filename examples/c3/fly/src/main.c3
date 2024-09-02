@@ -15,13 +15,6 @@ fn void start() @export("start") {
     }
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));
-    MeshBuf ship_buf = {
-        .idx = taca::buffer_new(INDEX, ship.idx),
-        .idx_len = ship.idx.len / ushort.sizeof,
-        .pos = taca::buffer_new(VERTEX, ship.pos),
-        .norm = taca::buffer_new(VERTEX, ship.norm),
-    };
-    // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     taca::pipeline_new({
         .depth_test = true,
         .fragment = { .shader = fragment },
@@ -29,10 +22,19 @@ fn void start() @export("start") {
         .vertex_buffers = {
             {},
             { .first_attribute = 1 },
+            { .first_attribute = 2, .step = INSTANCE },
         },
     });
+    MeshBuf ship_buf = {
+        .idx = taca::buffer_new(INDEX, ship.idx),
+        .idx_len = ship.idx.len / ushort.sizeof,
+        .norm = taca::buffer_new(VERTEX, ship.norm),
+        .offset = taca::buffer_new(VERTEX, null[:3 * float.sizeof]),
+        .pos = taca::buffer_new(VERTEX, ship.pos),
+    };
+    // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     game = {
-        .pos = { -8, 4, -4 },
+        .pos = { 0, 4, -10 },
         .score = 0,
         .ship = ship_buf,
     };
@@ -52,8 +54,10 @@ fn void update(int event) @export("update") {
     taca::uniforms_set(value_as_slice(char, uniforms));
     taca::binding_apply({
         .index_buffer = game.ship.idx,
-        .vertex_buffers = { game.ship.pos, game.ship.norm },
+        .vertex_buffers = { game.ship.pos, game.ship.norm, game.ship.offset },
     });
+    float[3] offset = { 0, 2 * (float)math::sin(game.count * 2e-2), 0 };
+    taca::buffer_update(game.ship.offset, value_as_slice(char, offset));
     taca::draw(0, game.ship.idx_len, 1);
     // Stats
     taca::text_align(LEFT, TOP);
@@ -61,6 +65,8 @@ fn void update(int event) @export("update") {
     taca::text_align(RIGHT, TOP);
     float right = window.size[0] - 10;
     taca::text_draw(string::tformat("Time: %d", window.size[1]), right, 10);
+    // Update
+    game.count += 1;
 }
 
 macro slice_as_slice($Type, slice) {
@@ -75,6 +81,7 @@ macro value_as_slice($Type, value) {
 Game game;
 
 struct Game {
+    uint count;
     Vec3f pos;
     int score;
     MeshBuf ship;
@@ -84,6 +91,7 @@ struct MeshBuf {
     Buffer idx;
     usz idx_len;
     Buffer norm;
+    Buffer offset;
     Buffer pos;
 }
 
