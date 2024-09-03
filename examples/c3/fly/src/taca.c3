@@ -96,7 +96,7 @@ struct BufferUpdate {
 }
 
 enum EventKind : int {
-    TICK,
+    FRAME,
     KEY,
 }
 
