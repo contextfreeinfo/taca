@@ -1,19 +1,19 @@
 module fly @private;
 import glb;
+import std::math;
 import taca;
 
 Game game;
+const char[] TITLE = "Flyin'";
 
-fn void start() @export("start") {
+fn void! start() @export("start") {
     taca::print("Hi from C3!");
-    taca::title_set("Flyin'");
-    Mesh! ship = glb::load($embed("ship.glb"));
-    if (catch ship) {
-        taca::print("Fail!");
-        // TODO Failure indicator?
-        // TODO Apparently, !! doesn't crash wasm?
-        return;
-    }
+    taca::title_set(TITLE);
+    // TODO Apparently, !! doesn't crash wasm?
+    Mesh light = glb::load($embed("light.glb"))!;
+    Mesh ship = glb::load($embed("ship.glb"))!;
+    Mesh target = glb::load($embed("target.glb"))!;
+    // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));
     taca::pipeline_new({
@@ -26,18 +26,14 @@ fn void start() @export("start") {
             { .first_attribute = 2, .step = INSTANCE },
         },
     });
-    MeshBuf ship_buf = {
-        .idx = taca::buffer_new(INDEX, ship.idx),
-        .idx_len = ship.idx.len / ushort.sizeof,
-        .norm = taca::buffer_new(VERTEX, ship.norm),
-        .offset = taca::buffer_new(VERTEX, null[:3 * float.sizeof]),
-        .pos = taca::buffer_new(VERTEX, ship.pos),
-    };
-    // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
+    Pcg32Random random;
+    random.set_seed(TITLE);
     game = {
+        .light = buf_mesh(light),
         .pos = { 0, -2, 0 },
-        .score = 0,
-        .ship = ship_buf,
+        .random = random,
+        .ship = buf_mesh(ship),
+        .targets = buf_mesh(target, TARGET_LIMIT),
     };
 }
 

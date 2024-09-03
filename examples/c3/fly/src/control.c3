@@ -29,3 +29,18 @@ fn void update_key() {
         default:
     }
 }
+
+fn void update_targets() {
+    // TODO Prune finished targets.
+    // TODO Move data.
+    // Spawn new targets.
+    while (game.target_count < game.targets.limit) {
+        game.target_offsets[game.target_count] = {
+            // TODO Sample polar coords?
+            4 * random::next_float(game.random) - 2,
+            4 * random::next_float(game.random) - 2,
+            100 * random::next_float(game.random),
+        };
+        game.target_count += 1;
+    }
+}
