@@ -5,18 +5,22 @@ use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
-use wasmer::ValueType;
+use wasmer::{Value, ValueType};
 use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::{
     application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{KeyEvent, WindowEvent},
+    event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
-    keyboard::Key,
+    keyboard::{self, NamedKey},
     window::{Fullscreen, Window, WindowId},
 };
 
-use crate::{app::AppPtr, gpu::TextureData};
+use crate::{
+    app::AppPtr,
+    gpu::TextureData,
+    key::{Key, KeyEvent},
+};
 
 pub struct Display {
     pub app: AppPtr,
@@ -25,6 +29,13 @@ pub struct Display {
     time_end: Instant,
     time_mean: f64,
     time_report: Instant,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(i32)]
+pub enum EventKind {
+    Tick = 0,
+    Key = 1,
 }
 
 const REPORT_DELAY: Duration = Duration::from_secs(10);
@@ -93,7 +104,7 @@ impl<'a> ApplicationHandler<Graphics> for Display {
         match event {
             WindowEvent::KeyboardInput {
                 event:
-                    KeyEvent {
+                    winit::event::KeyEvent {
                         physical_key: _,
                         logical_key,
                         text: _,
@@ -104,8 +115,8 @@ impl<'a> ApplicationHandler<Graphics> for Display {
                     },
                 ..
             } => match logical_key {
-                Key::Named(key) => match key {
-                    winit::keyboard::NamedKey::F11 => {
+                keyboard::Key::Named(key) => match key {
+                    NamedKey::F11 => {
                         if state.is_pressed() && !repeat {
                             let fullscreen = match gfx.window.fullscreen() {
                                 Some(_) => None,
@@ -114,11 +125,22 @@ impl<'a> ApplicationHandler<Graphics> for Display {
                             gfx.window.set_fullscreen(fullscreen);
                         }
                     }
+                    _ if !repeat => {
+                        let app = unsafe { &mut *self.app.0 };
+                        let key: Key = key.into();
+                        let key = key as i32;
+                        let pressed = state.is_pressed();
+                        let system = app.env.as_mut(&mut app.store);
+                        system.key_event = KeyEvent { key, pressed };
+                        app.update
+                            .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
+                            .unwrap();
+                    }
                     _ => {}
                 },
-                Key::Character(_) => {}
-                Key::Unidentified(_) => {}
-                Key::Dead(_) => {}
+                keyboard::Key::Character(_) => {}
+                keyboard::Key::Unidentified(_) => {}
+                keyboard::Key::Dead(_) => {}
             },
             WindowEvent::CursorMoved { position, .. } => {
                 self.pointer_pos = Some(position);

@@ -42,6 +42,7 @@ fn Mesh! load(char[] bytes) @public {
     char* json_bytes = (char*)(json_ptr + 1);
     String json_string = (String)json_bytes[:json_ptr.length];
     // taca::print(json_string);
+    // taca::print(string::tformat("===> %s", (ComponentType)1));
     Object* spec = json::parse_string(json_string)!;
     defer spec.free();
     return build_mesh(spec, bin_bytes[:bin_ptr.length])!;

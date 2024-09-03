@@ -34,30 +34,64 @@ fn void start() @export("start") {
     };
     // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     game = {
-        .pos = { 0, 4, -10 },
+        .pos = { 0, 0, 0 },
         .score = 0,
         .ship = ship_buf,
     };
 }
 
-fn void update(int event) @export("update") {
+fn void update(EventKind event) @export("update") {
+    @pool() {
+        switch (event) {
+            case KEY: update_key();
+            case TICK: update_tick();
+        }
+    };
+}
+
+fn void update_control() {
+    float speed = 1e-1;
+    if (game.control.up) game.pos.y += speed;
+    if (game.control.down) game.pos.y -= speed;
+    if (game.control.left) game.pos.x += speed;
+    if (game.control.right) game.pos.x -= speed;
+    float limit = 2;
+    game.pos.x = max(-limit, min(game.pos.x, limit));
+    game.pos.y = max(-limit, min(game.pos.y, limit));
+}
+
+fn void update_key() {
+    KeyEvent event = taca::key_event();
+    // taca::print(string::tformat("key: %s %s", event.key, event.pressed));
+    switch (event.key) {
+        case ARROW_UP: game.control.up = event.pressed;
+        case ARROW_DOWN: game.control.down = event.pressed;
+        case ARROW_LEFT: game.control.left = event.pressed;
+        case ARROW_RIGHT: game.control.right = event.pressed;
+        default:
+    }
+}
+
+fn void update_tick() {
     WindowState window = taca::window_state();
     game.score = (int)window.size[0];
     float fov = (float)math::deg_to_rad(45);
     float aspect = window.size[0] / window.size[1];
     // TODO Do we want up fixed or based on some rotation angle?
+    Vec3f at = { 0, 0, 0 };
     Vec3f up = { 0, 1, 0 };
     Uniforms uniforms = {
         .proj = matrix4f_perspective(fov, aspect, 0.1, 100).transpose(),
-        .view = vector::matrix4f_look_at(game.pos, { 0, 0, 0 }, up).transpose(),
+        .view = vector::matrix4f_look_at({ 0, 0, -8 }, at, up).transpose(),
     };
-    taca::uniforms_set(value_as_slice(char, uniforms));
+    taca::uniforms_update(value_as_slice(char, uniforms));
     taca::binding_apply({
         .index_buffer = game.ship.idx,
         .vertex_buffers = { game.ship.pos, game.ship.norm, game.ship.offset },
     });
-    float[3] offset = { 0, 2 * (float)math::sin(game.count * 2e-2), 0 };
-    taca::buffer_update(game.ship.offset, value_as_slice(char, offset));
+    update_control();
+    float[3] pos = game.pos;
+    taca::buffer_update(game.ship.offset, value_as_slice(char, pos));
     taca::draw(0, game.ship.idx_len, 1);
     // Stats
     taca::text_align(LEFT, TOP);
@@ -80,7 +114,15 @@ macro value_as_slice($Type, value) {
 
 Game game;
 
+struct Control {
+    bool up;
+    bool down;
+    bool left;
+    bool right;
+}
+
 struct Game {
+    Control control;
     uint count;
     Vec3f pos;
     int score;

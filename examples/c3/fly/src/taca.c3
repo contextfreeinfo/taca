@@ -23,6 +23,10 @@ extern fn void draw(
     uint instance_count,
 ) @extern("taca_RenderingContext_draw");
 
+extern fn KeyEvent key_event(
+    // Nothing
+) @extern("taca_key_event");
+
 extern fn Pipeline pipeline_new(
     PipelineInfo info,
 ) @extern("taca_RenderingContext_newPipeline");
@@ -50,7 +54,7 @@ extern fn void title_set(
     char[] title,
 ) @extern("taca_Window_setTitle");
 
-extern fn void uniforms_set( // TODO update?
+extern fn void uniforms_update(
     char[] bytes,
 ) @extern("taca_RenderingContext_applyUniforms");
 
@@ -89,6 +93,24 @@ struct BufferUpdate {
     usz begin;
     usz item_size;
     usz stride;
+}
+
+enum EventKind : int {
+    TICK,
+    KEY,
+}
+
+enum Key : int {
+    NONE,
+    ARROW_UP,
+    ARROW_DOWN,
+    ARROW_LEFT,
+    ARROW_RIGHT,
+}
+
+struct KeyEvent {
+    Key key;
+    bool pressed;
 }
 
 distinct Pipeline = void*;

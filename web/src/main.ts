@@ -7,6 +7,7 @@ import {
   ShaderStage,
 } from "../pkg/cana";
 import { TexturePipeline, fragmentMunge, shaderProgramBuild } from "./drawing";
+import { keys } from "./key";
 import { fail } from "./util";
 
 export interface AppConfig {
@@ -29,6 +30,12 @@ export async function runApp(config: AppConfig) {
 class App {
   constructor(config: AppConfig) {
     const canvas = (this.canvas = config.canvas);
+    canvas.addEventListener("keydown", (event) => {
+      this.keyEventHandle(event, true);
+    });
+    canvas.addEventListener("keyup", (event) => {
+      this.keyEventHandle(event, false);
+    });
     canvas.addEventListener("mousemove", (event) => {
       const rect = canvas.getBoundingClientRect();
       this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
@@ -327,6 +334,19 @@ class App {
   }
 
   frameTimeBegin: number = Date.now();
+
+  keyEvent = new DataView(new Uint32Array(2).buffer);
+  keyEventBytes = new Uint8Array(this.keyEvent.buffer);
+
+  keyEventHandle(event: KeyboardEvent, pressed: boolean) {
+    if (event.repeat) return;
+    let { exports, keyEvent } = this;
+    setU32(keyEvent, 0, keys[event.key] ?? 0);
+    setU32(keyEvent, 4, pressed ? 1 : 0);
+    if (exports.update) {
+      exports.update!(1);
+    }
+  }
 
   gl: WebGL2RenderingContext;
 
@@ -792,6 +812,9 @@ function makeAppEnv(app: App) {
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
       return app.bufferUpdate(buffer, bytes, offset);
     },
+    taca_key_event(result: number) {
+      app.memoryBytes().set(app.keyEventBytes, result);
+    },
     taca_RenderingContext_newPipeline(info: number) {
       return app.pipelineNew(info);
     },
@@ -859,6 +882,10 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
 
 function setF32(view: DataView, byteOffset: number, value: number) {
   return view.setFloat32(byteOffset, value, true);
+}
+
+function setU32(view: DataView, byteOffset: number, value: number) {
+  return view.setUint32(byteOffset, value, true);
 }
 
 // function setU32(view: DataView, byteOffset: number, value: number) {

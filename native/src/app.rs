@@ -15,19 +15,20 @@ use wgpu::RenderPipeline;
 use winit::event_loop::EventLoop;
 
 use crate::{
-    display::{Display, Graphics, MaybeGraphics, WindowState},
+    display::{Display, EventKind, Graphics, MaybeGraphics, WindowState},
     gpu::{
         bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
         create_pipeline, end_pass, frame_commit, pass_ensure, pipeline_apply, pipelined_ensure,
         shader_create, uniforms_apply, Bindings, Buffer, BufferSlice, ExternBindings,
         ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
+    key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
 };
 
 pub struct App {
     pub env: FunctionEnv<System>,
-    update: Function,
+    pub update: Function,
     pub instance: Instance,
     pub store: Store,
 }
@@ -54,6 +55,7 @@ impl App {
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
                 "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
+                "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
                 "taca_RenderingContext_newPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newPipeline),
                 "taca_RenderingContext_newShader" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newShader),
                 "taca_Window_get" => Function::new_typed_with_env(&mut store, &env, taca_Window_get),
@@ -77,7 +79,9 @@ impl App {
     }
 
     pub fn listen(&mut self) {
-        self.update.call(&mut self.store, &[Value::I32(0)]).unwrap();
+        self.update
+            .call(&mut self.store, &[Value::I32(EventKind::Tick as i32)])
+            .unwrap();
         let system = self.env.as_mut(&mut self.store);
         frame_commit(system);
     }
@@ -124,6 +128,7 @@ pub struct System {
     pub buffers: Vec<Buffer>,
     pub display: Display,
     pub frame: Option<RenderFrame>,
+    pub key_event: KeyEvent,
     pub memory: Option<Memory>,
     pub pipelines: Vec<RenderPipeline>,
     pub shaders: Vec<Shader>,
@@ -138,6 +143,7 @@ impl System {
         System {
             buffers: vec![],
             display,
+            key_event: Default::default(),
             memory: None,
             frame: None,
             pipelines: vec![],
@@ -283,6 +289,14 @@ fn taca_buffer_update(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, 
     let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
     let bytes = read_span::<u8>(&view, bytes);
     buffer_update(system, buffer, &bytes, offset);
+}
+
+fn taca_key_event(mut env: FunctionEnvMut<System>, result: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    WasmPtr::<KeyEvent>::new(result)
+        .write(&view, system.key_event)
+        .unwrap();
 }
 
 fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
