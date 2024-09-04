@@ -1,7 +1,12 @@
 module fly @private;
 import glb;
+import std::collections::range;
 import std::math;
 import taca;
+
+const float CAMERA_Z = -12;
+const float MOVE_LIMIT = 4;
+const usz TARGET_LIMIT = 100;
 
 fn MeshBuf buf_mesh(Mesh mesh, usz limit = 1) {
     return {
@@ -23,8 +28,6 @@ macro value_as_slice($Type, value) {
     return (($Type*)&value)[:$sizeof(value)];
 }
 
-const usz TARGET_LIMIT = 100;
-
 struct Control {
     bool up;
     bool down;
@@ -41,6 +44,7 @@ struct Game {
     int score;
     MeshBuf ship;
     usz target_count;
+    usz[TARGET_LIMIT] target_empties;
     float[3][TARGET_LIMIT] target_offsets;
     MeshBuf targets;
 }
@@ -53,6 +57,8 @@ struct MeshBuf {
     Buffer offset;
     Buffer pos;
 }
+
+def Range = ExclusiveRange(<int>);
 
 struct Uniforms {
     Matrix4f proj;

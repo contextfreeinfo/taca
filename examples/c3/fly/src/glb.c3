@@ -158,9 +158,9 @@ fault Fault {
     VERSION,
 }
 
-const uint BIN = 0x004e4942; // *(int*)(char*)"BIN\0"
-const uint JSON = 0x4e4f534a; // *(int*)(char*)"JSON"
-const uint MAGIC = 0x46546c67; // *(int*)(char*)"glTF"
+const uint BIN = '\0NIB'; // 'BIN\0'
+const uint JSON = 'NOSJ'; // 'JSON'
+const uint MAGIC = 'FTlg'; // 'glTF'
 const uint VERSION = 2;
 
 enum ComponentType : int (int code) {

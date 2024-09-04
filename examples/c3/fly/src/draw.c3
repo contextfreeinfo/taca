@@ -11,10 +11,11 @@ fn void update_frame() {
     float aspect = window.size[0] / window.size[1];
     // TODO Do we want up fixed or based on some rotation angle?
     Vec3f at = { 0, 0, 0 };
+    Vec3f camera = { 0, 0, CAMERA_Z };
     Vec3f up = { 0, 1, 0 };
     Uniforms uniforms = {
-        .proj = matrix4f_perspective(fov, aspect, 0.1, 100).transpose(),
-        .view = vector::matrix4f_look_at({ 0, 0, -8 }, at, up).transpose(),
+        .proj = matrix4f_perspective(fov, aspect, 0.1, 1000).transpose(),
+        .view = vector::matrix4f_look_at(camera, at, up).transpose(),
     };
     taca::uniforms_update(value_as_slice(char, uniforms));
     // Targets
