@@ -5,8 +5,10 @@ import std::math;
 import taca;
 
 const float CAMERA_Z = -12;
+const usz DANGER_LIMIT = 80;
+const usz MAX_LIMIT = DANGER_LIMIT;
 const float MOVE_LIMIT = 4;
-const usz TARGET_LIMIT = 100;
+const usz TARGET_LIMIT = 20;
 
 fn MeshBuf buf_mesh(Mesh mesh, usz limit = 1) {
     return {
@@ -38,15 +40,13 @@ struct Control {
 struct Game {
     Control control;
     uint count;
+    Multi dangers;
     MeshBuf light;
     Vec3f pos;
     Pcg32Random random;
     int score;
     MeshBuf ship;
-    usz target_count;
-    usz[TARGET_LIMIT] target_empties;
-    float[3][TARGET_LIMIT] target_offsets;
-    MeshBuf targets;
+    Multi targets;
 }
 
 struct MeshBuf {
@@ -56,6 +56,12 @@ struct MeshBuf {
     Buffer norm;
     Buffer offset;
     Buffer pos;
+}
+
+struct Multi {
+    usz count;
+    float[3][MAX_LIMIT] offsets;
+    MeshBuf buf;
 }
 
 def Range = ExclusiveRange(<int>);

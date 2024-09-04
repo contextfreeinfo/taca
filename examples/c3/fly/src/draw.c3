@@ -3,8 +3,11 @@ import std::math;
 import taca;
 
 fn void update_frame() {
-    update_targets();
+    // Move
+    update_multi(&game.dangers);
+    update_multi(&game.targets);
     update_control();
+    // Draw
     WindowState window = taca::window_state();
     game.score = (int)window.size[0];
     float fov = (float)math::deg_to_rad(45);
@@ -18,17 +21,9 @@ fn void update_frame() {
         .view = vector::matrix4f_look_at(camera, at, up).transpose(),
     };
     taca::uniforms_update(value_as_slice(char, uniforms));
-    // Targets
-    taca::binding_apply({
-        .index_buffer = game.targets.idx,
-        .vertex_buffers = {
-            game.targets.pos, game.targets.norm, game.targets.offset
-        },
-    });
-    taca::buffer_update(
-        game.targets.offset, value_as_slice(char, game.target_offsets)
-    );
-    taca::draw(0, game.targets.idx_len, game.target_count);
+    // Objects
+    draw_multi(game.dangers);
+    draw_multi(game.targets);
     // Ship
     taca::binding_apply({
         .index_buffer = game.ship.idx,
@@ -45,4 +40,15 @@ fn void update_frame() {
     taca::text_draw(string::tformat("Time: %d", window.size[1]), right, 10);
     // Update
     game.count += 1;
+}
+
+fn void draw_multi(Multi multi) {
+    taca::binding_apply({
+        .index_buffer = multi.buf.idx,
+        .vertex_buffers = { multi.buf.pos, multi.buf.norm, multi.buf.offset },
+    });
+    taca::buffer_update(
+        multi.buf.offset, slice_as_slice(char, multi.offsets[:multi.count])
+    );
+    taca::draw(0, multi.buf.idx_len, multi.count);
 }
