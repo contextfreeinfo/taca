@@ -20,11 +20,16 @@ fn void update_frame() {
         .proj = matrix4f_perspective(fov, aspect, 0.1, 1000).transpose(),
         .view = vector::matrix4f_look_at(camera, at, up).transpose(),
     };
-    taca::uniforms_update(value_as_slice(char, uniforms));
     // Objects
+    uniforms.color = { 0.3, 0.3, 0.4 };
+    taca::uniforms_update(value_as_slice(char, uniforms));
     draw_multi(game.dangers);
+    uniforms.color = { 0.7, 1, 0.2 };
+    taca::uniforms_update(value_as_slice(char, uniforms));
     draw_multi(game.targets);
     // Ship
+    uniforms.color = { 0.2, 0.3, 1 };
+    taca::uniforms_update(value_as_slice(char, uniforms));
     taca::binding_apply({
         .index_buffer = game.ship.idx,
         .vertex_buffers = { game.ship.pos, game.ship.norm, game.ship.offset },

@@ -27,6 +27,10 @@ extern fn KeyEvent key_event(
     // Nothing
 ) @extern("taca_key_event");
 
+extern fn void pipeline_apply(
+    Pipeline pipeline,
+) @extern("taca_RenderingContext_applyPipeline");
+
 extern fn Pipeline pipeline_new(
     PipelineInfo info,
 ) @extern("taca_RenderingContext_newPipeline");

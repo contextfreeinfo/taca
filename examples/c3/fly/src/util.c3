@@ -59,9 +59,9 @@ struct MeshBuf {
 }
 
 struct Multi {
+    MeshBuf buf;
     usz count;
     float[3][MAX_LIMIT] offsets;
-    MeshBuf buf;
 }
 
 def Range = ExclusiveRange(<int>);
@@ -69,4 +69,6 @@ def Range = ExclusiveRange(<int>);
 struct Uniforms {
     Matrix4f proj;
     Matrix4f view;
+    float[3] color;
+    float pad;
 }

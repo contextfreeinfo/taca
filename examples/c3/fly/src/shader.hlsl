@@ -1,6 +1,7 @@
 cbuffer Uniforms : register(b0) {
     float4x4 view;
     float4x4 proj;
+    float3 color;
 };
 
 struct VSInput {
@@ -39,6 +40,6 @@ PSInput vertex_main(VSInput input) {
 }
 
 float4 fragment_main(PSInput input) : SV_TARGET {
-    float3 color = (float3(0, 1, 0) * input.bright) * 0.5 + 0.25;
-    return float4(color, 1);
+    float3 shaded = (color * input.bright) * 0.8 + 0.2;
+    return float4(shaded, 1);
 }
