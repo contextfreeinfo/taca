@@ -11,7 +11,6 @@ use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
     Value, ValueType, WasmPtr, WasmRef,
 };
-use wgpu::RenderPipeline;
 use winit::event_loop::EventLoop;
 
 use crate::{
@@ -19,8 +18,8 @@ use crate::{
     gpu::{
         bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
         create_pipeline, end_pass, frame_commit, pass_ensure, pipeline_apply, pipelined_ensure,
-        shader_create, uniforms_apply, Bindings, Buffer, BufferSlice, ExternBindings,
-        ExternPipelineInfo, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
+        shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice, ExternBindings,
+        ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -53,6 +52,8 @@ impl App {
                 "taca_RenderingContext_drawText" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawText),
                 "taca_RenderingContext_drawTexture" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawTexture),
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
+                "taca_binding_apply" => Function::new_typed_with_env(&mut store, &env, taca_binding_apply),
+                "taca_binding_new" => Function::new_typed_with_env(&mut store, &env, taca_binding_new),
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
                 "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
                 "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
@@ -125,22 +126,21 @@ impl App {
 }
 
 pub struct System {
+    pub bindings: Vec<Binding>,
     pub buffers: Vec<Buffer>,
     pub display: Display,
     pub frame: Option<RenderFrame>,
     pub key_event: KeyEvent,
     pub memory: Option<Memory>,
-    pub pipelines: Vec<RenderPipeline>,
+    pub pipelines: Vec<Pipeline>,
     pub shaders: Vec<Shader>,
     pub text: Option<Arc<Mutex<TextEngine>>>,
-    pub uniforms_bind_group: Option<wgpu::BindGroup>,
-    pub uniforms_bind_group_layout: Option<wgpu::BindGroupLayout>,
-    pub uniforms_buffer: Option<wgpu::Buffer>,
 }
 
 impl System {
     fn new(display: Display) -> System {
         System {
+            bindings: vec![],
             buffers: vec![],
             display,
             key_event: Default::default(),
@@ -149,9 +149,6 @@ impl System {
             pipelines: vec![],
             shaders: vec![],
             text: None,
-            uniforms_bind_group: None,
-            uniforms_bind_group_layout: None,
-            uniforms_buffer: None,
         }
     }
 }
@@ -177,6 +174,38 @@ fn read_string(view: &MemoryView, span: Span) -> String {
             .read_utf8_string(&view, span.len)
             .unwrap(),
     }
+}
+
+fn taca_binding_apply(mut env: FunctionEnvMut<System>, binding: u32, bytes: u32) {
+    // TOOD Consider this more.
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let _ = binding;
+    // let binding = &system.bindings[binding as usize];
+    // let bindings = Bindings {
+    //     vertex_buffers: &binding.vertex_buffers,
+    //     index_buffer: binding.index_buffer,
+    // };
+    // bindings_apply(system, binding as usize);
+    let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let uniforms = read_span::<u8>(&view, uniforms);
+    uniforms_apply(system, &uniforms);
+}
+
+fn taca_binding_new(mut env: FunctionEnvMut<System>, binding: u32) -> u32 {
+    // TOOD Consider this more.
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let binding = WasmPtr::<ExternBindings>::new(binding).read(&view).unwrap();
+    // TODO Reusable buffer to read into!
+    let vertex_buffers = read_span(&view, binding.vertex_buffers);
+    let binding = Binding {
+        bind_groups: vec![],
+        index_buffer: binding.index_buffer,
+        vertex_buffers: vertex_buffers,
+    };
+    system.bindings.push(binding);
+    system.bindings.len() as u32
 }
 
 fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings: u32) {

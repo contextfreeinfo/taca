@@ -2,7 +2,7 @@ use bytemuck::PodCastError;
 use naga::{
     front::spv,
     valid::{Capabilities, ValidationFlags, Validator},
-    Binding, ScalarKind, VectorSize,
+    ScalarKind, VectorSize,
 };
 use wasmer::ValueType;
 use wgpu::{
@@ -14,6 +14,21 @@ use wgpu::{
 
 use crate::{app::System, display::MaybeGraphics};
 
+#[derive(Debug)]
+pub struct Binding {
+    // Need a different bind group per pipeline.
+    pub bind_groups: Vec<wgpu::BindGroup>,
+    pub index_buffer: u32,
+    // TODO textures
+    pub vertex_buffers: Vec<u32>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Bindings<'a> {
+    pub vertex_buffers: &'a [u32],
+    pub index_buffer: u32,
+}
+
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
 pub struct BufferSlice {
@@ -24,13 +39,6 @@ pub struct BufferSlice {
 pub struct Buffer {
     pub buffer: wgpu::Buffer,
     pub usage: BufferUsages,
-}
-
-#[derive(Clone, Debug)]
-#[repr(C)]
-pub struct Bindings<'a> {
-    pub vertex_buffers: &'a [u32],
-    pub index_buffer: u32,
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]
@@ -57,6 +65,25 @@ pub struct ExternPipelineShaderInfo {
     pub shader: u32,
 }
 
+#[derive(Debug)]
+pub struct Pipeline {
+    // pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bind_group_index: usize,
+    pub bind_groups: Vec<PipelineBindGroup>,
+    pub pipeline: wgpu::RenderPipeline,
+}
+
+#[derive(Debug)]
+pub struct PipelineBindGroup {
+    pub bind_group: wgpu::BindGroup,
+    // TODO Textures
+    // TODO Do we also need to link from texture to pipeline bind group???
+    // TODO Do new need to expose bind groups to Taca?
+    // TODO But seems like buffers and textures are likely related?
+    // TODO Include buffers, textures, and uniforms all together as bundles?
+    pub uniform_buffer: wgpu::Buffer,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct PipelineInfo {
     pub depth_test: bool,
@@ -78,7 +105,7 @@ pub struct RenderFrame {
     pub encoder: CommandEncoder,
     pub frame: SurfaceTexture,
     pub pass: Option<wgpu::RenderPass<'static>>,
-    pub pipelined: bool,
+    pub pipeline: usize,
     pub view: TextureView,
 }
 
@@ -282,10 +309,9 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
             count: None,
         }],
     });
-    system.uniforms_bind_group_layout = Some(bind_group_layout);
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[system.uniforms_bind_group_layout.as_ref().unwrap()],
+        bind_group_layouts: &[&bind_group_layout],
         push_constant_ranges: &[],
     });
     // dbg!(&attr_info);
@@ -342,7 +368,11 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
         multiview: None,
         cache: None,
     });
-    system.pipelines.push(pipeline);
+    system.pipelines.push(Pipeline {
+        bind_group_index: 0,
+        bind_groups: vec![],
+        pipeline,
+    });
 }
 
 pub fn end_pass(system: &mut System) {
@@ -396,7 +426,7 @@ pub fn pass_ensure_load(system: &mut System, load: wgpu::LoadOp<wgpu::Color>) {
             encoder,
             frame,
             pass: None,
-            pipelined: false,
+            pipeline: 0,
             view,
         });
     }
@@ -428,12 +458,16 @@ pub fn pass_ensure_load(system: &mut System, load: wgpu::LoadOp<wgpu::Color>) {
         ..Default::default()
     });
     frame.pass = Some(pass.forget_lifetime());
+    for pipeline in &mut system.pipelines {
+        pipeline.bind_group_index = 0;
+    }
 }
 
 pub fn pipeline_apply(system: &mut System, pipeline: u32) {
     pipeline_ensure(system);
     pass_ensure(system);
-    let Some(pipeline) = system.pipelines.get(pipeline as usize - 1) else {
+    let pipeline_ind = pipeline as usize;
+    let Some(pipeline) = system.pipelines.get(pipeline_ind - 1) else {
         return;
     };
     let Some(frame) = system.frame.as_mut() else {
@@ -442,8 +476,8 @@ pub fn pipeline_apply(system: &mut System, pipeline: u32) {
     let Some(pass) = &mut frame.pass else {
         return;
     };
-    frame.pipelined = true;
-    pass.set_pipeline(pipeline);
+    frame.pipeline = pipeline_ind;
+    pass.set_pipeline(&pipeline.pipeline);
 }
 
 fn pipeline_ensure(system: &mut System) {
@@ -455,7 +489,7 @@ fn pipeline_ensure(system: &mut System) {
 
 pub fn pipelined_ensure(system: &mut System) {
     let needed = match system.frame.as_ref() {
-        Some(frame) => !frame.pipelined,
+        Some(frame) => frame.pipeline == 0,
         _ => true,
     };
     if needed {
@@ -507,34 +541,43 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
     let device = &gfx.device;
-    // TODO Need to support multiple of these!
-    if system.uniforms_buffer.is_none() {
-        system.uniforms_buffer = Some(device.create_buffer(&BufferDescriptor {
+    let pipeline = &mut system.pipelines[frame.pipeline - 1];
+    // Make a new bind group if we need one.
+    // TODO Once we have textures involved, will we need to group all that together???
+    if pipeline.bind_group_index >= pipeline.bind_groups.len() {
+        let uniform_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
             size: bytes.len() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
-        }));
-        system.uniforms_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: system.uniforms_bind_group_layout.as_ref().unwrap(),
+        });
+        let layout = pipeline.pipeline.get_bind_group_layout(0);
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &layout,
             // TODO Textures also go in here!
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: system.uniforms_buffer.as_ref().unwrap().as_entire_binding(),
+                resource: uniform_buffer.as_entire_binding(),
             }],
             label: None,
-        }));
+        });
+        pipeline.bind_groups.push(PipelineBindGroup {
+            bind_group,
+            uniform_buffer,
+        });
+        // dbg!(pipeline.bind_groups.len());
     }
-    gfx.queue
-        .write_buffer(system.uniforms_buffer.as_ref().unwrap(), 0, bytes);
-    let Some(frame) = system.frame.as_mut() else {
-        return;
-    };
+    let bind_group = &pipeline.bind_groups[pipeline.bind_group_index];
+    pipeline.bind_group_index += 1;
+    gfx.queue.write_buffer(&bind_group.uniform_buffer, 0, bytes);
     let Some(pass) = &mut frame.pass else {
         return;
     };
-    pass.set_bind_group(0, system.uniforms_bind_group.as_ref().unwrap(), &[]);
+    pass.set_bind_group(0, &bind_group.bind_group, &[]);
     frame.bound = true;
 }
 
@@ -579,7 +622,7 @@ fn vertex_buffer_layouts_build(
     let mut total_attrs = 0;
     for arg in entry.function.arguments.iter() {
         // dbg!(arg);
-        let Some(Binding::Location { location, .. }) = arg.binding else {
+        let Some(naga::Binding::Location { location, .. }) = arg.binding else {
             continue;
         };
         let format = vertex_format_from_naga_type(&types[arg.ty].inner);
