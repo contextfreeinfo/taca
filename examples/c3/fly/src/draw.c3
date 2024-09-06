@@ -6,17 +6,17 @@ fn void update_frame(Game* game) {
     WindowState window = taca::window_state();
     // Move
     // TODO If paused, only redraw if window size has changed?
-    if (!game.paused) {
+    if (!game.pause) {
         update_light(game);
-        update_multi(game, &game.dangers, false);
-        update_multi(game, &game.targets, true);
+        update_multis(game);
         update_control(game);
     }
-    if (game.paused) {
-        if ((Vec2f)window.size == game.window_size) {
+    if (game.pause) {
+        if (game.pause > 1 && (Vec2f)window.size == game.window_size) {
             // Save on compute.
             return;
         }
+        if (game.pause < 2) game.pause += 1;
         // taca::print("window size change on pause");
     }
     game.window_size = window.size;
@@ -58,6 +58,14 @@ fn void update_frame(Game* game) {
     int minutes = seconds / 60;
     seconds %= 60;
     taca::text_draw(string::tformat("%d:%02d", minutes, seconds), right, 10);
+    if (game.pause) {
+        taca::text_align(CENTER, TOP);
+        taca::text_draw(
+            "Space to Play     Arrows to Move",
+            window.size[0] / 2,
+            window.size[0] / 4,
+        );
+    }
 }
 
 fn void draw_light(Game* game, Uniforms* uniforms) {

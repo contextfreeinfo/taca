@@ -26,7 +26,7 @@ fn void update_key(Game* game) {
         case ARROW_DOWN: game.control.down = event.pressed;
         case ARROW_LEFT: game.control.left = event.pressed;
         case ARROW_RIGHT: game.control.right = event.pressed;
-        case SPACE: if (event.pressed) game.paused = !game.paused;
+        case SPACE: if (event.pressed) game.pause = game.pause ? 0 : 1;
         default:
     }
 }
@@ -110,4 +110,9 @@ fn void update_multi(Game* game, Multi* multi, bool prune_hit) {
         // ));
         multi.count += 1;
     }
+}
+
+fn void update_multis(Game* game) {
+    update_multi(game, &game.dangers, false);
+    update_multi(game, &game.targets, true);
 }

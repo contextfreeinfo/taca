@@ -34,6 +34,7 @@ fn void! start() @export("start") {
             .buf = buf_mesh(danger, DANGER_LIMIT),
         },
         .light = buf_mesh(light),
+        .pause = 1,
         .pos = { 0, -2, 0 },
         .random = random,
         .ship = buf_mesh(ship),
@@ -41,6 +42,7 @@ fn void! start() @export("start") {
             .buf = buf_mesh(target, TARGET_LIMIT),
         },
     };
+    update_multis(&game);
 }
 
 fn void update(EventKind event) @export("update") {

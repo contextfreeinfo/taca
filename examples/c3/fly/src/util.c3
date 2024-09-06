@@ -43,7 +43,7 @@ struct Game {
     Multi dangers;
     MeshBuf light;
     float light_angle;
-    bool paused;
+    uint pause;
     Vec3f pos;
     Pcg32Random random;
     int score;
