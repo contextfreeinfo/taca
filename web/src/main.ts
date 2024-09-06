@@ -6,7 +6,8 @@ import {
   shaderToGlsl,
   ShaderStage,
 } from "../pkg/cana";
-import { TexturePipeline, shaderProgramBuild } from "./drawing";
+import { TexturePipeline, fragmentMunge, shaderProgramBuild } from "./drawing";
+import { keys } from "./key";
 import { fail } from "./util";
 
 export interface AppConfig {
@@ -29,6 +30,12 @@ export async function runApp(config: AppConfig) {
 class App {
   constructor(config: AppConfig) {
     const canvas = (this.canvas = config.canvas);
+    canvas.addEventListener("keydown", (event) => {
+      this.keyEventHandle(event, true);
+    });
+    canvas.addEventListener("keyup", (event) => {
+      this.keyEventHandle(event, false);
+    });
     canvas.addEventListener("mousemove", (event) => {
       const rect = canvas.getBoundingClientRect();
       this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
@@ -40,7 +47,9 @@ class App {
       this.pointerPos = [touch.clientX - rect.left, touch.clientY - rect.top];
     });
     this.config = config;
-    this.gl = config.canvas.getContext("webgl2")!;
+    const gl = (this.gl = config.canvas.getContext("webgl2")!);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     this.texturePipeline = new TexturePipeline(this.gl);
     // Resize will fail if we couldn't get a context.
     this.resizeCanvas();
@@ -84,6 +93,7 @@ class App {
         {
           [gl.FLOAT]: [1, gl.FLOAT],
           [gl.FLOAT_VEC2]: [2, gl.FLOAT],
+          [gl.FLOAT_VEC3]: [3, gl.FLOAT],
           [gl.FLOAT_VEC4]: [4, gl.FLOAT],
         }[info.type] ?? fail();
       const typeSize = { [gl.FLOAT]: 4 }[type] ?? fail();
@@ -130,22 +140,32 @@ class App {
     const infoBytes = this.memoryViewMake(info, 2 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
-    // TODO Null ptr -> zero buffer for writing.
-    const data = this.memoryBytes().subarray(ptr, ptr + size);
+    const data = ptr
+      ? this.memoryBytes().subarray(ptr, ptr + size)
+      : new Uint8Array(size);
     const { gl } = this;
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    const buffer = gl.createBuffer();
-    buffer || fail();
-    this.buffers.push({
-      buffer: buffer!,
-      kind: ["vertex", "index"][type] as "vertex" | "index",
-    });
+    const buffer = gl.createBuffer() ?? fail();
+    const kind = ["vertex", "index"][type] as "vertex" | "index";
+    const usage = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
+    // TODO Change to numbers for kind or just cache these elsewhere?
     const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
     gl.bindBuffer(target, buffer);
-    const usageValue = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
-    gl.bufferData(target, data, usageValue);
+    gl.bufferData(target, data, usage);
+    this.buffers.push({ buffer, kind, mutable: !ptr, size });
     return this.buffers.length;
+  }
+
+  bufferUpdate(bufferPtr: number, slice: number, offset: number) {
+    const { buffers, gl } = this;
+    const { buffer, kind, mutable } = buffers[bufferPtr - 1];
+    const bytes = this.readBytes(slice);
+    // TODO Is this checked automatically?
+    mutable || fail();
+    const target = { vertex: gl.ARRAY_BUFFER, index: gl.ELEMENT_ARRAY_BUFFER }[
+      kind
+    ];
+    gl.bindBuffer(target, buffer);
+    gl.bufferSubData(target, offset, bytes);
   }
 
   buffered = false;
@@ -235,6 +255,32 @@ class App {
       this.textTexture = this.textDraw(text, this.textTexture || undefined);
       this.textTextureText = text;
     }
+    const {
+      usedSize: [sizeX, sizeY],
+    } = this.textures[this.textTexture - 1];
+    const [alignX, alignY] = this.textAlignVals;
+    // TODO Other alignments.
+    switch (alignX) {
+      case "left": {
+        x += sizeX / 2;
+        break;
+      }
+      case "right": {
+        x -= sizeX / 2;
+        break;
+      }
+    }
+    switch (alignY) {
+      case "alphabetic":
+      case "bottom": {
+        y -= sizeY / 2;
+        break;
+      }
+      case "top": {
+        y += sizeY / 2;
+        break;
+      }
+    }
     this.drawTexture(this.textTexture, x, y);
   }
 
@@ -289,6 +335,19 @@ class App {
 
   frameTimeBegin: number = Date.now();
 
+  keyEvent = new DataView(new Uint32Array(2).buffer);
+  keyEventBytes = new Uint8Array(this.keyEvent.buffer);
+
+  keyEventHandle(event: KeyboardEvent, pressed: boolean) {
+    if (event.repeat) return;
+    let { exports, keyEvent } = this;
+    setU32(keyEvent, 0, keys[event.key] ?? 0);
+    setU32(keyEvent, 4, pressed ? 1 : 0);
+    if (exports.update) {
+      exports.update!(1);
+    }
+  }
+
   gl: WebGL2RenderingContext;
 
   indexBuffer: Buffer | null = null;
@@ -341,6 +400,7 @@ class App {
   pipelineApply(pipelinePtr: number) {
     let { gl, pipelines } = this;
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
+    (pipeline.depthTest ? gl.enable : gl.disable).call(gl, gl.DEPTH_TEST);
     gl.useProgram(pipeline.program);
     // Presume we need new buffer binding when the program changes.
     this.buffered = false;
@@ -352,7 +412,9 @@ class App {
     const shaderMake = (info: ShaderInfo, stage: ShaderStage) =>
       shaderToGlsl(shaders[info.shader - 1], stage, info.entry);
     const vertex = shaderMake(pipelineInfo.vertex, ShaderStage.Vertex);
-    const fragment = shaderMake(pipelineInfo.fragment, ShaderStage.Fragment);
+    const fragment = fragmentMunge(
+      shaderMake(pipelineInfo.fragment, ShaderStage.Fragment)
+    );
     // console.log(vertex);
     // console.log(fragment);
     const program = shaderProgramBuild(gl, vertex, fragment);
@@ -361,6 +423,7 @@ class App {
     pipelines.push({
       attributes: pipelineInfo.vertexAttrs,
       buffers: pipelineInfo.vertexBuffers,
+      depthTest: pipelineInfo.depthTest,
       program,
       uniforms,
     });
@@ -391,7 +454,7 @@ class App {
 
   private pipelineInfoRead(info: number): PipelineInfo {
     // TODO Can wit-bindgen or flatbuffers automate some of this?
-    const infoView = this.memoryViewMake(info, 10 * 4);
+    const infoView = this.memoryViewMake(info, 11 * 4);
     const readShaderInfo = (offset: number) => {
       return {
         entry: this.readString(infoView.byteOffset + offset),
@@ -399,10 +462,11 @@ class App {
       };
     };
     const pipelineInfo: PipelineInfo = {
-      fragment: readShaderInfo(0 * 4),
-      vertex: readShaderInfo(3 * 4),
+      depthTest: !!getU32(infoView, 0),
+      fragment: readShaderInfo(1 * 4),
+      vertex: readShaderInfo(4 * 4),
       vertexAttrs: this.readAny(
-        info + 6 * 4,
+        info + 7 * 4,
         2 * 4,
         (view, offset): AttrInfo => ({
           count: 1,
@@ -413,7 +477,7 @@ class App {
         })
       ),
       vertexBuffers: this.readAny(
-        info + 8 * 4,
+        info + 9 * 4,
         3 * 4,
         (view, offset): BufferInfo => ({
           firstAttr: getU32(view, offset),
@@ -473,6 +537,8 @@ class App {
     if (this.tacaBuffer) {
       const { gl } = this;
       for (const pipeline of this.pipelines) {
+        // This helps flip the y axis to match wgpu.
+        // TODO Instead render to texture then flip the texture.
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.tacaBuffer);
         const tacaBytes = new Uint8Array(pipeline.uniforms.tacaSize);
         const tacaView = new DataView(tacaBytes.buffer);
@@ -483,6 +549,16 @@ class App {
       }
     }
   }
+
+  textAlign(x: number, y: number) {
+    this.textAlignVals = [
+      ([undefined, "center", "right"][x] ?? "left") as CanvasTextAlign,
+      ([undefined, "top", "middle", "bottom"][y] ??
+        "alphabetic") as CanvasTextBaseline,
+    ];
+  }
+
+  textAlignVals: [CanvasTextAlign, CanvasTextBaseline] = ["left", "alphabetic"];
 
   textDraw(text: string, textureIndex?: number) {
     const { gl, offscreen, offscreenContext, textures } = this;
@@ -617,8 +693,9 @@ class App {
 }
 
 interface AppExports {
-  listen: ((event: number) => void) | undefined;
-  _start: () => void;
+  _initialize: (() => void) | undefined;
+  start: () => void;
+  update: ((event: number) => void) | undefined;
 }
 
 interface AttrInfo {
@@ -638,6 +715,8 @@ interface Binding {
 interface Buffer {
   buffer: WebGLBuffer;
   kind: "index" | "vertex";
+  mutable: boolean;
+  size: number;
 }
 
 interface BufferInfo {
@@ -669,11 +748,14 @@ async function loadApp(config: AppConfig) {
   app.init(instance);
   // TODO Fold config into start once we get fully off miniquad.
   const exports = app.exports;
-  exports._start();
-  if (exports.listen) {
+  if (exports._initialize) {
+    exports._initialize();
+  }
+  exports.start();
+  if (exports.update) {
     const update = () => {
       try {
-        exports.listen!(0);
+        exports.update!(0);
       } finally {
         app.frameEnd();
       }
@@ -716,6 +798,9 @@ function makeAppEnv(app: App) {
     taca_RenderingContext_drawText(text: number, x: number, y: number) {
       app.drawText(app.readString(text), x, y);
     },
+    taca_textAlign(x: number, y: number) {
+      app.textAlign(x, y);
+    },
     taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
       // TODO Source and dest rect? Instanced?
       app.drawTexture(texture, x, y);
@@ -723,6 +808,12 @@ function makeAppEnv(app: App) {
     taca_RenderingContext_endPass() {},
     taca_RenderingContext_newBuffer(type: number, info: number) {
       return app.bufferNew(type, info);
+    },
+    taca_buffer_update(buffer: number, bytes: number, offset: number) {
+      return app.bufferUpdate(buffer, bytes, offset);
+    },
+    taca_key_event(result: number) {
+      app.memoryBytes().set(app.keyEventBytes, result);
     },
     taca_RenderingContext_newPipeline(info: number) {
       return app.pipelineNew(info);
@@ -759,11 +850,13 @@ function makeAppEnv(app: App) {
 interface Pipeline {
   attributes: AttrInfo[];
   buffers: BufferInfo[];
+  depthTest: boolean;
   program: WebGLProgram;
   uniforms: Uniforms;
 }
 
 interface PipelineInfo {
+  depthTest: boolean;
   fragment: ShaderInfo;
   vertex: ShaderInfo;
   vertexAttrs: AttrInfo[];
@@ -779,6 +872,7 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
   fragment.shader ||= vertex.shader || 1;
   vertex.shader ||= fragment.shader || 1;
   return {
+    depthTest: info.depthTest ?? false,
     fragment: fragment as ShaderInfo,
     vertex: vertex as ShaderInfo,
     vertexAttrs: info.vertexAttrs ?? [],
@@ -788,6 +882,10 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
 
 function setF32(view: DataView, byteOffset: number, value: number) {
   return view.setFloat32(byteOffset, value, true);
+}
+
+function setU32(view: DataView, byteOffset: number, value: number) {
+  return view.setUint32(byteOffset, value, true);
 }
 
 // function setU32(view: DataView, byteOffset: number, value: number) {
@@ -802,6 +900,7 @@ interface ShaderInfo {
 const textDecoder = new TextDecoder();
 
 interface Texture {
+  // TODO Also store a baseline for all textures that for non-text is y size.
   size: [number, number];
   texture: WebGLTexture;
   usedSize: [number, number];

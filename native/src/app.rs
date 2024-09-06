@@ -11,23 +11,23 @@ use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
     Value, ValueType, WasmPtr, WasmRef,
 };
-use wgpu::RenderPipeline;
 use winit::event_loop::EventLoop;
 
 use crate::{
-    display::{Display, Graphics, MaybeGraphics, WindowState},
+    display::{Display, EventKind, Graphics, MaybeGraphics, WindowState},
     gpu::{
-        bindings_apply, buffered_ensure, create_buffer, create_pipeline, end_pass, frame_commit,
-        pass_ensure, pipeline_apply, pipelined_ensure, shader_create, uniforms_apply, Bindings,
-        Buffer, BufferSlice, ExternBindings, ExternPipelineInfo, PipelineInfo, PipelineShaderInfo,
-        RenderFrame, Shader, Span,
+        bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
+        create_pipeline, end_pass, frame_commit, pass_ensure, pipeline_apply, pipelined_ensure,
+        shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice, ExternBindings,
+        ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
-    text::TextEngine,
+    key::KeyEvent,
+    text::{to_text_align_x, to_text_align_y, TextEngine},
 };
 
 pub struct App {
     pub env: FunctionEnv<System>,
-    listen: Function,
+    pub update: Function,
     pub instance: Instance,
     pub store: Store,
 }
@@ -52,7 +52,11 @@ impl App {
                 "taca_RenderingContext_drawText" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawText),
                 "taca_RenderingContext_drawTexture" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_drawTexture),
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
+                "taca_binding_apply" => Function::new_typed_with_env(&mut store, &env, taca_binding_apply),
+                "taca_binding_new" => Function::new_typed_with_env(&mut store, &env, taca_binding_new),
                 "taca_RenderingContext_newBuffer" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newBuffer),
+                "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
+                "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
                 "taca_RenderingContext_newPipeline" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newPipeline),
                 "taca_RenderingContext_newShader" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_newShader),
                 "taca_Window_get" => Function::new_typed_with_env(&mut store, &env, taca_Window_get),
@@ -60,22 +64,25 @@ impl App {
                 "taca_Window_print" => Function::new_typed_with_env(&mut store, &env, taca_Window_print),
                 "taca_Window_setTitle" => Function::new_typed_with_env(&mut store, &env, taca_Window_setTitle),
                 "taca_Window_state" => Function::new_typed_with_env(&mut store, &env, taca_Window_state),
+                "taca_textAlign" => Function::new_typed_with_env(&mut store, &env, taca_textAlign),
             }
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-        let listen = instance.exports.get_function("listen").unwrap().clone();
+        let update = instance.exports.get_function("update").unwrap().clone();
         let app = env.as_mut(&mut store);
         app.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
         App {
             env,
             instance,
-            listen,
+            update,
             store,
         }
     }
 
     pub fn listen(&mut self) {
-        self.listen.call(&mut self.store, &[Value::I32(0)]).unwrap();
+        self.update
+            .call(&mut self.store, &[Value::I32(EventKind::Tick as i32)])
+            .unwrap();
         let system = self.env.as_mut(&mut self.store);
         frame_commit(system);
     }
@@ -106,37 +113,42 @@ impl App {
     pub fn start(&mut self, graphics: &Graphics) {
         let system = self.env.as_mut(&mut self.store);
         system.text = Some(Arc::new(Mutex::new(TextEngine::new(graphics))));
-        let start = self.instance.exports.get_function("_start").unwrap();
+        // Some wasi builds make _initialize even without main/_start.
+        // If _start exists, it's supposed to do any initialize on its own, I think.
+        if let Ok(initialize) = self.instance.exports.get_function("_initialize") {
+            initialize.call(&mut self.store, &[]).unwrap();
+        }
+        // Part of why to move away from main/_start so we know any _initialize
+        // is separate from our own start.
+        let start = self.instance.exports.get_function("start").unwrap();
         start.call(&mut self.store, &[]).unwrap();
     }
 }
 
 pub struct System {
+    pub bindings: Vec<Binding>,
     pub buffers: Vec<Buffer>,
     pub display: Display,
     pub frame: Option<RenderFrame>,
+    pub key_event: KeyEvent,
     pub memory: Option<Memory>,
-    pub pipelines: Vec<RenderPipeline>,
+    pub pipelines: Vec<Pipeline>,
     pub shaders: Vec<Shader>,
     pub text: Option<Arc<Mutex<TextEngine>>>,
-    pub uniforms_bind_group: Option<wgpu::BindGroup>,
-    pub uniforms_bind_group_layout: Option<wgpu::BindGroupLayout>,
-    pub uniforms_buffer: Option<wgpu::Buffer>,
 }
 
 impl System {
     fn new(display: Display) -> System {
         System {
+            bindings: vec![],
             buffers: vec![],
             display,
+            key_event: Default::default(),
             memory: None,
             frame: None,
             pipelines: vec![],
             shaders: vec![],
             text: None,
-            uniforms_bind_group: None,
-            uniforms_bind_group_layout: None,
-            uniforms_buffer: None,
         }
     }
 }
@@ -162,6 +174,38 @@ fn read_string(view: &MemoryView, span: Span) -> String {
             .read_utf8_string(&view, span.len)
             .unwrap(),
     }
+}
+
+fn taca_binding_apply(mut env: FunctionEnvMut<System>, binding: u32, bytes: u32) {
+    // TOOD Consider this more.
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let _ = binding;
+    // let binding = &system.bindings[binding as usize];
+    // let bindings = Bindings {
+    //     vertex_buffers: &binding.vertex_buffers,
+    //     index_buffer: binding.index_buffer,
+    // };
+    // bindings_apply(system, binding as usize);
+    let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let uniforms = read_span::<u8>(&view, uniforms);
+    uniforms_apply(system, &uniforms);
+}
+
+fn taca_binding_new(mut env: FunctionEnvMut<System>, binding: u32) -> u32 {
+    // TOOD Consider this more.
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let binding = WasmPtr::<ExternBindings>::new(binding).read(&view).unwrap();
+    // TODO Reusable buffer to read into!
+    let vertex_buffers = read_span(&view, binding.vertex_buffers);
+    let binding = Binding {
+        bind_groups: vec![],
+        index_buffer: binding.index_buffer,
+        vertex_buffers: vertex_buffers,
+    };
+    system.bindings.push(binding);
+    system.bindings.len() as u32
 }
 
 fn taca_RenderingContext_applyBindings(mut env: FunctionEnvMut<System>, bindings: u32) {
@@ -211,6 +255,7 @@ fn taca_RenderingContext_draw(
     pipelined_ensure(system);
     // TODO Actually ensure we got buffers?
     buffered_ensure(system);
+    bound_ensure(system);
     let Some(RenderFrame {
         pass: Some(pass), ..
     }) = &mut system.frame
@@ -228,6 +273,14 @@ fn taca_RenderingContext_drawText(mut env: FunctionEnvMut<System>, text: u32, x:
     pass_ensure(system);
     let text_engine = system.text.clone().unwrap();
     text_engine.lock().unwrap().draw(system, &text, x, y);
+}
+
+fn taca_textAlign(mut env: FunctionEnvMut<System>, x: u32, y: u32) {
+    let system = env.data_mut();
+    let text_engine = system.text.clone().unwrap();
+    let mut text_engine = text_engine.lock().unwrap();
+    text_engine.align_x = to_text_align_x(x);
+    text_engine.align_y = to_text_align_y(y);
 }
 
 fn taca_RenderingContext_drawTexture(
@@ -248,11 +301,31 @@ fn taca_RenderingContext_newBuffer(mut env: FunctionEnvMut<System>, typ: u32, sl
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let slice = WasmPtr::<BufferSlice>::new(slice).read(&view).unwrap();
-    let contents = view
-        .copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
-        .unwrap();
-    create_buffer(system, &contents, typ);
+    let contents = match slice.ptr {
+        0 => None,
+        _ => Some(
+            view.copy_range_to_vec(slice.ptr as u64..(slice.ptr + slice.size) as u64)
+                .unwrap(),
+        ),
+    };
+    create_buffer(system, contents.as_deref(), slice.size, typ);
     system.buffers.len() as u32
+}
+
+fn taca_buffer_update(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, offset: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let bytes = read_span::<u8>(&view, bytes);
+    buffer_update(system, buffer, &bytes, offset);
+}
+
+fn taca_key_event(mut env: FunctionEnvMut<System>, result: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    WasmPtr::<KeyEvent>::new(result)
+        .write(&view, system.key_event)
+        .unwrap();
 }
 
 fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
@@ -265,6 +338,7 @@ fn taca_RenderingContext_newPipeline(mut env: FunctionEnvMut<System>, info: u32)
     let vertex_attributes = read_span(&view, info.vertex_attributes);
     let vertex_buffers = read_span(&view, info.vertex_buffers);
     let info = PipelineInfo {
+        depth_test: info.depth_test,
         fragment: PipelineShaderInfo {
             entry_point: read_string(&view, info.fragment.entry_point),
             shader: info.fragment.shader,

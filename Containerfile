@@ -3,6 +3,7 @@
 FROM ubuntu:22.04
 
 ARG BINARYEN_VERSION=118
+ARG C3_VERSION=0.6.2
 ARG NAGA_VERSION=22.0.0
 ARG NODE_VERSION=20.16.0
 ARG RUST_VERSION=1.80.0
@@ -16,11 +17,18 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates \
     curl \
+    libxml2 \
     lz4 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Programming Languages
+
+# c3
+RUN curl -LO https://github.com/c3lang/c3c/releases/download/v${C3_VERSION}/c3-linux.tar.gz \
+    && tar -xf c3-linux.tar.gz \
+    && mv c3 /opt/c3
+ENV PATH="/opt/c3:${PATH}"
 
 # node
 RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \

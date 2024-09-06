@@ -7,7 +7,7 @@ pub const Bindings = struct {
 pub const Buffer = extern struct {};
 
 pub const BufferInfo = extern struct {
-    kind: BufferType = .vertex,
+    kind: BufferKind = .vertex,
     slice: BufferSlice,
 };
 
@@ -22,7 +22,7 @@ pub const BufferSlice = extern struct {
     }
 };
 
-pub const BufferType = enum(c_int) {
+pub const BufferKind = enum(c_int) {
     vertex,
     index,
 };
@@ -39,6 +39,7 @@ pub const PipelineShaderInfo = struct {
 };
 
 pub const PipelineInfo = struct {
+    depth_test: bool = false,
     // Attributes are specified separately from buffers to make it easier to
     // avoid memory allocation when prepping for ffi.
     fragment: PipelineShaderInfo = .{},
@@ -174,7 +175,6 @@ pub const Window = extern struct {
 };
 
 pub const WindowState = extern struct {
-    // TODO Should size be integer?
     pointer: [2]f32,
     size: [2]f32,
 };
@@ -205,6 +205,7 @@ const ExternBindings = extern struct {
 };
 
 const ExternPipelineInfo = extern struct {
+    depth_test: bool,
     fragment: ExternPipelineShaderInfo,
     vertex: ExternPipelineShaderInfo,
     vertex_attributes: Span(VertexAttribute),
@@ -212,6 +213,7 @@ const ExternPipelineInfo = extern struct {
 
     pub fn from(info: PipelineInfo) ExternPipelineInfo {
         return .{
+            .depth_test = info.depth_test,
             .fragment = ExternPipelineShaderInfo.from(info.fragment),
             .vertex = ExternPipelineShaderInfo.from(info.vertex),
             .vertex_attributes = Span(VertexAttribute).from(info.vertex_attributes),
@@ -275,7 +277,7 @@ extern fn taca_RenderingContext_endPass(
 ) void;
 
 extern fn taca_RenderingContext_newBuffer(
-    kind: BufferType,
+    kind: BufferKind,
     info: *const BufferSlice,
 ) callconv(.C) *Buffer;
 

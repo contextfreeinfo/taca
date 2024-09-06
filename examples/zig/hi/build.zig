@@ -16,8 +16,9 @@ pub fn build(b: *std.Build) !void {
             .target = target,
         });
         // exe.addIncludePath(.{ .path = "../../../include" });
+        exe.entry = .disabled;
         // exe.export_table = false;
-        exe.root_module.export_symbol_names = &[_][]const u8{"listen"};
+        exe.root_module.export_symbol_names = &[_][]const u8{ "start", "update" };
         b.installArtifact(exe);
     }
 }

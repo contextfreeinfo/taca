@@ -5,18 +5,22 @@ use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
-use wasmer::ValueType;
+use wasmer::{Value, ValueType};
 use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::{
     application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{KeyEvent, WindowEvent},
+    event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
-    keyboard::Key,
+    keyboard::{self, NamedKey},
     window::{Fullscreen, Window, WindowId},
 };
 
-use crate::app::AppPtr;
+use crate::{
+    app::AppPtr,
+    gpu::TextureData,
+    key::{Key, KeyEvent},
+};
 
 pub struct Display {
     pub app: AppPtr,
@@ -25,6 +29,13 @@ pub struct Display {
     time_end: Instant,
     time_mean: f64,
     time_report: Instant,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(i32)]
+pub enum EventKind {
+    Tick = 0,
+    Key = 1,
 }
 
 const REPORT_DELAY: Duration = Duration::from_secs(10);
@@ -68,9 +79,10 @@ impl Display {
         let MaybeGraphics::Graphics(gfx) = &mut self.graphics else {
             return;
         };
-        gfx.surface_config.width = size.width;
-        gfx.surface_config.height = size.height;
-        gfx.surface.configure(&gfx.device, &gfx.surface_config);
+        gfx.config.width = size.width;
+        gfx.config.height = size.height;
+        gfx.surface.configure(&gfx.device, &gfx.config);
+        gfx.depth_texture = create_depth_texture(&gfx.device, &gfx.config);
     }
 
     pub fn run(&mut self, event_loop: EventLoop<Graphics>) {
@@ -92,7 +104,7 @@ impl<'a> ApplicationHandler<Graphics> for Display {
         match event {
             WindowEvent::KeyboardInput {
                 event:
-                    KeyEvent {
+                    winit::event::KeyEvent {
                         physical_key: _,
                         logical_key,
                         text: _,
@@ -103,8 +115,8 @@ impl<'a> ApplicationHandler<Graphics> for Display {
                     },
                 ..
             } => match logical_key {
-                Key::Named(key) => match key {
-                    winit::keyboard::NamedKey::F11 => {
+                keyboard::Key::Named(key) => match key {
+                    NamedKey::F11 => {
                         if state.is_pressed() && !repeat {
                             let fullscreen = match gfx.window.fullscreen() {
                                 Some(_) => None,
@@ -113,11 +125,22 @@ impl<'a> ApplicationHandler<Graphics> for Display {
                             gfx.window.set_fullscreen(fullscreen);
                         }
                     }
+                    _ if !repeat => {
+                        let app = unsafe { &mut *self.app.0 };
+                        let key: Key = key.into();
+                        let key = key as i32;
+                        let pressed = state.is_pressed();
+                        let system = app.env.as_mut(&mut app.store);
+                        system.key_event = KeyEvent { key, pressed };
+                        app.update
+                            .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
+                            .unwrap();
+                    }
                     _ => {}
                 },
-                Key::Character(_) => {}
-                Key::Unidentified(_) => {}
-                Key::Dead(_) => {}
+                keyboard::Key::Character(_) => {}
+                keyboard::Key::Unidentified(_) => {}
+                keyboard::Key::Dead(_) => {}
             },
             WindowEvent::CursorMoved { position, .. } => {
                 self.pointer_pos = Some(position);
@@ -148,9 +171,10 @@ impl<'a> ApplicationHandler<Graphics> for Display {
 #[allow(dead_code)]
 pub struct Graphics {
     pub window: Arc<Window>,
-    instance: Instance,
+    pub config: SurfaceConfiguration,
+    pub depth_texture: TextureData,
+    pub instance: Instance,
     pub surface: Surface<'static>,
-    pub surface_config: SurfaceConfiguration,
     pub adapter: Adapter,
     pub device: Device,
     pub queue: Queue,
@@ -189,6 +213,31 @@ pub struct WindowState {
     pub size: [f32; 2],
 }
 
+pub fn create_depth_texture(
+    device: &wgpu::Device,
+    config: &wgpu::SurfaceConfiguration,
+) -> TextureData {
+    let size = wgpu::Extent3d {
+        width: config.width.max(1),
+        height: config.height.max(1),
+        depth_or_array_layers: 1,
+    };
+    let desc = wgpu::TextureDescriptor {
+        label: None,
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[wgpu::TextureFormat::Depth32Float],
+    };
+    let texture = device.create_texture(&desc);
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    TextureData { texture, view }
+}
+
 fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphics> + 'static {
     let window_attrs = Window::default_attributes();
     let window = Arc::new(event_loop.create_window(window_attrs).unwrap());
@@ -218,19 +267,20 @@ fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphic
             .unwrap();
 
         let size = window.inner_size();
-        let mut surface_config = surface
+        let mut config = surface
             .get_default_config(&adapter, size.width, size.height)
             .unwrap();
-        surface_config.view_formats =
-            vec![TextureFormat::Bgra8UnormSrgb, TextureFormat::Bgra8Unorm];
-        // dbg!(&surface_config);
-        surface.configure(&device, &surface_config);
+        config.view_formats = vec![TextureFormat::Bgra8UnormSrgb, TextureFormat::Bgra8Unorm];
+        // dbg!(&config);
+        surface.configure(&device, &config);
+        let depth_texture = create_depth_texture(&device, &config);
 
         Graphics {
             window,
+            config,
+            depth_texture,
             instance,
             surface,
-            surface_config,
             adapter,
             device,
             queue,

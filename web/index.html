@@ -21,7 +21,7 @@
     </style>
   </head>
   <body>
-    <canvas id="app" tabindex="1"></canvas>
+    <canvas id="app" tabindex="0"></canvas>
     <script type="module">
       const url = new URL(window.location.href);
       const app = new URLSearchParams(url.search).get("app");
@@ -30,11 +30,16 @@
         const code = fetch(app);
         const runtimeWasm = undefined; // or fetch("taca.wasm")
         const { runApp } = await import("/src/main.ts");
-        runApp({
-          canvas: document.getElementById("app"),
-          code,
-          runtimeWasm,
+        const canvas = document.getElementById("app");
+        // Keep focus on the canvas for this page.
+        canvas.focus();
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState == "visible") {
+            canvas.focus();
+          }
         });
+        // Run app.
+        runApp({ canvas, code, runtimeWasm });
       }
     </script>
   </body>
