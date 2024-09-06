@@ -61,7 +61,13 @@ struct MeshBuf {
 struct Multi {
     MeshBuf buf;
     usz count;
+    ObjExtra[MAX_LIMIT] extras;
     float[3][MAX_LIMIT] offsets;
+}
+
+struct ObjExtra {
+    bool hit;
+    Vec2f kick;
 }
 
 def Range = ExclusiveRange(<int>);

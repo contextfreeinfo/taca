@@ -2,14 +2,13 @@ module fly @private;
 import std::math;
 import taca;
 
-fn void update_frame() {
+fn void update_frame(Game* game) {
     // Move
-    update_multi(&game.dangers);
-    update_multi(&game.targets);
-    update_control();
+    update_multi(game, &game.dangers, false);
+    update_multi(game, &game.targets, true);
+    update_control(game);
     // Draw
     WindowState window = taca::window_state();
-    game.score = (int)window.size[0];
     float fov = (float)math::deg_to_rad(45);
     float aspect = window.size[0] / window.size[1];
     // TODO Do we want up fixed or based on some rotation angle?
@@ -28,7 +27,7 @@ fn void update_frame() {
     taca::uniforms_update(value_as_slice(char, uniforms));
     draw_multi(game.targets);
     // Ship
-    uniforms.color = { 0.2, 0.3, 1 };
+    uniforms.color = { 0.6, 0.7, 1 };
     taca::uniforms_update(value_as_slice(char, uniforms));
     taca::binding_apply({
         .index_buffer = game.ship.idx,
@@ -39,10 +38,13 @@ fn void update_frame() {
     taca::draw(0, game.ship.idx_len, 1);
     // Stats
     taca::text_align(LEFT, TOP);
-    taca::text_draw(string::tformat("Score: %s", game.score), 10, 10);
+    taca::text_draw(string::tformat("%s", game.score), 10, 10);
     taca::text_align(RIGHT, TOP);
     float right = window.size[0] - 10;
-    taca::text_draw(string::tformat("Time: %d", window.size[1]), right, 10);
+    int seconds = game.count / 60;
+    int minutes = seconds / 60;
+    seconds %= 60;
+    taca::text_draw(string::tformat("%d:%02d", minutes, seconds), right, 10);
     // Update
     game.count += 1;
 }

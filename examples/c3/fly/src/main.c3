@@ -46,8 +46,8 @@ fn void! start() @export("start") {
 fn void update(EventKind event) @export("update") {
     @pool() {
         switch (event) {
-            case FRAME: update_frame();
-            case KEY: update_key();
+            case FRAME: update_frame(&game);
+            case KEY: update_key(&game);
         }
     };
 }
