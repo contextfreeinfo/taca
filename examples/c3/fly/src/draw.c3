@@ -63,7 +63,7 @@ fn void update_frame(Game* game) {
         taca::text_draw(
             "Space to Play     Arrows to Move",
             window.size[0] / 2,
-            window.size[0] / 4,
+            window.size[1] / 4,
         );
     }
 }
