@@ -3,18 +3,18 @@ import std::math;
 import taca;
 
 fn void update_control(Game* game) {
-    float speed = 1e-1;
     Vec3f move;
-    if (game.control.up) move.y = speed;
-    if (game.control.down) move.y = -speed;
-    if (game.control.left) move.x = speed;
-    if (game.control.right) move.x = -speed;
-    game.pos += move;
-    // Try to avoid the singular point. TODO Why still hitting it?
-    if (math::abs(game.pos.x) < speed) game.pos.x += move.x;
-    if (math::abs(game.pos.y) < speed) game.pos.y += move.y;
-    game.pos.x = max(-MOVE_LIMIT, min(game.pos.x, MOVE_LIMIT));
-    game.pos.y = max(-MOVE_LIMIT, min(game.pos.y, MOVE_LIMIT));
+    if (game.control.up) move.y = 1;
+    if (game.control.down) move.y = -1;
+    if (game.control.left) move.x = 1;
+    if (game.control.right) move.x = -1;
+    game.pos += 1e-1 * move.normalize();
+    // // Try to avoid the singular point. TODO Why still hitting it?
+    // if (math::abs(game.pos.x) < speed) game.pos.x += move.x;
+    // if (math::abs(game.pos.y) < speed) game.pos.y += move.y;
+    if (game.pos.length() > MOVE_LIMIT) {
+        game.pos = MOVE_LIMIT * game.pos.normalize();
+    }
     game.count += 1;
 }
 
@@ -83,11 +83,17 @@ fn void update_multi(Game* game, Multi* multi, bool prune_hit) {
     float start = multi.count ? 300 : 100;
     float scale = multi.count ? 300 : 600;
     while (multi.count < multi.buf.limit) {
+        // Reset extra data.
         multi.extras[multi.count] = {};
+        // Choose position.
+        float angle = 2 * math::PI * random::next_float(&game.random);
+        // Set a minimum radius, and also bias toward edges with exponent.
+        float radius = 1 - 0.3 * math::pow(random::next_float(&game.random), 2);
+        radius *= MOVE_LIMIT;
+        float z = scale * random::next_float(&game.random) + start;
         multi.offsets[multi.count] = {
-            // TODO Sample polar coords?
-            MOVE_LIMIT * (2 * random::next_float(&game.random) - 1),
-            MOVE_LIMIT * (2 * random::next_float(&game.random) - 1),
+            radius * math::cos(angle),
+            radius * math::sin(angle),
             scale * random::next_float(&game.random) + start,
         };
         // taca::print(string::tformat(
