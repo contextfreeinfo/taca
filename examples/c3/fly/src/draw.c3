@@ -3,14 +3,24 @@ import std::math;
 import taca;
 
 fn void update_frame(Game* game) {
+    WindowState window = taca::window_state();
     // Move
+    // TODO If paused, only redraw if window size has changed?
     if (!game.paused) {
+        update_light(game);
         update_multi(game, &game.dangers, false);
         update_multi(game, &game.targets, true);
         update_control(game);
     }
+    if (game.paused) {
+        if ((Vec2f)window.size == game.window_size) {
+            // Save on compute.
+            return;
+        }
+        // taca::print("window size change on pause");
+    }
+    game.window_size = window.size;
     // Draw
-    WindowState window = taca::window_state();
     float fov = (float)math::deg_to_rad(45);
     float aspect = window.size[0] / window.size[1];
     // TODO Do we want up fixed or based on some rotation angle?
@@ -22,6 +32,7 @@ fn void update_frame(Game* game) {
         .view = vector::matrix4f_look_at(camera, at, up).transpose(),
     };
     // Objects
+    draw_light(game, &uniforms);
     uniforms.color = { 0.3, 0.3, 0.4 };
     taca::uniforms_update(value_as_slice(char, uniforms));
     draw_multi(game.dangers);
@@ -47,6 +58,29 @@ fn void update_frame(Game* game) {
     int minutes = seconds / 60;
     seconds %= 60;
     taca::text_draw(string::tformat("%d:%02d", minutes, seconds), right, 10);
+}
+
+fn void draw_light(Game* game, Uniforms* uniforms) {
+    uniforms.lit = 0.8;
+    uniforms.color = { 1, 1, 1 };
+    Vec3f pos = {
+        math::cos(game.light_angle),
+        math::sin(game.light_angle),
+        0,
+    };
+    uniforms.light = -pos;
+    taca::binding_apply({
+        .index_buffer = game.light.idx,
+        .vertex_buffers = {
+            game.light.pos, game.light.norm, game.light.offset
+        },
+    });
+    float[3] pos_array = 1.2 * MOVE_LIMIT * pos;
+    taca::buffer_update(game.light.offset, value_as_slice(char, pos_array));
+    taca::uniforms_update(value_as_slice(char, *uniforms));
+    taca::draw(0, game.light.idx_len, 1);
+    uniforms.light = pos;
+    uniforms.lit = 0.5;
 }
 
 fn void draw_multi(Multi multi) {

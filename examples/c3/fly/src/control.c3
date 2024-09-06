@@ -31,6 +31,13 @@ fn void update_key(Game* game) {
     }
 }
 
+fn void update_light(Game* game) {
+    game.light_angle += 3e-1 * math::PI / 60;
+    // Says only for integers.
+    // game.light_angle %= 2 * math::PI;
+    game.light_angle = game.light_angle % (2 * math::PI);
+}
+
 fn void update_multi(Game* game, Multi* multi, bool prune_hit) {
     // Prune finished targets.
     // Empties allow O(N) processing including moved slots.

@@ -2,6 +2,8 @@ cbuffer Uniforms : register(b0) {
     float4x4 view;
     float4x4 proj;
     float3 color;
+    float3 light;
+    float lit;
 };
 
 struct VSInput {
@@ -34,8 +36,8 @@ PSInput vertex_main(VSInput input) {
     output.pos = mul(view, pos_proj);
     // Also rotate norm.
     float3 norm = mul(rot, input.norm);
-    float bright = dot(norm, normalize(float3(1, 1, 0)));
-    output.bright = 0.5 * bright + 0.5;
+    float bright = dot(norm, normalize(light));
+    output.bright = (1 - lit) * bright + lit;
     return output;
 }
 

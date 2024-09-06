@@ -42,11 +42,13 @@ struct Game {
     uint count;
     Multi dangers;
     MeshBuf light;
+    float light_angle;
     bool paused;
     Vec3f pos;
     Pcg32Random random;
     int score;
     MeshBuf ship;
+    Vec2f window_size;
     Multi targets;
 }
 
@@ -77,5 +79,7 @@ struct Uniforms {
     Matrix4f proj;
     Matrix4f view;
     float[3] color;
-    float pad;
+    float pad_color;
+    float[3] light;
+    float lit;
 }
