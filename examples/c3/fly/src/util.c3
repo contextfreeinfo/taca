@@ -42,6 +42,7 @@ struct Game {
     uint count;
     Multi dangers;
     MeshBuf light;
+    bool paused;
     Vec3f pos;
     Pcg32Random random;
     int score;

@@ -4,9 +4,11 @@ import taca;
 
 fn void update_frame(Game* game) {
     // Move
-    update_multi(game, &game.dangers, false);
-    update_multi(game, &game.targets, true);
-    update_control(game);
+    if (!game.paused) {
+        update_multi(game, &game.dangers, false);
+        update_multi(game, &game.targets, true);
+        update_control(game);
+    }
     // Draw
     WindowState window = taca::window_state();
     float fov = (float)math::deg_to_rad(45);
@@ -45,8 +47,6 @@ fn void update_frame(Game* game) {
     int minutes = seconds / 60;
     seconds %= 60;
     taca::text_draw(string::tformat("%d:%02d", minutes, seconds), right, 10);
-    // Update
-    game.count += 1;
 }
 
 fn void draw_multi(Multi multi) {

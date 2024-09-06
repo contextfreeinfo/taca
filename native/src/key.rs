@@ -16,6 +16,8 @@ pub enum Key {
     ArrowDown = 2,
     ArrowLeft = 3,
     ArrowRight = 4,
+    Space = 5,
+    Escape = 6,
 }
 
 impl From<NamedKey> for Key {
@@ -25,6 +27,8 @@ impl From<NamedKey> for Key {
             NamedKey::ArrowLeft => Key::ArrowLeft,
             NamedKey::ArrowRight => Key::ArrowRight,
             NamedKey::ArrowUp => Key::ArrowUp,
+            NamedKey::Escape => Key::Escape,
+            NamedKey::Space => Key::Space,
             _ => Key::None,
         }
     }

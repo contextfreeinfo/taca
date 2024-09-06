@@ -15,6 +15,7 @@ fn void update_control(Game* game) {
     if (math::abs(game.pos.y) < speed) game.pos.y += move.y;
     game.pos.x = max(-MOVE_LIMIT, min(game.pos.x, MOVE_LIMIT));
     game.pos.y = max(-MOVE_LIMIT, min(game.pos.y, MOVE_LIMIT));
+    game.count += 1;
 }
 
 fn void update_key(Game* game) {
@@ -25,6 +26,7 @@ fn void update_key(Game* game) {
         case ARROW_DOWN: game.control.down = event.pressed;
         case ARROW_LEFT: game.control.left = event.pressed;
         case ARROW_RIGHT: game.control.right = event.pressed;
+        case SPACE: if (event.pressed) game.paused = !game.paused;
         default:
     }
 }

@@ -110,6 +110,8 @@ enum Key : int {
     ARROW_DOWN,
     ARROW_LEFT,
     ARROW_RIGHT,
+    SPACE,
+    ESCAPE,
 }
 
 struct KeyEvent {
