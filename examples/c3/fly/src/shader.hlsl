@@ -36,7 +36,8 @@ PSInput vertex_main(VSInput input) {
     output.pos = mul(view, pos_proj);
     // Also rotate norm.
     float3 norm = mul(rot, input.norm);
-    float bright = dot(norm, normalize(light));
+    float3 light_rel = light - input.offset;
+    float bright = dot(norm, normalize(float3(light_rel.xy, 0)));
     output.bright = (1 - lit) * bright + lit;
     return output;
 }

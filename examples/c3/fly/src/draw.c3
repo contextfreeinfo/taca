@@ -63,7 +63,7 @@ fn void update_frame(Game* game) {
 fn void draw_light(Game* game, Uniforms* uniforms) {
     uniforms.lit = 0.8;
     uniforms.color = { 1, 1, 1 };
-    Vec3f pos = {
+    Vec3f pos = 1.2 * MOVE_LIMIT * Vec3f {
         math::cos(game.light_angle),
         math::sin(game.light_angle),
         0,
@@ -75,7 +75,7 @@ fn void draw_light(Game* game, Uniforms* uniforms) {
             game.light.pos, game.light.norm, game.light.offset
         },
     });
-    float[3] pos_array = 1.2 * MOVE_LIMIT * pos;
+    float[3] pos_array = pos;
     taca::buffer_update(game.light.offset, value_as_slice(char, pos_array));
     taca::uniforms_update(value_as_slice(char, *uniforms));
     taca::draw(0, game.light.idx_len, 1);
