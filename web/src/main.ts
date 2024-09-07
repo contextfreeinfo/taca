@@ -30,33 +30,7 @@ export async function runApp(config: AppConfig) {
 class App {
   constructor(config: AppConfig) {
     const canvas = (this.canvas = config.canvas);
-    canvas.addEventListener("keydown", (event) => {
-      this.keyEventHandle(event, true);
-    });
-    canvas.addEventListener("keyup", (event) => {
-      this.keyEventHandle(event, false);
-    });
-    canvas.addEventListener("mousedown", (event) => {
-      this.pointerPress = event.buttons;
-    });
-    canvas.addEventListener("mouseup", (event) => {
-      this.pointerPress = event.buttons;
-    });
-    canvas.addEventListener("mousemove", (event) => {
-      const rect = canvas.getBoundingClientRect();
-      this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
-      this.pointerPress = event.buttons;
-    });
-    canvas.addEventListener("touchend", (event) => {
-      this.pointerPress = 0;
-    });
-    canvas.addEventListener("touchmove", (event) => {
-      event.preventDefault();
-      const touch = event.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      this.pointerPos = [touch.clientX - rect.left, touch.clientY - rect.top];
-      this.pointerPress = 1;
-    });
+    this.addListeners(canvas);
     this.config = config;
     const gl = (this.gl = config.canvas.getContext("webgl2")!);
     gl.enable(gl.BLEND);
@@ -66,6 +40,34 @@ class App {
     this.resizeCanvas();
     // TODO Track for deregistration needs?
     new ResizeObserver(() => (this.resizeNeeded = true)).observe(config.canvas);
+  }
+
+  private addListeners(canvas: HTMLCanvasElement) {
+    canvas.addEventListener("keydown", (event) => {
+      this.keyEventHandle(event, true);
+    });
+    canvas.addEventListener("keyup", (event) => {
+      this.keyEventHandle(event, false);
+    });
+    const handleMouse = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
+      this.pointerPress = event.buttons;
+    };
+    canvas.addEventListener("mousedown", handleMouse);
+    canvas.addEventListener("mouseup", handleMouse);
+    canvas.addEventListener("mousemove", handleMouse);
+    const handleTouch = (event: TouchEvent) => {
+      event.preventDefault();
+      // TODO Multitouch?
+      const touch = event.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      this.pointerPos = [touch.clientX - rect.left, touch.clientY - rect.top];
+      this.pointerPress = 1;
+    };
+    canvas.addEventListener("touchend", handleTouch);
+    canvas.addEventListener("touchstart", handleTouch);
+    canvas.addEventListener("touchmove", handleTouch);
   }
 
   #attributesBuild(program: WebGLProgram, pipelineInfo: PipelineInfo) {
