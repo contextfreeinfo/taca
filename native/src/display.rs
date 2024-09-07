@@ -26,6 +26,7 @@ pub struct Display {
     pub app: AppPtr,
     pub graphics: MaybeGraphics,
     pub pointer_pos: Option<PhysicalPosition<f64>>,
+    pub pointer_press: u32,
     time_end: Instant,
     time_mean: f64,
     time_report: Instant,
@@ -46,6 +47,7 @@ impl Display {
             app: AppPtr(null_mut()),
             graphics: MaybeGraphics::Builder(GraphicsBuilder::new(event_loop.create_proxy())),
             pointer_pos: None,
+            pointer_press: 0,
             time_end: Instant::now(),
             time_mean: 0.0,
             time_report: Instant::now() + REPORT_DELAY,
@@ -145,6 +147,22 @@ impl<'a> ApplicationHandler<Graphics> for Display {
             WindowEvent::CursorMoved { position, .. } => {
                 self.pointer_pos = Some(position);
             }
+            WindowEvent::MouseInput { state, button, .. } => {
+                // TODO Consider device_id?
+                let bit = match button {
+                    winit::event::MouseButton::Left => 1,
+                    winit::event::MouseButton::Right => 2,
+                    winit::event::MouseButton::Middle => 4,
+                    _ => {
+                        dbg!(button);
+                        0
+                    }
+                };
+                match state {
+                    winit::event::ElementState::Pressed => self.pointer_press |= bit,
+                    winit::event::ElementState::Released => self.pointer_press &= !bit,
+                }
+            }
             WindowEvent::Resized(size) => self.resized(size),
             WindowEvent::RedrawRequested => self.draw(),
             WindowEvent::CloseRequested => event_loop.exit(),
@@ -210,6 +228,7 @@ pub enum MaybeGraphics {
 #[repr(C)]
 pub struct WindowState {
     pub pointer: [f32; 2],
+    pub press: u32,
     pub size: [f32; 2],
 }
 

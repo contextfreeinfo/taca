@@ -45,6 +45,7 @@ struct Game {
     float light_angle;
     uint pause;
     Vec3f pos;
+    uint press;
     Pcg32Random random;
     int score;
     MeshBuf ship;

@@ -2,12 +2,38 @@ module fly @private;
 import std::math;
 import taca;
 
-fn void update_control(Game* game) {
+fn void update_click_pause(Game* game, WindowState window) {
+    if (window.press) {
+        Vec2f size = window.size;
+        Vec2f mid = size / 2;
+        float mid_dist = mid.distance(window.pointer);
+        if (!game.press) {
+            if (mid_dist < 0.2 * min(size.x, size.y)) {
+                game.pause = game.pause ? 0 : 1;
+            }
+        }
+    }
+    game.press = window.press;
+}
+
+fn void update_control(Game* game, WindowState window) {
     Vec3f move;
-    if (game.control.up) move.y = 1;
-    if (game.control.down) move.y = -1;
-    if (game.control.left) move.x = 1;
-    if (game.control.right) move.x = -1;
+    if (window.press) {
+        Vec3f size = { window.size[0], window.size[1], 0 };
+        Vec3f mid = size / 2;
+        Vec3f pointer = { window.pointer[0], window.pointer[1], 0 };
+        // We basically reach MOVE_LIMIT at the y edges.
+        pointer = -2 * MOVE_LIMIT * (pointer - mid) / window.size[1];
+        // pointer.y = -pointer.y;
+        if (pointer.distance(game.pos) > 0.1) {
+            move = pointer - game.pos;
+        }
+    } else {
+        if (game.control.up) move.y = 1;
+        if (game.control.down) move.y = -1;
+        if (game.control.left) move.x = 1;
+        if (game.control.right) move.x = -1;
+    }
     game.pos += 1e-1 * move.normalize();
     // // Try to avoid the singular point. TODO Why still hitting it?
     // if (math::abs(game.pos.x) < speed) game.pos.x += move.x;
@@ -16,6 +42,7 @@ fn void update_control(Game* game) {
         game.pos = MOVE_LIMIT * game.pos.normalize();
     }
     game.count += 1;
+    game.press = window.press;
 }
 
 fn void update_key(Game* game) {

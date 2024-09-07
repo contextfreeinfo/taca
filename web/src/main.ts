@@ -36,15 +36,26 @@ class App {
     canvas.addEventListener("keyup", (event) => {
       this.keyEventHandle(event, false);
     });
+    canvas.addEventListener("mousedown", (event) => {
+      this.pointerPress = event.buttons;
+    });
+    canvas.addEventListener("mouseup", (event) => {
+      this.pointerPress = event.buttons;
+    });
     canvas.addEventListener("mousemove", (event) => {
       const rect = canvas.getBoundingClientRect();
       this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
+      this.pointerPress = event.buttons;
+    });
+    canvas.addEventListener("touchend", (event) => {
+      this.pointerPress = 0;
     });
     canvas.addEventListener("touchmove", (event) => {
       event.preventDefault();
       const touch = event.touches[0];
       const rect = canvas.getBoundingClientRect();
       this.pointerPos = [touch.clientX - rect.left, touch.clientY - rect.top];
+      this.pointerPress = 1;
     });
     this.config = config;
     const gl = (this.gl = config.canvas.getContext("webgl2")!);
@@ -492,6 +503,7 @@ class App {
   pipelines: Pipeline[] = [];
 
   pointerPos: [x: number, y: number] = [0, 0];
+  pointerPress = 0;
 
   readAny<T>(
     spanPtr: number,
@@ -838,11 +850,12 @@ function makeAppEnv(app: App) {
       // TODO Include time.
       const { clientWidth, clientHeight } = app.canvas;
       const [pointerX, pointerY] = app.pointerPos;
-      const view = app.memoryViewMake(result, 4 * 4);
+      const view = app.memoryViewMake(result, 5 * 4);
       setF32(view, 0, pointerX);
       setF32(view, 4, pointerY);
-      setF32(view, 8, clientWidth);
-      setF32(view, 12, clientHeight);
+      setU32(view, 8, app.pointerPress);
+      setF32(view, 12, clientWidth);
+      setF32(view, 16, clientHeight);
     },
   };
 }

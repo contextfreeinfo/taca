@@ -401,6 +401,7 @@ fn taca_Window_state(mut env: FunctionEnvMut<System>, result: u32) {
     let view = system.memory.as_ref().unwrap().view(&store);
     let state = WindowState {
         pointer: [pointer.x as f32, pointer.y as f32],
+        press: system.display.pointer_press,
         size: [size.width as f32, size.height as f32],
     };
     WasmRef::<WindowState>::new(&view, result as u64)

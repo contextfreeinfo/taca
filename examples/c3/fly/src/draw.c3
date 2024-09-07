@@ -4,19 +4,21 @@ import taca;
 
 fn void update_frame(Game* game) {
     WindowState window = taca::window_state();
+    update_click_pause(game, window);
     // Move
-    // TODO If paused, only redraw if window size has changed?
     if (!game.pause) {
         update_light(game);
         update_multis(game);
-        update_control(game);
+        update_control(game, window);
     }
     if (game.pause) {
-        if (game.pause > 1 && (Vec2f)window.size == game.window_size) {
-            // Save on compute.
+        if ((Vec2f)window.size != game.window_size) {
+            game.pause = 1;
+        } else if (game.pause > 100) {
+            // Save on compute. But give it a while in case transition is slow.
             return;
         }
-        if (game.pause < 2) game.pause += 1;
+        game.pause += 1;
         // taca::print("window size change on pause");
     }
     game.window_size = window.size;
@@ -61,9 +63,10 @@ fn void update_frame(Game* game) {
     if (game.pause) {
         taca::text_align(CENTER, TOP);
         taca::text_draw(
-            "Space to Play     Arrows to Move",
-            window.size[0] / 2,
-            window.size[1] / 4,
+            "Space/Middle to Play", window.size[0] / 2, window.size[1] / 4 - 20
+        );
+        taca::text_draw(
+            "Arrows/Edges to Move", window.size[0] / 2, window.size[1] / 4 + 20
         );
     }
 }

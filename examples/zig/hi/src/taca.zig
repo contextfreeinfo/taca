@@ -176,6 +176,7 @@ pub const Window = extern struct {
 
 pub const WindowState = extern struct {
     pointer: [2]f32,
+    press: u32,
     size: [2]f32,
 };
 

@@ -156,5 +156,6 @@ enum TextAlignY : uint {
 
 struct WindowState {
     float[2] pointer;
+    uint press;
     float[2] size;
 }
