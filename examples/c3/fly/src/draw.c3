@@ -63,10 +63,10 @@ fn void update_frame(Game* game) {
     if (game.pause) {
         taca::text_align(CENTER, TOP);
         taca::text_draw(
-            "Space/Center to Play", window.size[0] / 2, window.size[1] / 4 - 20
+            "Space to Play", window.size[0] / 2, window.size[1] / 4 - 20
         );
         taca::text_draw(
-            "Arrows/Edges to Move", window.size[0] / 2, window.size[1] / 4 + 20
+            "Arrows to Move", window.size[0] / 2, window.size[1] / 4 + 20
         );
     }
 }
