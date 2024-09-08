@@ -4,12 +4,12 @@ module taca;
 
 extern fn void binding_apply(
     Binding binding,
-) @extern("taca_RenderingContext_applyBindings");
+) @extern("taca_bindings_apply");
 
 extern fn Buffer buffer_new(
     BufferKind kind,
     char[] bytes,
-) @extern("taca_RenderingContext_newBuffer");
+) @extern("taca_buffer_new");
 
 extern fn void buffer_update(
     Buffer buffer,
@@ -21,7 +21,7 @@ extern fn void draw(
     uint item_begin,
     uint item_count,
     uint instance_count,
-) @extern("taca_RenderingContext_draw");
+) @extern("taca_draw");
 
 extern fn KeyEvent key_event(
     // Nothing
@@ -29,42 +29,42 @@ extern fn KeyEvent key_event(
 
 extern fn void pipeline_apply(
     Pipeline pipeline,
-) @extern("taca_RenderingContext_applyPipeline");
+) @extern("taca_pipeline_apply");
 
 extern fn Pipeline pipeline_new(
     PipelineInfo info,
-) @extern("taca_RenderingContext_newPipeline");
+) @extern("taca_pipeline_new");
 
 extern fn void print(
     char[] text,
-) @extern("taca_Window_print");
+) @extern("taca_print");
 
 extern fn Shader shader_new(
     char[] bytes,
-) @extern("taca_RenderingContext_newShader");
+) @extern("taca_shader_new");
 
 extern fn void text_align(
     TextAlignX x,
     TextAlignY y,
-) @extern("taca_textAlign");
+) @extern("taca_text_align");
 
 extern fn void text_draw(
     char[] bytes,
     float x,
     float y,
-) @extern("taca_RenderingContext_drawText");
+) @extern("taca_text_draw");
 
 extern fn void title_set(
     char[] title,
-) @extern("taca_Window_setTitle");
+) @extern("taca_title_update");
 
 extern fn void uniforms_update(
     char[] bytes,
-) @extern("taca_RenderingContext_applyUniforms");
+) @extern("taca_uniforms_apply");
 
 extern fn WindowState window_state(
     // Nothing
-) @extern("taca_Window_state");
+) @extern("taca_window_state");
 
 // Types
 

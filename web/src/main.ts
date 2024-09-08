@@ -648,7 +648,7 @@ class App {
   uniformsApply(uniforms: number) {
     this.#pipelinedEnsure();
     const { gl } = this;
-    if (!this.uniformsBuffer) {
+    if (!this.uniformsBuffer) { // TODO Per pipeline!
       const { pipeline } = this;
       const uniformsBuffer = gl.createBuffer() ?? fail();
       const { uniforms } = pipeline!;
@@ -789,38 +789,38 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
 
 function makeAppEnv(app: App) {
   return {
-    taca_RenderingContext_applyBindings(bindings: number) {
+    taca_bindings_apply(bindings: number) {
       app.bindingApply(bindings);
     },
-    taca_RenderingContext_applyPipeline(pipeline: number) {
+    taca_pipeline_apply(pipeline: number) {
       app.pipelineApply(pipeline);
     },
-    taca_RenderingContext_applyUniforms(uniforms: number) {
+    taca_uniforms_apply(uniforms: number) {
       app.uniformsApply(uniforms);
     },
     taca_RenderingContext_beginPass() {},
     taca_RenderingContext_commitFrame() {
       app.frameCommit();
     },
-    taca_RenderingContext_draw(
+    taca_draw(
       itemBegin: number,
       itemCount: number,
       instanceCount: number
     ) {
       app.draw(itemBegin, itemCount, instanceCount);
     },
-    taca_RenderingContext_drawText(text: number, x: number, y: number) {
+    taca_text_draw(text: number, x: number, y: number) {
       app.drawText(app.readString(text), x, y);
     },
-    taca_textAlign(x: number, y: number) {
+    taca_text_align(x: number, y: number) {
       app.textAlign(x, y);
     },
-    taca_RenderingContext_drawTexture(texture: number, x: number, y: number) {
+    taca_text_drawure(texture: number, x: number, y: number) {
       // TODO Source and dest rect? Instanced?
       app.drawTexture(texture, x, y);
     },
     taca_RenderingContext_endPass() {},
-    taca_RenderingContext_newBuffer(type: number, info: number) {
+    taca_buffer_new(type: number, info: number) {
       return app.bufferNew(type, info);
     },
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
@@ -829,10 +829,10 @@ function makeAppEnv(app: App) {
     taca_key_event(result: number) {
       app.memoryBytes().set(app.keyEventBytes, result);
     },
-    taca_RenderingContext_newPipeline(info: number) {
+    taca_pipeline_new(info: number) {
       return app.pipelineNew(info);
     },
-    taca_RenderingContext_newShader(bytes: number) {
+    taca_shader_new(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
@@ -841,14 +841,14 @@ function makeAppEnv(app: App) {
       // TODO Need size? Resizable? Reallocate in same index?
       return 1;
     },
-    taca_Window_print(text: number) {
+    taca_print(text: number) {
       console.log(app.readString(text));
     },
-    taca_Window_setTitle(title: number) {
+    taca_title_update(title: number) {
       // TODO Abstract to provide callbacks for these things?
       document.title = app.readString(title);
     },
-    taca_Window_state(result: number) {
+    taca_window_state(result: number) {
       // TODO Include time.
       const { clientWidth, clientHeight } = app.canvas;
       const [pointerX, pointerY] = app.pointerPos;

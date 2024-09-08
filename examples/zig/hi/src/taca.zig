@@ -52,15 +52,15 @@ pub const RenderingContext = struct {
     const Self = RenderingContext;
 
     pub fn applyBindings(bindings: Bindings) void {
-        taca_RenderingContext_applyBindings(ExternBindings.from(bindings));
+        taca_bindings_apply(ExternBindings.from(bindings));
     }
 
     pub fn applyPipeline(pipeline: *Pipeline) void {
-        taca_RenderingContext_applyPipeline(pipeline);
+        taca_pipeline_apply(pipeline);
     }
 
     pub fn applyUniforms(uniforms: anytype) void {
-        taca_RenderingContext_applyUniforms(as_u8_span(uniforms));
+        taca_uniforms_apply(as_u8_span(uniforms));
     }
 
     pub fn beginPass() void {
@@ -76,15 +76,15 @@ pub const RenderingContext = struct {
         item_count: u32,
         instance_count: u32,
     ) void {
-        taca_RenderingContext_draw(item_begin, item_count, instance_count);
+        taca_draw(item_begin, item_count, instance_count);
     }
 
     pub fn drawText(text: []const u8, x: f32, y: f32) void {
-        taca_RenderingContext_drawText(Span(u8).from(text), x, y);
+        taca_text_draw(Span(u8).from(text), x, y);
     }
 
     pub fn drawTexture(texture: *Texture, x: f32, y: f32) void {
-        taca_RenderingContext_drawTexture(texture, x, y);
+        taca_text_drawure(texture, x, y);
     }
 
     pub fn endPass() void {
@@ -92,15 +92,15 @@ pub const RenderingContext = struct {
     }
 
     pub fn newBuffer(info: BufferInfo) *Buffer {
-        return taca_RenderingContext_newBuffer(info.kind, &info.slice);
+        return taca_buffer_new(info.kind, &info.slice);
     }
 
     pub fn newPipeline(info: PipelineInfo) *Pipeline {
-        return taca_RenderingContext_newPipeline(ExternPipelineInfo.from(info));
+        return taca_pipeline_new(ExternPipelineInfo.from(info));
     }
 
     pub fn newShader(bytes: []const u8) *Shader {
-        return taca_RenderingContext_newShader(Span(u8).from(bytes));
+        return taca_shader_new(Span(u8).from(bytes));
     }
 };
 
@@ -162,15 +162,15 @@ pub const Window = extern struct {
     pub const newRenderingContext = taca_Window_newRenderingContext;
 
     pub fn print(text: []const u8) void {
-        taca_Window_print(Span(u8).from(text));
+        taca_print(Span(u8).from(text));
     }
 
     pub fn setTitle(title: []const u8) void {
-        taca_Window_setTitle(Span(u8).from(title));
+        taca_title_update(Span(u8).from(title));
     }
 
     pub fn state() WindowState {
-        return taca_Window_state();
+        return taca_window_state();
     }
 };
 
@@ -235,15 +235,15 @@ const ExternPipelineShaderInfo = extern struct {
     }
 };
 
-extern fn taca_RenderingContext_applyBindings(
+extern fn taca_bindings_apply(
     bindings: ExternBindings,
 ) void;
 
-extern fn taca_RenderingContext_applyPipeline(
+extern fn taca_pipeline_apply(
     pipeline: *Pipeline,
 ) void;
 
-extern fn taca_RenderingContext_applyUniforms(
+extern fn taca_uniforms_apply(
     uniforms: Span(u8),
 ) void;
 
@@ -255,19 +255,19 @@ extern fn taca_RenderingContext_commitFrame(
     // Nothing
 ) void;
 
-extern fn taca_RenderingContext_draw(
+extern fn taca_draw(
     item_begin: u32,
     item_count: u32,
     instance_count: u32,
 ) void;
 
-extern fn taca_RenderingContext_drawText(
+extern fn taca_text_draw(
     bytes: Span(u8),
     x: f32,
     y: f32,
 ) void;
 
-extern fn taca_RenderingContext_drawTexture(
+extern fn taca_text_drawure(
     texture: *Texture,
     x: f32,
     y: f32,
@@ -277,16 +277,16 @@ extern fn taca_RenderingContext_endPass(
     // Nothing
 ) void;
 
-extern fn taca_RenderingContext_newBuffer(
+extern fn taca_buffer_new(
     kind: BufferKind,
     info: *const BufferSlice,
 ) callconv(.C) *Buffer;
 
-extern fn taca_RenderingContext_newPipeline(
+extern fn taca_pipeline_new(
     info: ExternPipelineInfo,
 ) callconv(.C) *Pipeline;
 
-extern fn taca_RenderingContext_newShader(
+extern fn taca_shader_new(
     bytes: Span(u8),
 ) callconv(.C) *Shader;
 
@@ -294,14 +294,14 @@ extern fn taca_Window_newRenderingContext(
     // Nothing
 ) callconv(.C) *RenderingContext;
 
-extern fn taca_Window_print(
+extern fn taca_print(
     text: Span(u8),
 ) callconv(.C) void;
 
-extern fn taca_Window_setTitle(
+extern fn taca_title_update(
     title: Span(u8),
 ) callconv(.C) void;
 
-extern fn taca_Window_state(
+extern fn taca_window_state(
     // Nothing
 ) callconv(.C) WindowState;
