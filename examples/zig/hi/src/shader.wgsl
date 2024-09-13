@@ -18,7 +18,7 @@ fn vertex_main(
 ) -> VertexOutput {
   var out: VertexOutput;
   let scale = sin(uniforms.count * 1e-2);
-  out.position = vec4f(in_pos * uniforms.aspect / scale, 0.0, 1.0);
+  out.position = vec4f(in_pos * uniforms.aspect / scale, 0, 1);
   out.color = in_color;
   return out;
 }
@@ -29,5 +29,5 @@ fn fragment_main(
 ) -> @location(0) vec4f {
   let distance = length(uniforms.pointer - in.position.xy);
   let shine = 1.0 - min(1e-2 * distance, 1.0);
-  return vec4f(in.color.rgb + shine, 1.0);
+  return vec4f(in.color.rgb + shine, 1);
 }

@@ -9,3 +9,7 @@ wasm-opt -Os out/out.wasm -o out/out.opt.wasm && \
 lz4 -f9 out/out.opt.wasm out/fly.taca && \
 mkdir -p $PUB_DIR && \
 cp out/fly.taca $PUB_DIR/
+
+# Currently breaks uniforms handling. TODO Figure out the issue.
+# spirv-opt -Os out/vertex.spv -o out/vertex.opt.spv && \
+# spirv-opt -Os out/fragment.spv -o out/fragment.opt.spv && \

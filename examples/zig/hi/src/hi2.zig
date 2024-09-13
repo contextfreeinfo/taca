@@ -45,7 +45,6 @@ export fn start() void {
     });
     // App state.
     stage = .{
-        .count = 0,
         .decor_index = decor_index,
         .decor_pipeline = decor_pipeline,
         .decor_vertex = decor_vertex,
@@ -84,7 +83,7 @@ export fn update(event: taca.EventKind) void {
 var stage: ?Stage = null;
 
 const Stage = struct {
-    count: u32,
+    count: u32 = 0,
     decor_index: *taca.Buffer,
     decor_pipeline: *taca.Pipeline,
     decor_vertex: *taca.Buffer,
