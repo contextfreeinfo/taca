@@ -6,8 +6,7 @@ interface App {
 }
 
 export function makeWasiEnv(app: App) {
-  let stderr = "";
-  let stdout = "";
+  const outs = [] as string[];
   return {
     args_get() {
       return 0;
@@ -39,32 +38,22 @@ export function makeWasiEnv(app: App) {
     },
     fd_write(fd: number, iovec: number, len: number, nwritten: number) {
       let total = 0;
-      let text = "";
+      let text = outs[fd] ?? "";
       for (var i = 0; i < len; i += 1) {
         const offset = iovec + 8 * i;
         text += app.readString(offset);
         total += getU32(app.memoryViewMake(offset, 8), 4);
-      }
-      // TODO Flush by newlines?
-      if (fd == 1) {
-        text = stdout += text;
-      } else {
-        text = stderr += text;
       }
       const lines = text.split("\n");
       for (var i = 0; i < lines.length - 1; i += 1) {
         if (fd == 1) {
           console.log(lines[i]);
         } else {
-          // Not really an error, but use error for stderr for distinction.
+          // Not really an error, but use error for non-stdout for distinction.
           console.error(lines[i]);
         }
       }
-      if (fd == 1) {
-        stdout = lines.at(-1)!;
-      } else {
-        stderr = lines.at(-1)!;
-      }
+      outs[fd] = lines.at(-1)!;
       return total;
     },
     proc_exit(code: number) {
