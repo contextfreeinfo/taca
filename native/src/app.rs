@@ -23,11 +23,15 @@ use crate::{
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
+    wasi::{
+        wasi_args_get, wasi_args_sizes_get, wasi_fd_close, wasi_fd_fdstat_get, wasi_fd_seek,
+        wasi_fd_write, wasi_proc_exit,
+    },
 };
 
 pub struct App {
     pub env: FunctionEnv<System>,
-    pub update: Function,
+    pub update: Option<Function>,
     pub instance: Instance,
     pub store: Store,
 }
@@ -50,7 +54,6 @@ impl App {
                 "taca_RenderingContext_commitFrame" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_commitFrame),
                 "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
                 "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
-                "taca_text_drawure" => Function::new_typed_with_env(&mut store, &env, taca_text_drawure),
                 "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
                 "taca_binding_apply" => Function::new_typed_with_env(&mut store, &env, taca_binding_apply),
                 "taca_binding_new" => Function::new_typed_with_env(&mut store, &env, taca_binding_new),
@@ -65,10 +68,19 @@ impl App {
                 "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
                 "taca_window_state" => Function::new_typed_with_env(&mut store, &env, taca_window_state),
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
-            }
+            },
+            "wasi_snapshot_preview1" => {
+                "args_get" => Function::new_typed_with_env(&mut store, &env, wasi_args_get),
+                "args_sizes_get" => Function::new_typed_with_env(&mut store, &env, wasi_args_sizes_get),
+                "fd_close" => Function::new_typed_with_env(&mut store, &env, wasi_fd_close),
+                "fd_fdstat_get" => Function::new_typed_with_env(&mut store, &env, wasi_fd_fdstat_get),
+                "fd_seek" => Function::new_typed_with_env(&mut store, &env, wasi_fd_seek),
+                "fd_write" => Function::new_typed_with_env(&mut store, &env, wasi_fd_write),
+                "proc_exit" => Function::new_typed(&mut store, wasi_proc_exit),
+            },
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-        let update = instance.exports.get_function("update").unwrap().clone();
+        let update = instance.exports.get_function("update").ok().cloned();
         let app = env.as_mut(&mut store);
         app.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
         App {
@@ -80,7 +92,8 @@ impl App {
     }
 
     pub fn listen(&mut self) {
-        self.update
+        let Some(update) = &self.update else { return };
+        update
             .call(&mut self.store, &[Value::I32(EventKind::Tick as i32)])
             .unwrap();
         let system = self.env.as_mut(&mut self.store);
@@ -117,11 +130,14 @@ impl App {
         // If _start exists, it's supposed to do any initialize on its own, I think.
         if let Ok(initialize) = self.instance.exports.get_function("_initialize") {
             initialize.call(&mut self.store, &[]).unwrap();
+        } else if let Ok(main) = self.instance.exports.get_function("_start") {
+            main.call(&mut self.store, &[]).unwrap();
         }
         // Part of why to move away from main/_start so we know any _initialize
         // is separate from our own start.
-        let start = self.instance.exports.get_function("start").unwrap();
-        start.call(&mut self.store, &[]).unwrap();
+        if let Ok(start) = self.instance.exports.get_function("start") {
+            start.call(&mut self.store, &[]).unwrap();
+        }
     }
 }
 
@@ -281,15 +297,6 @@ fn taca_text_align(mut env: FunctionEnvMut<System>, x: u32, y: u32) {
     let mut text_engine = text_engine.lock().unwrap();
     text_engine.align_x = to_text_align_x(x);
     text_engine.align_y = to_text_align_y(y);
-}
-
-fn taca_text_drawure(
-    mut _env: FunctionEnvMut<System>,
-    _texture: u32,
-    _x: f32,
-    _y: f32,
-) {
-    // TODO
 }
 
 fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>) {

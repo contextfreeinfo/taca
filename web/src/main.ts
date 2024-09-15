@@ -8,7 +8,8 @@ import {
 } from "../pkg/cana";
 import { TexturePipeline, fragmentMunge, shaderProgramBuild } from "./drawing";
 import { keys } from "./key";
-import { fail } from "./util";
+import { dataViewOf, fail, getU32, setF32, setU32 } from "./util";
+import { makeWasiEnv } from "./wasi";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
@@ -648,7 +649,8 @@ class App {
   uniformsApply(uniforms: number) {
     this.#pipelinedEnsure();
     const { gl } = this;
-    if (!this.uniformsBuffer) { // TODO Per pipeline!
+    if (!this.uniformsBuffer) {
+      // TODO Per pipeline!
       const { pipeline } = this;
       const uniformsBuffer = gl.createBuffer() ?? fail();
       const { uniforms } = pipeline!;
@@ -708,7 +710,8 @@ class App {
 
 interface AppExports {
   _initialize: (() => void) | undefined;
-  start: () => void;
+  _start: (() => void) | undefined;
+  start: (() => void) | undefined;
   update: ((event: number) => void) | undefined;
 }
 
@@ -739,14 +742,6 @@ interface BufferInfo {
   stride: number;
 }
 
-function dataViewOf(array: Uint8Array) {
-  return new DataView(array.buffer, array.byteOffset, array.byteLength);
-}
-
-function getU32(view: DataView, byteOffset: number) {
-  return view.getUint32(byteOffset, true);
-}
-
 async function loadApp(config: AppConfig) {
   const appData = config.code as ArrayBuffer;
   config.code = undefined;
@@ -758,14 +753,22 @@ async function loadApp(config: AppConfig) {
       : appData;
   let app = new App(config);
   const env = makeAppEnv(app);
-  let { instance } = await WebAssembly.instantiate(actualData, { env });
+  const wasi = makeWasiEnv(app);
+  let { instance } = await WebAssembly.instantiate(actualData, {
+    env,
+    wasi_snapshot_preview1: wasi,
+  });
   app.init(instance);
-  // TODO Fold config into start once we get fully off miniquad.
+  // TODO Fold config into start.
   const exports = app.exports;
   if (exports._initialize) {
     exports._initialize();
+  } else if (exports._start) {
+    exports._start();
   }
-  exports.start();
+  if (exports.start) {
+    exports.start();
+  }
   if (exports.update) {
     const update = () => {
       try {
@@ -802,11 +805,7 @@ function makeAppEnv(app: App) {
     taca_RenderingContext_commitFrame() {
       app.frameCommit();
     },
-    taca_draw(
-      itemBegin: number,
-      itemCount: number,
-      instanceCount: number
-    ) {
+    taca_draw(itemBegin: number, itemCount: number, instanceCount: number) {
       app.draw(itemBegin, itemCount, instanceCount);
     },
     taca_text_draw(text: number, x: number, y: number) {
@@ -894,18 +893,6 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
     vertexBuffers: info.vertexBuffers ?? [],
   };
 }
-
-function setF32(view: DataView, byteOffset: number, value: number) {
-  return view.setFloat32(byteOffset, value, true);
-}
-
-function setU32(view: DataView, byteOffset: number, value: number) {
-  return view.setUint32(byteOffset, value, true);
-}
-
-// function setU32(view: DataView, byteOffset: number, value: number) {
-//   return view.setUint32(byteOffset, value, true);
-// }
 
 interface ShaderInfo {
   entry: string;

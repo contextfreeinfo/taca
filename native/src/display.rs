@@ -134,9 +134,11 @@ impl<'a> ApplicationHandler<Graphics> for Display {
                         let pressed = state.is_pressed();
                         let system = app.env.as_mut(&mut app.store);
                         system.key_event = KeyEvent { key, pressed };
-                        app.update
-                            .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
-                            .unwrap();
+                        if let Some(update) = &app.update {
+                            update
+                                .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
+                                .unwrap();
+                        }
                     }
                     _ => {}
                 },
