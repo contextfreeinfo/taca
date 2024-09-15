@@ -1,3 +1,4 @@
+out/
 static/taca.wasm
 target/
 untracked/
