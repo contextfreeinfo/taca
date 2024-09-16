@@ -44,6 +44,7 @@ export function makeWasiEnv(app: App) {
         text += app.readString(offset);
         total += getU32(app.memoryViewMake(offset, 8), 4);
       }
+      // TODO Just split at the last newline and log multiple lines at once?
       const lines = text.split("\n");
       for (var i = 0; i < lines.length - 1; i += 1) {
         if (fd == 1) {
@@ -60,5 +61,9 @@ export function makeWasiEnv(app: App) {
       // We could also mark some exit state in the app, but meh.
       fail(`proc_exit(${code})`);
     },
+    random_get(buf: number, bufLen: number) {
+      // Claim failure.
+      return 29;
+    }
   };
 }

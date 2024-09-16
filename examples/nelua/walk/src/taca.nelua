@@ -1,0 +1,7 @@
+local taca = @record{};
+
+function taca.print(text: string): void
+  <cimport, cattribute 'import_name("taca_print")'>
+end
+
+return taca;

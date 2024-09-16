@@ -1,2 +1,9 @@
-print "Hi!"
-print "Bye!"
+require "support"
+local taca = require "taca"
+
+local function start()
+  <cexport, codename "start">
+  print "Hi!"
+  taca.print "Enjoy!"
+  print "Bye!"
+end

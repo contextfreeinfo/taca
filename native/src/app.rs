@@ -23,10 +23,7 @@ use crate::{
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
-    wasi::{
-        wasi_args_get, wasi_args_sizes_get, wasi_fd_close, wasi_fd_fdstat_get, wasi_fd_seek,
-        wasi_fd_write, wasi_proc_exit,
-    },
+    wasi,
 };
 
 pub struct App {
@@ -70,13 +67,14 @@ impl App {
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
             },
             "wasi_snapshot_preview1" => {
-                "args_get" => Function::new_typed_with_env(&mut store, &env, wasi_args_get),
-                "args_sizes_get" => Function::new_typed_with_env(&mut store, &env, wasi_args_sizes_get),
-                "fd_close" => Function::new_typed_with_env(&mut store, &env, wasi_fd_close),
-                "fd_fdstat_get" => Function::new_typed_with_env(&mut store, &env, wasi_fd_fdstat_get),
-                "fd_seek" => Function::new_typed_with_env(&mut store, &env, wasi_fd_seek),
-                "fd_write" => Function::new_typed_with_env(&mut store, &env, wasi_fd_write),
-                "proc_exit" => Function::new_typed(&mut store, wasi_proc_exit),
+                "args_get" => Function::new_typed_with_env(&mut store, &env, wasi::args_get),
+                "args_sizes_get" => Function::new_typed_with_env(&mut store, &env, wasi::args_sizes_get),
+                "fd_close" => Function::new_typed_with_env(&mut store, &env, wasi::fd_close),
+                "fd_fdstat_get" => Function::new_typed_with_env(&mut store, &env, wasi::fd_fdstat_get),
+                "fd_seek" => Function::new_typed_with_env(&mut store, &env, wasi::fd_seek),
+                "fd_write" => Function::new_typed_with_env(&mut store, &env, wasi::fd_write),
+                "proc_exit" => Function::new_typed(&mut store, wasi::proc_exit),
+                "random_get" => Function::new_typed(&mut store, wasi::random_get),
             },
         };
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
