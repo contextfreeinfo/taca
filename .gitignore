@@ -1,7 +1,8 @@
+.godot/
 out/
+*.spv
 static/taca.wasm
 target/
 untracked/
 .zig-cache/
 zig-out/
-*.spv

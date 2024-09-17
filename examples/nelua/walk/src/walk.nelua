@@ -6,4 +6,13 @@ local function start()
   print "Hi!"
   taca.print "Enjoy!"
   print "Bye!"
+  -- TODO https://nelua.io/overview/#to-be-closed-variables
+  gc:step()
+end
+
+local function update(data: pointer)
+  <cexport, codename "update">
+  -- TODO Updates
+  -- TODO https://nelua.io/overview/#to-be-closed-variables
+  gc:step()
 end

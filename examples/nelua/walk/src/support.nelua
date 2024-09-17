@@ -1,6 +1,8 @@
 ##[[
-  cflags "-Os -flto"
+  cflags "-Os"
+  -- cflags "-Os -flto" -- slower to build but slightly smaller
   ldflags "-Wl,--export-dynamic,--strip-all"
+  context.rootpragmas.nogcentry = true
 
   require "io"
 
