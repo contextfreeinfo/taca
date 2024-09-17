@@ -1,18 +1,22 @@
-require "support"
+-- Support first!
+local support = require "support"
+
+-- Others.
+local resources = require "resources"
 local taca = require "taca"
 
 local function start()
   <cexport, codename "start">
+  local gc <close> = support.GcStep{}
   print "Hi!"
   taca.print "Enjoy!"
   print "Bye!"
   -- TODO https://nelua.io/overview/#to-be-closed-variables
-  gc:step()
 end
 
 local function update(data: pointer)
   <cexport, codename "update">
+  local gc <close> = support.GcStep{}
   -- TODO Updates
   -- TODO https://nelua.io/overview/#to-be-closed-variables
-  gc:step()
 end

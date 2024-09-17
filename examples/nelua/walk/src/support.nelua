@@ -1,3 +1,5 @@
+-- Setup
+
 ##[[
   cflags "-Os"
   -- cflags "-Os -flto" -- slower to build but slightly smaller
@@ -6,7 +8,7 @@
 
   require "io"
 
-  function readAll(file)
+  function read_all(file)
     local f = assert(io.open(file, "rb"))
     local content = f:read("*all")
     f:close()
@@ -14,5 +16,19 @@
   end
 ]]
 
+-- Init gc first!
+
 require "allocators.gc"
 gc:init(nilptr)
+
+-- Actual exported things
+
+local support = @record{}
+
+local support.GcStep = @record{}
+
+function support.GcStep:__close()
+  gc:step()
+end
+
+return support

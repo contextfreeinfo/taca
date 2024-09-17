@@ -1,0 +1,28 @@
+require "support"
+
+local resources = @record{}
+
+local SpriteInfo = @record{
+  image: string,
+  info: string,
+}
+local resources.SpriteInfo = SpriteInfo
+
+-- TODO How to make resource paths relative to this source file?
+
+local resources.gem = SpriteInfo{
+  image = #[read_all "src/tiles/gem.png"]#,
+  info = #[read_all "src/tiles/gem.tres"]#,
+}
+
+local resources.level = #[read_all "src/tiles/tiles.tscn"]#
+
+local resources.player = SpriteInfo{
+  image = #[read_all "src/tiles/player.png"]#,
+  info = #[read_all "src/tiles/player.tres"]#,
+}
+
+local resources.project = #[read_all "src/tiles/project.godot"]#
+local resources.tiles = #[read_all "src/tiles/tileset.png"]#
+
+return resources
