@@ -5,8 +5,10 @@ local gd = require "gd"
 local player_info = gd.resource_load("src/tiles/player.tres")
 local tiles_info = gd.resource_load("src/tiles/tiles.tscn")
 -- gd.print_table(player_info)
+print(player_info.uid)
 -- print("-----------------")
 -- gd.print_table(tiles_info)
+print(tiles_info.uid)
 ]]
 
 ## local current_source_dir = require'nelua.utils.fs'.scriptdir()
