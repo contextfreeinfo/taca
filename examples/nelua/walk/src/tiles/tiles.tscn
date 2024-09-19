@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://gem.gd" id="6_1mira"]
 
 [node name="Node2D" type="Node2D"]
+texture_filter = 1
 
 [node name="BackLayer" type="Parallax2D" parent="."]
 repeat_size = Vector2(384, 0)
