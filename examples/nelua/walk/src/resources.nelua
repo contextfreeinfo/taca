@@ -2,24 +2,11 @@ require "support"
 
 ##[[
 local gd = require "gd"
-
--- Print parsed data
-local function print_table(t, indent)
-  indent = indent or ""
-  for k, v in pairs(t) do
-      if type(v) == "table" then
-          print(indent .. k .. " = {")
-          print_table(v, indent .. "  ")
-          print(indent .. "}")
-      else
-          print(indent .. k .. " = " .. tostring(v))
-      end
-  end
-end
-
-print_table(gd.resource_load("src/tiles/player.tres"))
-print("-----------------")
-print_table(gd.resource_load("src/tiles/tiles.tscn"))
+local player_info = gd.resource_load("src/tiles/player.tres")
+local tiles_info = gd.resource_load("src/tiles/tiles.tscn")
+-- gd.print_table(player_info)
+-- print("-----------------")
+-- gd.print_table(tiles_info)
 ]]
 
 ## local current_source_dir = require'nelua.utils.fs'.scriptdir()

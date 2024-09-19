@@ -7,44 +7,77 @@ local function trim(s)
   return s:match("^[,%s]*(.-)[,%s]*$")
 end
 
-local function parse_array(file, text)
+local function read_line(file, text)
   text = trim(text)
-  -- print("array", text)
+  if text ~= "" then
+    return text
+  end
+  while true do
+    local line = file:read("*line")
+    if not line then
+      return nil
+    end
+    line = trim(line)
+    if not (line:match("^%s*$") or line:match("^%s*;") )then
+      return line
+    end
+  end
+end
+
+local function parse_array(file, text)
   local rest, value
   local values = {}
   while true do
-    -- print(text)
+    text = read_line(file, text)
+    if not text then
+      break
+    end
     rest = text:match("](.*)")
     if rest then
-      goto done
+      break
     end
     value, text = parse_value(file, text)
     if value then
       table.insert(values, value)
     else
       rest = ""
-      goto done
-    end
-    if text == "" then
-      text = file:read("*line")
-      if not text then
-        rest = ""
-        goto done
-      end
+      break
     end
   end
-  ::done::
   return values, rest
 end
 
 local function parse_call(file, type, args)
   local values = {}
   for match in args:gmatch("[^,%s]+") do
-    -- print(file, match, parse_value)
     local value = parse_value(file, match)
     table.insert(values, value)
   end
   return { type = type, args = values }
+end
+
+local function parse_table(file, text)
+  local key, rest, value
+  local values = {}
+  while true do
+    text = read_line(file, text)
+    if not text then
+      break
+    end
+    rest = text:match("}(.*)")
+    if rest then
+      break
+    end
+    key, rest = text:match("^\"([^\"]*)\"%s*:%s*(.*)")
+    if key then
+      value, text = parse_value(file, rest)
+      values[key] = value
+    else
+      rest = ""
+      break
+    end
+  end
+  return values, rest
 end
 
 parse_value = function(file, text)
@@ -71,12 +104,15 @@ parse_value = function(file, text)
     return value, rest
   end
   -- Table.
-  -- TODO
+  local rest = text:match("^{(.*)")
+  if rest then
+    local value, rest = parse_table(file, rest)
+    return value, rest
+  end
   return text, ""
 end
 
 local function parse_key_value(file, line)
-  -- print(line)
   local key, value = line:match("^(%S+)%s*=%s*(.+)$")
   if not key or not value then
     return nil, nil
@@ -87,24 +123,37 @@ end
 
 local function parse_section(file)
   local section_data = {}
-  for line in file:lines() do
-    if line:match("^%s*$") or line:match("^%s*;") then
-      goto continue
+  while true do
+    local line = read_line(file, "")
+    if not line then
+      break
     end
     if line:match(section_pattern) then
       file:seek("cur", - #line - 1)
-      goto done
+      break
     end
     -- Parse key value pairs.
     local key, value = parse_key_value(file, line)
     if key and value then
       section_data[key] = value
     end
-    ::continue::
   end
-  ::done::
   return section_data
 end
+
+local function print_table(t, indent)
+  indent = indent or ""
+  for k, v in pairs(t) do
+      if type(v) == "table" then
+          print(indent .. k .. " = {")
+          print_table(v, indent .. "  ")
+          print(indent .. "}")
+      else
+          print(indent .. k .. " = " .. tostring(v))
+      end
+  end
+end
+gd.print_table = print_table
 
 function gd.resource_load(file_path)
   local file <close> = io.open(file_path, "r")
@@ -115,6 +164,7 @@ function gd.resource_load(file_path)
   for line in file:lines() do
     local section = line:match(section_pattern)
     if section then
+      -- TODO section attrs!
       resource[section] = parse_section(file)
     end
   end

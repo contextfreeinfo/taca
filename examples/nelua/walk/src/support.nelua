@@ -6,13 +6,9 @@
   ldflags "-Wl,--export-dynamic,--strip-all"
   context.rootpragmas.nogcentry = true
 
-  require "io"
-
   function read_all(file)
-    local f = assert(io.open(file, "rb"))
-    local content = f:read("*all")
-    f:close()
-    return content
+    local f <close> = assert(io.open(file, "rb"))
+    return f:read("*all")
   end
 ]]
 
