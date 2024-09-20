@@ -3,6 +3,7 @@ local support = require "support"
 
 -- Others.
 local resources = require "resources"
+local string = require "string"
 local taca = require "taca"
 
 local function start()
@@ -11,6 +12,15 @@ local function start()
   print "Hi!"
   taca.print "Enjoy!"
   print "Bye!"
+  local control = 3
+  for i, frame in ipairs(resources.player.run) do
+    print(string.format(
+      "frame: %d %d %d %d %d",
+      control,
+      frame.pos[0], frame.pos[1],
+      frame.size[0], frame.size[1]
+    ))
+  end
   -- TODO https://nelua.io/overview/#to-be-closed-variables
 end
 

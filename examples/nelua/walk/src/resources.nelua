@@ -2,13 +2,11 @@ require "support"
 
 ##[[
 local gd = require "gd"
-local player_info = gd.resource_load("src/tiles/player.tres")
-local tiles_info = gd.resource_load("src/tiles/tiles.tscn")
--- gd.print_table(player_info)
-print(player_info.uid)
--- print("-----------------")
--- gd.print_table(tiles_info)
-print(tiles_info.uid)
+local macros = require "macros"
+local player_resource = gd.resource_load("src/tiles/player.tres")
+local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
+-- gd.print_table(player_resource)
+-- gd.print_table(macros.animation_build(player_resource, "run"))
 ]]
 
 ## local current_source_dir = require'nelua.utils.fs'.scriptdir()
@@ -16,8 +14,13 @@ print(#[current_source_dir]#)
 
 local resources = @record{}
 
+local Rect = @record{
+  pos: [2]int32,
+  size: [2]int32,
+}
+
 local SpriteInfo = @record{
-  image: string,
+  image: span(byte),
   info: string,
 }
 local resources.SpriteInfo = SpriteInfo
@@ -31,9 +34,17 @@ local resources.gem = SpriteInfo{
 
 local resources.level = #[read_all "src/tiles/tiles.tscn"]#
 
-local resources.player = SpriteInfo{
+local PlayerInfo = @record{
+  image: span(byte),
+  run: span(Rect),
+}
+local resources.PlayerInfo = PlayerInfo
+
+-- print("i was here")
+
+local resources.player = PlayerInfo{
   image = #[read_all "src/tiles/player.png"]#,
-  info = #[read_all "src/tiles/player.tres"]#,
+  run = #[macros.animation_build(player_resource, "run")]#,
 }
 
 local resources.project = #[read_all "src/tiles/project.godot"]#

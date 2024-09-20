@@ -1,3 +1,5 @@
+-- This script should work in ordinary Lua.
+
 local gd = {}
 
 local parse_value
