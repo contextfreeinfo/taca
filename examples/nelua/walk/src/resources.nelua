@@ -1,16 +1,12 @@
 require "support"
 
-##[[
-local gd = require "gd"
-local macros = require "macros"
-local player_resource = gd.resource_load("src/tiles/player.tres")
-local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
--- gd.print_table(player_resource)
--- gd.print_table(macros.animation_build(player_resource, "run"))
-]]
+## local fs = require "nelua.utils.fs"
+## local gd = require "gd"
+## local macros = require "macros"
 
-## local current_source_dir = require'nelua.utils.fs'.scriptdir()
-print(#[current_source_dir]#)
+-- TODO Make resource paths relative to this source file.
+## local src = fs.scriptdir()
+print(#[src]#)
 
 local resources = @record{}
 
@@ -18,30 +14,29 @@ local Rect = @record{
   pos: [2]int32,
   size: [2]int32,
 }
+local resources.Rect = Rect
 
-local SpriteInfo = @record{
+local GemInfo = @record{
   image: span(byte),
-  info: string,
+  shine: vector(Rect),
 }
-local resources.SpriteInfo = SpriteInfo
+local resources.GemInfo = GemInfo
 
--- TODO How to make resource paths relative to this source file?
-
-local resources.gem = SpriteInfo{
+## local gem_resource = gd.resource_load("src/tiles/gem.tres")
+local resources.gem = GemInfo{
   image = #[read_all "src/tiles/gem.png"]#,
-  info = #[read_all "src/tiles/gem.tres"]#,
+  shine = #[macros.animation_build(gem_resource, "shine")]#,
 }
 
 local resources.level = #[read_all "src/tiles/tiles.tscn"]#
 
 local PlayerInfo = @record{
   image: span(byte),
-  run: span(Rect),
+  run: vector(Rect),
 }
 local resources.PlayerInfo = PlayerInfo
 
--- print("i was here")
-
+## local player_resource = gd.resource_load("src/tiles/player.tres")
 local resources.player = PlayerInfo{
   image = #[read_all "src/tiles/player.png"]#,
   run = #[macros.animation_build(player_resource, "run")]#,
@@ -49,6 +44,7 @@ local resources.player = PlayerInfo{
 
 local resources.project = #[read_all "src/tiles/project.godot"]#
 
+## local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
 local resources.tiles = #[read_all "src/tiles/tileset.png"]#
 
 return resources

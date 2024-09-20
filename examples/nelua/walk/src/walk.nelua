@@ -2,31 +2,33 @@
 local support = require "support"
 
 -- Others.
-local resources = require "resources"
-local string = require "string"
-local taca = require "taca"
+local r = require "resources"
+local s = require "string"
+local t = require "taca"
 
-local function start()
-  <cexport, codename "start">
-  local gc <close> = support.GcStep{}
-  print "Hi!"
-  taca.print "Enjoy!"
-  print "Bye!"
-  local control = 3
-  for i, frame in ipairs(resources.player.run) do
-    print(string.format(
-      "frame: %d %d %d %d %d",
-      control,
+local function print_frames(name: string, frames: span(r.Rect))
+  t.print(name)
+  for i, frame in ipairs(frames) do
+    t.print(s.format(
+      "frame %i: %d %d %d %d",
+      i,
       frame.pos[0], frame.pos[1],
       frame.size[0], frame.size[1]
     ))
   end
-  -- TODO https://nelua.io/overview/#to-be-closed-variables
+end
+
+local function start()
+  <cexport, codename "start">
+  local gc <close> = support.GcStep{}
+  -- For kicks, use an example of wasi printing.
+  print "Hi from Nelua!"
+  print_frames("gem shine", r.gem.shine)
+  print_frames("player run", r.player.run)
 end
 
 local function update(data: pointer)
   <cexport, codename "update">
   local gc <close> = support.GcStep{}
   -- TODO Updates
-  -- TODO https://nelua.io/overview/#to-be-closed-variables
 end

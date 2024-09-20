@@ -7,3 +7,7 @@ wasm2wat --generate-names out/walk.wasm -o out/walk.wat && \
 lz4 -f9 out/walk.wasm out/walk.taca && \
 mkdir -p $PUB_DIR && \
 cp out/walk.taca $PUB_DIR/
+
+# Only saving a tiny bit here:
+# wasm-opt -Os out/walk.wasm -o out/walk.opt.wasm && \
+# lz4 -f9 out/walk.opt.wasm out/walk.taca && \
