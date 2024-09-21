@@ -1,5 +1,14 @@
 import { fail } from "./util";
 
+export type LazyTexture = Partial<Texture>;
+
+export interface Texture {
+  // TODO Also store a baseline for all textures that for non-text is y size.
+  size: [number, number];
+  texture: WebGLTexture;
+  usedSize: [number, number];
+}
+
 export class TexturePipeline {
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
@@ -92,6 +101,58 @@ export function fragmentMunge(glsl: string) {
     "vec4(gl_FragCoord.x, taca.size.y - gl_FragCoord.y, gl_FragCoord.zw)";
   glsl = glsl.replace(/gl_FragCoord/g, inverted);
   return glsl;
+}
+
+export function imageDecode(
+  gl: WebGL2RenderingContext,
+  bytes: Uint8Array,
+  fulfill: () => void,
+  reject: (reason: any) => void
+): Texture {
+  const header = new DataView(bytes.buffer, bytes.byteOffset, 4);
+  const type =
+    header.getUint32(0) == 0x89504e47
+      ? "png"
+      : header.getInt16(0) == 0xffd8
+      ? "jpeg"
+      : fail();
+  const blob = new Blob([bytes], { type: `image/${type}` });
+  // Based on https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Using_textures_in_WebGL
+  const texture = gl.createTexture() ?? fail();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    1,
+    1,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 0, 0])
+  );
+  const lazyTexture: Texture = {
+    size: [1, 1],
+    texture,
+    usedSize: [1, 1],
+  };
+  createImageBitmap(blob).then(
+    (bitmap) => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        bitmap
+      );
+      lazyTexture.size = lazyTexture.usedSize = [bitmap.width, bitmap.height];
+      fulfill();
+    },
+    (reason) => reject(reason)
+  );
+  return lazyTexture;
 }
 
 export function shaderProgramBuild(

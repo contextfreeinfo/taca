@@ -6,7 +6,13 @@ import {
   shaderToGlsl,
   ShaderStage,
 } from "../pkg/cana";
-import { TexturePipeline, fragmentMunge, shaderProgramBuild } from "./drawing";
+import {
+  Texture,
+  TexturePipeline,
+  fragmentMunge,
+  imageDecode,
+  shaderProgramBuild,
+} from "./drawing";
 import { keys } from "./key";
 import { dataViewOf, fail, getU32, setF32, setU32 } from "./util";
 import { makeWasiEnv } from "./wasi";
@@ -363,6 +369,22 @@ class App {
   }
 
   gl: WebGL2RenderingContext;
+
+  imageDecode(bytes: number) {
+    let { gl, textures } = this;
+    let pointer = 0;
+    const texture = imageDecode(
+      gl,
+      this.readBytes(bytes),
+      () => {
+        // TODO Send notice for pointer.
+      },
+      (reason) => fail(reason)
+    );
+    textures.push(texture);
+    pointer = textures.length;
+    return pointer;
+  }
 
   indexBuffer: Buffer | null = null;
 
@@ -805,7 +827,7 @@ function makeAppEnv(app: App) {
       app.draw(itemBegin, itemCount, instanceCount);
     },
     taca_image_decode(bytes: number) {
-      //
+      return app.imageDecode(bytes);
     },
     taca_key_event(result: number) {
       app.memoryBytes().set(app.keyEventBytes, result);
@@ -889,13 +911,6 @@ interface ShaderInfo {
 }
 
 const textDecoder = new TextDecoder();
-
-interface Texture {
-  // TODO Also store a baseline for all textures that for non-text is y size.
-  size: [number, number];
-  texture: WebGLTexture;
-  usedSize: [number, number];
-}
 
 interface Uniforms {
   count: number;
