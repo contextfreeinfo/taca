@@ -25,6 +25,7 @@ local function start()
   print "Hi from Nelua!"
   print_frames("gem shine", r.gem.shine)
   print_frames("player run", r.player.run)
+  local tiles = t.image_decode(r.tiles)
 end
 
 local function update(data: pointer)

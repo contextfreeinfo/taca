@@ -375,15 +375,6 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
     });
 }
 
-pub fn end_pass(system: &mut System) {
-    let Some(frame) = system.frame.as_mut() else {
-        return;
-    };
-    if let Some(pass) = frame.pass.take() {
-        drop(pass);
-    }
-}
-
 pub fn frame_commit(system: &mut System) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         return;

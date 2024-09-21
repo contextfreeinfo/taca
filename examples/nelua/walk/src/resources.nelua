@@ -45,6 +45,6 @@ local resources.player = PlayerInfo{
 local resources.project = #[read_all "src/tiles/project.godot"]#
 
 ## local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
-local resources.tiles = #[read_all "src/tiles/tileset.png"]#
+local resources.tiles: span(byte) = #[read_all "src/tiles/tileset.png"]#
 
 return resources

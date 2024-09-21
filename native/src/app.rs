@@ -17,7 +17,7 @@ use crate::{
     display::{Display, EventKind, Graphics, MaybeGraphics, WindowState},
     gpu::{
         bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
-        create_pipeline, end_pass, frame_commit, pass_ensure, pipeline_apply, pipelined_ensure,
+        create_pipeline, frame_commit, pass_ensure, pipeline_apply, pipelined_ensure,
         shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice, ExternBindings,
         ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
@@ -44,27 +44,25 @@ impl App {
         let env = FunctionEnv::new(&mut store, System::new(display));
         let import_object = imports! {
             "env" => {
-                "taca_bindings_apply" => Function::new_typed_with_env(&mut store, &env, taca_bindings_apply),
-                "taca_pipeline_apply" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_apply),
-                "taca_uniforms_apply" => Function::new_typed_with_env(&mut store, &env, taca_uniforms_apply),
-                "taca_RenderingContext_beginPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_beginPass),
-                "taca_RenderingContext_commitFrame" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_commitFrame),
-                "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
-                "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
-                "taca_RenderingContext_endPass" => Function::new_typed_with_env(&mut store, &env, taca_RenderingContext_endPass),
+                // Thinking about combined bindings.
                 "taca_binding_apply" => Function::new_typed_with_env(&mut store, &env, taca_binding_apply),
                 "taca_binding_new" => Function::new_typed_with_env(&mut store, &env, taca_binding_new),
+                // Actually used ones.
+                "taca_bindings_apply" => Function::new_typed_with_env(&mut store, &env, taca_bindings_apply),
                 "taca_buffer_new" => Function::new_typed_with_env(&mut store, &env, taca_buffer_new),
                 "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
+                "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
+                "taca_image_decode" => Function::new_typed_with_env(&mut store, &env, taca_image_decode),
                 "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
+                "taca_pipeline_apply" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_apply),
                 "taca_pipeline_new" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_new),
-                "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
-                "taca_Window_get" => Function::new_typed_with_env(&mut store, &env, taca_Window_get),
-                "taca_Window_newRenderingContext" => Function::new_typed_with_env(&mut store, &env, taca_Window_newRenderingContext),
                 "taca_print" => Function::new_typed_with_env(&mut store, &env, taca_print),
-                "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
-                "taca_window_state" => Function::new_typed_with_env(&mut store, &env, taca_window_state),
+                "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
+                "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
+                "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
+                "taca_uniforms_apply" => Function::new_typed_with_env(&mut store, &env, taca_uniforms_apply),
+                "taca_window_state" => Function::new_typed_with_env(&mut store, &env, taca_window_state),
             },
             "wasi_snapshot_preview1" => {
                 "args_get" => Function::new_typed_with_env(&mut store, &env, wasi::args_get),
@@ -237,71 +235,6 @@ fn taca_bindings_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
     bindings_apply(system, bindings);
 }
 
-fn taca_pipeline_apply(mut env: FunctionEnvMut<System>, pipeline: u32) {
-    let system = env.data_mut();
-    pipeline_apply(system, pipeline);
-}
-
-fn taca_uniforms_apply(mut env: FunctionEnvMut<System>, bytes: u32) {
-    let (system, store) = env.data_and_store_mut();
-    let view = system.memory.as_ref().unwrap().view(&store);
-    let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
-    let uniforms = read_span::<u8>(&view, uniforms);
-    uniforms_apply(system, &uniforms);
-}
-
-fn taca_RenderingContext_beginPass(mut env: FunctionEnvMut<System>) {
-    pass_ensure(env.data_mut());
-}
-
-fn taca_RenderingContext_commitFrame(mut env: FunctionEnvMut<System>) {
-    let system = env.data_mut();
-    frame_commit(system);
-}
-
-fn taca_draw(
-    mut env: FunctionEnvMut<System>,
-    item_begin: u32,
-    item_count: u32,
-    instance_count: u32,
-) {
-    let system = env.data_mut();
-    pipelined_ensure(system);
-    // TODO Actually ensure we got buffers?
-    buffered_ensure(system);
-    bound_ensure(system);
-    let Some(RenderFrame {
-        pass: Some(pass), ..
-    }) = &mut system.frame
-    else {
-        return;
-    };
-    pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
-}
-
-fn taca_text_draw(mut env: FunctionEnvMut<System>, text: u32, x: f32, y: f32) {
-    let (system, store) = env.data_and_store_mut();
-    let view = system.memory.as_ref().unwrap().view(&store);
-    let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
-    let text = read_string(&view, text);
-    pass_ensure(system);
-    let text_engine = system.text.clone().unwrap();
-    text_engine.lock().unwrap().draw(system, &text, x, y);
-}
-
-fn taca_text_align(mut env: FunctionEnvMut<System>, x: u32, y: u32) {
-    let system = env.data_mut();
-    let text_engine = system.text.clone().unwrap();
-    let mut text_engine = text_engine.lock().unwrap();
-    text_engine.align_x = to_text_align_x(x);
-    text_engine.align_y = to_text_align_y(y);
-}
-
-fn taca_RenderingContext_endPass(mut env: FunctionEnvMut<System>) {
-    let system = env.data_mut();
-    end_pass(system);
-}
-
 fn taca_buffer_new(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
@@ -325,12 +258,41 @@ fn taca_buffer_update(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, 
     buffer_update(system, buffer, &bytes, offset);
 }
 
+fn taca_draw(
+    mut env: FunctionEnvMut<System>,
+    item_begin: u32,
+    item_count: u32,
+    instance_count: u32,
+) {
+    let system = env.data_mut();
+    pipelined_ensure(system);
+    // TODO Actually ensure we got buffers?
+    buffered_ensure(system);
+    bound_ensure(system);
+    let Some(RenderFrame {
+        pass: Some(pass), ..
+    }) = &mut system.frame
+    else {
+        return;
+    };
+    pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
+}
+
+fn taca_image_decode(mut _env: FunctionEnvMut<System>, _bytes: u32) -> u32 {
+    0
+}
+
 fn taca_key_event(mut env: FunctionEnvMut<System>, result: u32) {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     WasmPtr::<KeyEvent>::new(result)
         .write(&view, system.key_event)
         .unwrap();
+}
+
+fn taca_pipeline_apply(mut env: FunctionEnvMut<System>, pipeline: u32) {
+    let system = env.data_mut();
+    pipeline_apply(system, pipeline);
 }
 
 fn taca_pipeline_new(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
@@ -359,6 +321,14 @@ fn taca_pipeline_new(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
     system.pipelines.len() as u32
 }
 
+fn taca_print(mut env: FunctionEnvMut<System>, text: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
+    let text = read_string(&view, text);
+    println!("{text}");
+}
+
 fn taca_shader_new(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
@@ -369,20 +339,22 @@ fn taca_shader_new(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
     system.shaders.len() as u32
 }
 
-fn taca_Window_get(_env: FunctionEnvMut<System>) -> u32 {
-    1
+fn taca_text_align(mut env: FunctionEnvMut<System>, x: u32, y: u32) {
+    let system = env.data_mut();
+    let text_engine = system.text.clone().unwrap();
+    let mut text_engine = text_engine.lock().unwrap();
+    text_engine.align_x = to_text_align_x(x);
+    text_engine.align_y = to_text_align_y(y);
 }
 
-fn taca_Window_newRenderingContext(_env: FunctionEnvMut<System>) -> u32 {
-    1
-}
-
-fn taca_print(mut env: FunctionEnvMut<System>, text: u32) {
+fn taca_text_draw(mut env: FunctionEnvMut<System>, text: u32, x: f32, y: f32) {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let text = WasmPtr::<Span>::new(text).read(&view).unwrap();
     let text = read_string(&view, text);
-    println!("{text}");
+    pass_ensure(system);
+    let text_engine = system.text.clone().unwrap();
+    text_engine.lock().unwrap().draw(system, &text, x, y);
 }
 
 fn taca_title_update(mut env: FunctionEnvMut<System>, text: u32) {
@@ -394,6 +366,14 @@ fn taca_title_update(mut env: FunctionEnvMut<System>, text: u32) {
     let title = WasmPtr::<Span>::new(text).read(&view).unwrap();
     let title = read_string(&view, title);
     gfx.window.as_ref().set_title(&title);
+}
+
+fn taca_uniforms_apply(mut env: FunctionEnvMut<System>, bytes: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let uniforms = read_span::<u8>(&view, uniforms);
+    uniforms_apply(system, &uniforms);
 }
 
 fn taca_window_state(mut env: FunctionEnvMut<System>, result: u32) {

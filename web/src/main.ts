@@ -795,57 +795,46 @@ function makeAppEnv(app: App) {
     taca_bindings_apply(bindings: number) {
       app.bindingApply(bindings);
     },
-    taca_pipeline_apply(pipeline: number) {
-      app.pipelineApply(pipeline);
-    },
-    taca_uniforms_apply(uniforms: number) {
-      app.uniformsApply(uniforms);
-    },
-    taca_RenderingContext_beginPass() {},
-    taca_RenderingContext_commitFrame() {
-      app.frameCommit();
-    },
-    taca_draw(itemBegin: number, itemCount: number, instanceCount: number) {
-      app.draw(itemBegin, itemCount, instanceCount);
-    },
-    taca_text_draw(text: number, x: number, y: number) {
-      app.drawText(app.readString(text), x, y);
-    },
-    taca_text_align(x: number, y: number) {
-      app.textAlign(x, y);
-    },
-    taca_text_drawure(texture: number, x: number, y: number) {
-      // TODO Source and dest rect? Instanced?
-      app.drawTexture(texture, x, y);
-    },
-    taca_RenderingContext_endPass() {},
     taca_buffer_new(type: number, info: number) {
       return app.bufferNew(type, info);
     },
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
       return app.bufferUpdate(buffer, bytes, offset);
     },
+    taca_draw(itemBegin: number, itemCount: number, instanceCount: number) {
+      app.draw(itemBegin, itemCount, instanceCount);
+    },
+    taca_image_decode(bytes: number) {
+      //
+    },
     taca_key_event(result: number) {
       app.memoryBytes().set(app.keyEventBytes, result);
     },
+    taca_pipeline_apply(pipeline: number) {
+      app.pipelineApply(pipeline);
+    },
     taca_pipeline_new(info: number) {
       return app.pipelineNew(info);
+    },
+    taca_print(text: number) {
+      console.log(app.readString(text));
     },
     taca_shader_new(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
-    taca_Window_newRenderingContext() {
-      // TODO Use this for offscreen contexts for render to texture.
-      // TODO Need size? Resizable? Reallocate in same index?
-      return 1;
+    taca_text_align(x: number, y: number) {
+      app.textAlign(x, y);
     },
-    taca_print(text: number) {
-      console.log(app.readString(text));
+    taca_text_draw(text: number, x: number, y: number) {
+      app.drawText(app.readString(text), x, y);
     },
     taca_title_update(title: number) {
       // TODO Abstract to provide callbacks for these things?
       document.title = app.readString(title);
+    },
+    taca_uniforms_apply(uniforms: number) {
+      app.uniformsApply(uniforms);
     },
     taca_window_state(result: number) {
       // TODO Include time.

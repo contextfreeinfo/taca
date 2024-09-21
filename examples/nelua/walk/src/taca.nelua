@@ -1,5 +1,12 @@
 local taca = @record{};
 
+local Texture = @pointer
+local taca.Texture = Texture
+
+function taca.image_decode(text: span(byte)): Texture
+  <cimport, cattribute 'import_name("taca_image_decode")'>
+end
+
 function taca.print(text: string): void
   <cimport, cattribute 'import_name("taca_print")'>
 end
