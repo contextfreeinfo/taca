@@ -28,7 +28,9 @@ pub const BufferKind = enum(c_int) {
 };
 
 pub const EventKind = enum(c_int) {
-    draw,
+    frame,
+    key,
+    tasks_done,
 };
 
 pub const Pipeline = extern struct {};

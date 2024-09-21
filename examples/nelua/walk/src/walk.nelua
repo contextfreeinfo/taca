@@ -28,8 +28,11 @@ local function start()
   local tiles = t.image_decode(r.tiles)
 end
 
-local function update(data: pointer)
+local function update(event: t.EventKind)
   <cexport, codename "update">
   local gc <close> = support.GcStep{}
-  -- TODO Updates
+  switch event do
+  case t.EventKind.TasksDone then
+    t.print("images loaded")
+  end
 end

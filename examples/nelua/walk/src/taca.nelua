@@ -1,5 +1,11 @@
 local taca = @record{};
 
+local taca.EventKind = @enum(uint32){
+  Frame = 0,
+  Key,
+  TasksDone,
+}
+
 local Texture = @pointer
 local taca.Texture = Texture
 

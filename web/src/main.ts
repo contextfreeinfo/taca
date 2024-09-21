@@ -364,7 +364,7 @@ class App {
     setU32(keyEvent, 0, keys[event.key] ?? 0);
     setU32(keyEvent, 4, pressed ? 1 : 0);
     if (exports.update) {
-      exports.update!(1);
+      exports.update!(eventTypes.key);
     }
   }
 
@@ -376,11 +376,10 @@ class App {
     const texture = imageDecode(
       gl,
       this.readBytes(bytes),
-      () => {
-        // TODO Send notice for pointer.
-      },
+      () => this.taskFinish(),
       (reason) => fail(reason)
     );
+    this.tasksActive += 1;
     textures.push(texture);
     pointer = textures.length;
     return pointer;
@@ -587,6 +586,15 @@ class App {
     }
   }
 
+  tasksActive = 0;
+
+  taskFinish() {
+    this.tasksActive -= 1;
+    if (!this.tasksActive && this.exports.update) {
+      this.exports.update!(eventTypes.tasksDone);
+    }
+  }
+
   textAlign(x: number, y: number) {
     this.textAlignVals = [
       ([undefined, "center", "right"][x] ?? "left") as CanvasTextAlign,
@@ -763,6 +771,12 @@ interface BufferInfo {
   step: number;
   stride: number;
 }
+
+const eventTypes = {
+  frame: 0,
+  key: 1,
+  tasksDone: 2,
+};
 
 async function loadApp(config: AppConfig) {
   const appData = config.code as ArrayBuffer;

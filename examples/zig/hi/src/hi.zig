@@ -24,8 +24,7 @@ export fn start() void {
 }
 
 export fn update(event: taca.EventKind) void {
-    // TODO Branch on event kind.
-    _ = event;
+    if (event != taca.EventKind.frame) return;
     const state = window.state();
     const size = state.size;
     const aspect = size[0] / size[1];
