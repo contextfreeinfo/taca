@@ -3,7 +3,11 @@
 use std::{
     fs::File,
     io::Read,
-    sync::{Arc, Mutex},
+    sync::{
+        mpsc::{channel, Sender},
+        Arc, Mutex,
+    },
+    thread,
 };
 
 use lz4_flex::frame::FrameDecoder;
@@ -14,10 +18,10 @@ use wasmer::{
 use winit::event_loop::EventLoop;
 
 use crate::{
-    display::{Display, EventKind, Graphics, MaybeGraphics, WindowState},
+    display::{Display, EventKind, Graphics, MaybeGraphics, UserEvent, WindowState},
     gpu::{
         bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
-        create_pipeline, frame_commit, pass_ensure, pipeline_apply, pipelined_ensure,
+        create_pipeline, frame_commit, image_decode, pass_ensure, pipeline_apply, pipelined_ensure,
         shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice, ExternBindings,
         ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
     },
@@ -87,10 +91,26 @@ impl App {
         }
     }
 
+    pub fn handle(&mut self, event: UserEvent) {
+        match event {
+            UserEvent::Graphics(_) => {}
+            UserEvent::ImageDecoded => {
+                let system = self.env.as_mut(&mut self.store);
+                system.tasks_active -= 1;
+                if system.tasks_active == 0 {
+                    let Some(update) = &self.update else { return };
+                    update
+                        .call(&mut self.store, &[Value::I32(EventKind::TasksDone as i32)])
+                        .unwrap();
+                }
+            }
+        }
+    }
+
     pub fn listen(&mut self) {
         let Some(update) = &self.update else { return };
         update
-            .call(&mut self.store, &[Value::I32(EventKind::Tick as i32)])
+            .call(&mut self.store, &[Value::I32(EventKind::Frame as i32)])
             .unwrap();
         let system = self.env.as_mut(&mut self.store);
         frame_commit(system);
@@ -113,8 +133,22 @@ impl App {
         App::init(&buf, display)
     }
 
-    pub fn run(&mut self, event_loop: EventLoop<Graphics>, ptr: *mut App) {
+    pub fn run(&mut self, event_loop: EventLoop<UserEvent>, ptr: *mut App) {
         let system = self.env.as_mut(&mut self.store);
+        // Set up worker thread, and detach. TODO Do we ever need it?
+        let (sender, receiver) = channel();
+        system.worker = Some(sender);
+        let event_loop_proxy = event_loop.create_proxy();
+        thread::spawn(move || {
+            for message in receiver {
+                match message {
+                    WorkItem::ImageDecode(bytes) => {
+                        image_decode(bytes, &event_loop_proxy);
+                    }
+                }
+            }
+        });
+        // Run event loop.
         system.display.app = AppPtr(ptr);
         system.display.run(event_loop);
     }
@@ -146,7 +180,9 @@ pub struct System {
     pub memory: Option<Memory>,
     pub pipelines: Vec<Pipeline>,
     pub shaders: Vec<Shader>,
+    pub tasks_active: usize,
     pub text: Option<Arc<Mutex<TextEngine>>>,
+    pub worker: Option<Sender<WorkItem>>,
 }
 
 impl System {
@@ -160,9 +196,16 @@ impl System {
             frame: None,
             pipelines: vec![],
             shaders: vec![],
+            tasks_active: 0,
             text: None,
+            worker: None,
         }
     }
+}
+
+#[derive(Debug)]
+pub enum WorkItem {
+    ImageDecode(Vec<u8>),
 }
 
 fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
@@ -278,7 +321,18 @@ fn taca_draw(
     pass.draw_indexed(item_begin..item_begin + item_count, 0, 0..instance_count);
 }
 
-fn taca_image_decode(mut _env: FunctionEnvMut<System>, _bytes: u32) -> u32 {
+fn taca_image_decode(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let bytes = read_span(&view, bytes);
+    system.tasks_active += 1;
+    system
+        .worker
+        .as_ref()
+        .unwrap()
+        .send(WorkItem::ImageDecode(bytes))
+        .unwrap();
     0
 }
 

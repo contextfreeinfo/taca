@@ -1,4 +1,7 @@
+use std::io::Cursor;
+
 use bytemuck::PodCastError;
+use image::ImageReader;
 use naga::{
     front::spv,
     valid::{Capabilities, ValidationFlags, Validator},
@@ -12,7 +15,10 @@ use wgpu::{
     TextureViewDescriptor, VertexFormat,
 };
 
-use crate::{app::System, display::MaybeGraphics};
+use crate::{
+    app::System,
+    display::{MaybeGraphics, UserEvent},
+};
 
 #[derive(Debug)]
 pub struct Binding {
@@ -145,6 +151,7 @@ pub struct VertexBufferLayout {
     attributes: Vec<wgpu::VertexAttribute>,
 }
 
+#[derive(Debug)]
 pub struct TextureData {
     #[allow(unused)]
     pub texture: wgpu::Texture,
@@ -393,6 +400,31 @@ pub fn frame_commit(system: &mut System) {
         let mut text = text.lock().unwrap();
         text.renderer_index = 0;
     }
+}
+
+pub fn image_decode(
+    bytes: Vec<u8>,
+    event_loop_proxy: &winit::event_loop::EventLoopProxy<UserEvent>,
+) {
+    dbg!(bytes.len());
+    let cursor = Cursor::new(bytes);
+    match ImageReader::new(cursor)
+        .with_guessed_format()
+        .map(|it| it.decode())
+    {
+        Ok(Ok(image)) => {
+            dbg!(image.width(), image.height());
+        }
+        Ok(Err(err)) => {
+            dbg!(err);
+        }
+        Err(err) => {
+            dbg!(err);
+        }
+    }
+    event_loop_proxy
+        .send_event(UserEvent::ImageDecoded)
+        .unwrap();
 }
 
 pub fn pass_ensure(system: &mut System) {
