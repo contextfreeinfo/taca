@@ -1,3 +1,4 @@
+use image::{DynamicImage, ImageResult};
 use std::{
     future::Future,
     ptr::null_mut,
@@ -189,9 +190,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                 };
                 unsafe { &mut *self.app.0 }.start(gfx);
             }
-            UserEvent::ImageDecoded => {
-                unsafe { &mut *self.app.0 }.handle(event);
-            }
+            event => unsafe { &mut *self.app.0 }.handle(event),
         }
     }
 }
@@ -199,7 +198,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
 #[derive(Debug)]
 pub enum UserEvent {
     Graphics(Graphics),
-    ImageDecoded,
+    ImageDecoded(ImageResult<DynamicImage>),
 }
 
 #[derive(Debug)]

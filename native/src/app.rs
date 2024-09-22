@@ -21,9 +21,10 @@ use crate::{
     display::{Display, EventKind, Graphics, MaybeGraphics, UserEvent, WindowState},
     gpu::{
         bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
-        create_pipeline, frame_commit, image_decode, pass_ensure, pipeline_apply, pipelined_ensure,
-        shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice, ExternBindings,
-        ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
+        create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure, pipeline_apply,
+        pipelined_ensure, shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice,
+        ExternBindings, ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo,
+        RenderFrame, Shader, Span,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -93,16 +94,16 @@ impl App {
 
     pub fn handle(&mut self, event: UserEvent) {
         match event {
-            UserEvent::Graphics(_) => {}
-            UserEvent::ImageDecoded => {
-                let system = self.env.as_mut(&mut self.store);
-                system.tasks_active -= 1;
-                if system.tasks_active == 0 {
-                    let Some(update) = &self.update else { return };
-                    update
-                        .call(&mut self.store, &[Value::I32(EventKind::TasksDone as i32)])
-                        .unwrap();
+            UserEvent::Graphics(_) => {} // handled in display
+            UserEvent::ImageDecoded(result) => {
+                match result {
+                    Ok(image) => image_to_texture(image),
+                    Err(err) => {
+                        // TODO Report errors to app?
+                        dbg!(err);
+                    }
                 }
+                self.task_finish();
             }
         }
     }
@@ -167,6 +168,17 @@ impl App {
         // is separate from our own start.
         if let Ok(start) = self.instance.exports.get_function("start") {
             start.call(&mut self.store, &[]).unwrap();
+        }
+    }
+
+    fn task_finish(&mut self) {
+        let system = self.env.as_mut(&mut self.store);
+        system.tasks_active -= 1;
+        if system.tasks_active == 0 {
+            let Some(update) = &self.update else { return };
+            update
+                .call(&mut self.store, &[Value::I32(EventKind::TasksDone as i32)])
+                .unwrap();
         }
     }
 }

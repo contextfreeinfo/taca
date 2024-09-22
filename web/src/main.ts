@@ -377,7 +377,10 @@ class App {
       gl,
       this.readBytes(bytes),
       () => this.taskFinish(),
-      (reason) => fail(reason)
+      (reason) => {
+        this.taskFinish();
+        fail(reason);
+      }
     );
     this.tasksActive += 1;
     textures.push(texture);

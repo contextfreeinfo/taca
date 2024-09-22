@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use bytemuck::PodCastError;
-use image::ImageReader;
+use image::{DynamicImage, ImageError, ImageReader};
 use naga::{
     front::spv,
     valid::{Capabilities, ValidationFlags, Validator},
@@ -406,25 +406,19 @@ pub fn image_decode(
     bytes: Vec<u8>,
     event_loop_proxy: &winit::event_loop::EventLoopProxy<UserEvent>,
 ) {
-    dbg!(bytes.len());
     let cursor = Cursor::new(bytes);
-    match ImageReader::new(cursor)
+    let result = ImageReader::new(cursor)
         .with_guessed_format()
-        .map(|it| it.decode())
-    {
-        Ok(Ok(image)) => {
-            dbg!(image.width(), image.height());
-        }
-        Ok(Err(err)) => {
-            dbg!(err);
-        }
-        Err(err) => {
-            dbg!(err);
-        }
-    }
+        .map_err(|err| ImageError::IoError(err))
+        .and_then(|it| it.decode());
     event_loop_proxy
-        .send_event(UserEvent::ImageDecoded)
+        .send_event(UserEvent::ImageDecoded(result))
         .unwrap();
+}
+
+pub fn image_to_texture(image: DynamicImage) {
+    // TODO Also need the texture index!
+    dbg!(image.width(), image.height());
 }
 
 pub fn pass_ensure(system: &mut System) {
