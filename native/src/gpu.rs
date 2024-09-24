@@ -410,7 +410,7 @@ pub fn image_decode(
     let result = ImageReader::new(cursor)
         .with_guessed_format()
         .map_err(|err| ImageError::IoError(err))
-        .and_then(|it| it.decode());
+        .and_then(|reader| reader.decode());
     event_loop_proxy
         .send_event(UserEvent::ImageDecoded(result))
         .unwrap();
@@ -419,6 +419,9 @@ pub fn image_decode(
 pub fn image_to_texture(image: DynamicImage) {
     // TODO Also need the texture index!
     dbg!(image.width(), image.height());
+    // TODO Convert earlier?
+    let image = image.into_rgba8().into_raw();
+    let _ = image;
 }
 
 pub fn pass_ensure(system: &mut System) {

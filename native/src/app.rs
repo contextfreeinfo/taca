@@ -140,6 +140,7 @@ impl App {
         let (sender, receiver) = channel();
         system.worker = Some(sender);
         let event_loop_proxy = event_loop.create_proxy();
+        // TODO Arc mutex the receiver for multiple worker threads?
         thread::spawn(move || {
             for message in receiver {
                 match message {
