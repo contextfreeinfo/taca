@@ -24,7 +24,7 @@ use crate::{
         create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure, pipeline_apply,
         pipelined_ensure, shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice,
         ExternBindings, ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo,
-        RenderFrame, Shader, Span,
+        RenderFrame, Shader, Span, Texture,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -95,9 +95,12 @@ impl App {
     pub fn handle(&mut self, event: UserEvent) {
         match event {
             UserEvent::Graphics(_) => {} // handled in display
-            UserEvent::ImageDecoded(result) => {
-                match result {
-                    Ok(image) => image_to_texture(image),
+            UserEvent::ImageDecoded { handle, image } => {
+                match image {
+                    Ok(image) => {
+                        let system = self.env.as_mut(&mut self.store);
+                        image_to_texture(system, handle, image);
+                    }
                     Err(err) => {
                         // TODO Report errors to app?
                         dbg!(err);
@@ -144,8 +147,8 @@ impl App {
         thread::spawn(move || {
             for message in receiver {
                 match message {
-                    WorkItem::ImageDecode(bytes) => {
-                        image_decode(bytes, &event_loop_proxy);
+                    WorkItem::ImageDecode { handle, bytes } => {
+                        image_decode(handle, bytes, &event_loop_proxy);
                     }
                 }
             }
@@ -195,6 +198,7 @@ pub struct System {
     pub shaders: Vec<Shader>,
     pub tasks_active: usize,
     pub text: Option<Arc<Mutex<TextEngine>>>,
+    pub textures: Vec<Texture>,
     pub worker: Option<Sender<WorkItem>>,
 }
 
@@ -211,6 +215,7 @@ impl System {
             shaders: vec![],
             tasks_active: 0,
             text: None,
+            textures: vec![],
             worker: None,
         }
     }
@@ -218,7 +223,7 @@ impl System {
 
 #[derive(Debug)]
 pub enum WorkItem {
-    ImageDecode(Vec<u8>),
+    ImageDecode { handle: usize, bytes: Vec<u8> },
 }
 
 fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
@@ -339,14 +344,16 @@ fn taca_image_decode(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
     let view = system.memory.as_ref().unwrap().view(&store);
     let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
     let bytes = read_span(&view, bytes);
+    system.textures.push(Texture { data: None });
+    let handle = system.textures.len();
     system.tasks_active += 1;
     system
         .worker
         .as_ref()
         .unwrap()
-        .send(WorkItem::ImageDecode(bytes))
+        .send(WorkItem::ImageDecode { handle, bytes })
         .unwrap();
-    0
+    handle.try_into().unwrap()
 }
 
 fn taca_key_event(mut env: FunctionEnvMut<System>, result: u32) {

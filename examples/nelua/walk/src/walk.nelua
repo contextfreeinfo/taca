@@ -26,6 +26,7 @@ local function start()
   print_frames("gem shine", r.gem.shine)
   print_frames("player run", r.player.run)
   local tiles = t.image_decode(r.tiles)
+  t.shader_new(r.shader)
 end
 
 local function update(event: t.EventKind)

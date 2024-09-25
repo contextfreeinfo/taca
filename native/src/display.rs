@@ -198,7 +198,10 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
 #[derive(Debug)]
 pub enum UserEvent {
     Graphics(Graphics),
-    ImageDecoded(ImageResult<DynamicImage>),
+    ImageDecoded {
+        handle: usize,
+        image: ImageResult<DynamicImage>,
+    },
 }
 
 #[derive(Debug)]
@@ -270,7 +273,6 @@ pub fn create_depth_texture(
     };
     let texture = device.create_texture(&desc);
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
     TextureData { texture, view }
 }
 

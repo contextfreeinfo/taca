@@ -152,6 +152,11 @@ pub struct VertexBufferLayout {
 }
 
 #[derive(Debug)]
+pub struct Texture {
+    pub data: Option<TextureData>,
+}
+
+#[derive(Debug)]
 pub struct TextureData {
     #[allow(unused)]
     pub texture: wgpu::Texture,
@@ -302,7 +307,10 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
     let device = &gfx.device;
     let fragment_shader = &system.shaders[fragment_shader as usize - 1];
     let vertex_shader = &system.shaders[vertex_shader as usize - 1];
+    // TODO Option for no uniforms?
     let min_binding_size = uniforms_binding_size_find(vertex_shader);
+    // TODO Extract and use bindings, including uniforms.
+    shader_bindings_find(vertex_shader);
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
         entries: &[wgpu::BindGroupLayoutEntry {
@@ -403,24 +411,49 @@ pub fn frame_commit(system: &mut System) {
 }
 
 pub fn image_decode(
+    handle: usize,
     bytes: Vec<u8>,
     event_loop_proxy: &winit::event_loop::EventLoopProxy<UserEvent>,
 ) {
     let cursor = Cursor::new(bytes);
-    let result = ImageReader::new(cursor)
+    let image = ImageReader::new(cursor)
         .with_guessed_format()
         .map_err(|err| ImageError::IoError(err))
         .and_then(|reader| reader.decode());
     event_loop_proxy
-        .send_event(UserEvent::ImageDecoded(result))
+        .send_event(UserEvent::ImageDecoded { handle, image })
         .unwrap();
 }
 
-pub fn image_to_texture(image: DynamicImage) {
+pub fn image_to_texture(system: &mut System, handle: usize, image: DynamicImage) {
     // TODO Also need the texture index!
-    dbg!(image.width(), image.height());
-    // TODO Convert earlier?
+    let size = wgpu::Extent3d {
+        width: image.width(),
+        height: image.height(),
+        depth_or_array_layers: 1,
+    };
+    dbg!(size);
+    // TODO Convert to rgba8 earlier?
     let image = image.into_rgba8().into_raw();
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    // Build texture.
+    let texture = gfx.device.create_texture(&wgpu::TextureDescriptor {
+        label: None,
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm, // TODO Srgb???
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let texture_info = &mut system.textures[handle - 1];
+    assert!(texture_info.data.is_none());
+    texture_info.data = Some(TextureData { texture, view });
+    // TODO Write image data, which needs a queue.
     let _ = image;
 }
 
@@ -517,6 +550,27 @@ pub fn pipelined_ensure(system: &mut System) {
     }
 }
 
+fn shader_bindings_find(shader: &Shader) {
+    for (_, global) in shader.module.global_variables.iter() {
+        let Some(binding) = &global.binding else {
+            continue;
+        };
+        match shader.module.types[global.ty].inner {
+            naga::TypeInner::Image {
+                dim,
+                arrayed,
+                class,
+            } => {
+                dbg!(binding, dim, arrayed, class);
+            }
+            naga::TypeInner::Sampler { comparison } => {
+                dbg!(binding, comparison);
+            }
+            _ => {}
+        }
+    }
+}
+
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
@@ -605,6 +659,7 @@ fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {
     let types = &shader.module.types;
     for var in shader.module.global_variables.iter() {
         let var = var.1;
+        // TODO Also extract binding.
         if var.space == naga::AddressSpace::Uniform {
             let ty = &types[var.ty];
             let size = ty.inner.size(shader.module.to_ctx()) as u64;

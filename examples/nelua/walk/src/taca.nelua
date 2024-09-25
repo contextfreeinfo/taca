@@ -1,20 +1,58 @@
 local taca = @record{};
 
+local taca.Pipeline = @pointer
+local taca.Shader = @pointer
+local taca.Texture = @pointer
+
 local taca.EventKind = @enum(uint32){
   Frame = 0,
   Key,
   TasksDone,
 }
 
-local Texture = @pointer
-local taca.Texture = Texture
+local taca.AttributeInfo = @record{
+  shader_location: usize,
+  value_offset: usize,
+}
 
-function taca.image_decode(text: span(byte)): Texture
+local taca.Step = @enum(uint32){
+  Vertex = 0,
+  Instance,
+}
+
+local taca.BufferInfo = @record{
+  first_attribute: usize,
+  step: taca.Step,
+  stride: usize,
+}
+
+local taca.PipelineShaderInfo = @record{
+  entry: string,
+  shader: taca.Shader,
+}
+
+local taca.PipelineInfo = @record{
+    depth_test: boolean,
+    fragment: taca.PipelineShaderInfo,
+    vertex: taca.PipelineShaderInfo,
+    vertex_attributes: span(taca.AttributeInfo),
+    vertex_buffers: span(taca.BufferInfo),
+}
+
+function taca.image_decode(bytes: span(byte)): taca.Texture
   <cimport, cattribute 'import_name("taca_image_decode")'>
+end
+
+function taca.pipeline_new(info: taca.PipelineInfo): taca.Pipeline
+  <cimport, cattribute 'import_name("taca_pipeline_new")'>
 end
 
 function taca.print(text: string): void
   <cimport, cattribute 'import_name("taca_print")'>
+end
+
+function taca.shader_new(bytes: span(byte)): taca.Shader
+  <cimport, cattribute 'import_name("taca_shader_new")'>
 end
 
 return taca;
