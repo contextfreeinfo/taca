@@ -376,6 +376,7 @@ fn taca_pipeline_new(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
         .read(&view)
         .unwrap();
     // dbg!(info);
+    // println!("{info:?}");
     let vertex_attributes = read_span(&view, info.vertex_attributes);
     let vertex_buffers = read_span(&view, info.vertex_buffers);
     let info = PipelineInfo {
@@ -391,6 +392,7 @@ fn taca_pipeline_new(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
         vertex_attributes,
         vertex_buffers,
     };
+    // dbg!(&info);
     create_pipeline(system, info);
     system.pipelines.len() as u32
 }

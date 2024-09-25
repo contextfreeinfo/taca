@@ -1,11 +1,11 @@
-use std::io::Cursor;
+use std::{io::Cursor, num::NonZeroU64};
 
 use bytemuck::PodCastError;
 use image::{DynamicImage, ImageError, ImageReader};
 use naga::{
     front::spv,
     valid::{Capabilities, ValidationFlags, Validator},
-    ScalarKind, VectorSize,
+    ImageClass, ScalarKind, VectorSize,
 };
 use wasmer::ValueType;
 use wgpu::{
@@ -308,25 +308,22 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
     let fragment_shader = &system.shaders[fragment_shader as usize - 1];
     let vertex_shader = &system.shaders[vertex_shader as usize - 1];
     // TODO Option for no uniforms?
-    let min_binding_size = uniforms_binding_size_find(vertex_shader);
+    // let min_binding_size = uniforms_binding_size_find(vertex_shader);
     // TODO Extract and use bindings, including uniforms.
-    shader_bindings_find(vertex_shader);
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size,
-            },
-            count: None,
-        }],
-    });
+    let group_infos = shader_bindings_find(vertex_shader);
+    let group_layouts: Vec<_> = group_infos
+        .iter()
+        .map(|entries| {
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: None,
+                entries: &entries,
+            })
+        })
+        .collect();
+    let group_layout_refs: Vec<_> = group_layouts.iter().map(|it| it).collect();
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &group_layout_refs,
         push_constant_ranges: &[],
     });
     // dbg!(&attr_info);
@@ -550,25 +547,82 @@ pub fn pipelined_ensure(system: &mut System) {
     }
 }
 
-fn shader_bindings_find(shader: &Shader) {
+fn shader_bindings_find(shader: &Shader) -> Vec<Vec<wgpu::BindGroupLayoutEntry>> {
+    let mut groups: Vec<Vec<wgpu::BindGroupLayoutEntry>> = vec![];
+    // TODO Need to loop through multiple shaders?
+    fn push_if_missing(
+        group: &mut Vec<wgpu::BindGroupLayoutEntry>,
+        entry: wgpu::BindGroupLayoutEntry,
+    ) {
+        for existing in group.iter() {
+            if existing.binding == entry.binding {
+                return;
+            }
+        }
+        group.push(entry);
+    }
     for (_, global) in shader.module.global_variables.iter() {
         let Some(binding) = &global.binding else {
             continue;
         };
-        match shader.module.types[global.ty].inner {
+        // dbg!(binding);
+        while groups.len() < binding.group as usize + 1 {
+            groups.push(vec![]);
+        }
+        let group = &mut groups[binding.group as usize];
+        match &shader.module.types[global.ty].inner {
             naga::TypeInner::Image {
                 dim,
-                arrayed,
-                class,
+                class: ImageClass::Sampled { multi, .. },
+                ..
             } => {
-                dbg!(binding, dim, arrayed, class);
+                push_if_missing(
+                    group,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: binding.binding,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: *multi,
+                            view_dimension: match dim {
+                                naga::ImageDimension::D1 => wgpu::TextureViewDimension::D1,
+                                naga::ImageDimension::D2 => wgpu::TextureViewDimension::D2,
+                                naga::ImageDimension::D3 => wgpu::TextureViewDimension::D3,
+                                naga::ImageDimension::Cube => wgpu::TextureViewDimension::Cube,
+                            },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                );
             }
-            naga::TypeInner::Sampler { comparison } => {
-                dbg!(binding, comparison);
+            naga::TypeInner::Sampler { .. } => {
+                push_if_missing(
+                    group,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: binding.binding,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                );
             }
+            naga::TypeInner::Struct { span, .. } => push_if_missing(
+                group,
+                wgpu::BindGroupLayoutEntry {
+                    binding: binding.binding,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(NonZeroU64::new(*span as u64).unwrap()),
+                    },
+                    count: None,
+                },
+            ),
             _ => {}
         }
     }
+    groups
 }
 
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
@@ -653,21 +707,6 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     };
     pass.set_bind_group(0, &bind_group.bind_group, &[]);
     frame.bound = true;
-}
-
-fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {
-    let types = &shader.module.types;
-    for var in shader.module.global_variables.iter() {
-        let var = var.1;
-        // TODO Also extract binding.
-        if var.space == naga::AddressSpace::Uniform {
-            let ty = &types[var.ty];
-            let size = ty.inner.size(shader.module.to_ctx()) as u64;
-            // println!("{var:?}: {ty:?}");
-            return wgpu::BufferSize::new(size);
-        }
-    }
-    None
 }
 
 fn vertex_buffer_layouts_build(

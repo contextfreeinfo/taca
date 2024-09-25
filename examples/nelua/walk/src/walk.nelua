@@ -27,6 +27,12 @@ local function start()
   print_frames("player run", r.player.run)
   local tiles = t.image_decode(r.tiles)
   t.shader_new(r.shader)
+  t.pipeline_new({
+    vertex_buffers = {
+      {},
+      {first_attribute = 1, step = t.Step.Instance},
+    },
+  })
 end
 
 local function update(event: t.EventKind)
