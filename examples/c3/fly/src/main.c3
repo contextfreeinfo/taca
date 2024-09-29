@@ -26,6 +26,7 @@ fn void! start() @export("start") {
             { .first_attribute = 1 },
             { .first_attribute = 2, .step = INSTANCE },
         },
+        // .instance_buffers = ...
     });
     Pcg32Random random;
     random.set_seed(TITLE);

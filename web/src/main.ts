@@ -137,24 +137,24 @@ class App {
     return result;
   }
 
-  bindingApply(bindingsPtr: number) {
+  buffersApply(buffersPtr: number) {
     const { buffers } = this;
     // Minimize allocations because this is in the draw loop.
     const view = this.memoryView();
-    const vertexPtr = getU32(view, bindingsPtr);
-    const vertexLen = getU32(view, bindingsPtr + 4);
-    const index = buffers[getU32(view, bindingsPtr + 8) - 1];
+    const vertexPtr = getU32(view, buffersPtr);
+    const vertexLen = getU32(view, buffersPtr + 4);
+    const index = buffers[getU32(view, buffersPtr + 8) - 1];
     // TODO Predefine bindings to avoid allocations?
     const vertex = new Array<Buffer>(vertexLen);
     for (var i = 0; i < vertexLen; i += 1) {
       vertex[i] = buffers[getU32(view, vertexPtr + 4 * i) - 1];
     }
-    this.binding = { index, vertex };
+    this.boundBuffers = { index, vertex };
     this.buffered = false;
   }
 
-  binding: Binding | null = null;
-  bindingDefault: Binding | null = null;
+  boundBuffers: Buffers | null = null;
+  boundBuffersDefault: Buffers | null = null;
 
   bufferNew(type: number, info: number) {
     const infoBytes = this.memoryViewMake(info, 2 * 4);
@@ -193,18 +193,18 @@ class App {
   #bufferedEnsure() {
     if (!this.buffered) {
       this.#pipelinedEnsure();
-      if (!this.binding) {
-        let { bindingDefault } = this;
-        if (!this.bindingDefault) {
+      if (!this.boundBuffers) {
+        let { boundBuffersDefault: bindingDefault } = this;
+        if (!this.boundBuffersDefault) {
           const { buffers } = this;
           const find = (kind: string) =>
             buffers.find((buffer) => buffer.kind == kind) ?? fail();
-          this.bindingDefault = bindingDefault = {
+          this.boundBuffersDefault = bindingDefault = {
             index: find("index"),
             vertex: [find("vertex")],
           };
         }
-        this.binding = bindingDefault;
+        this.boundBuffers = bindingDefault;
       }
       this.#buffersBind();
     }
@@ -214,7 +214,7 @@ class App {
 
   #buffersBind() {
     // If at least two buffers, presumes one is data and one index.
-    const { binding, gl, pipeline } = this;
+    const { boundBuffers: binding, gl, pipeline } = this;
     // Vertex buffer.
     const attrs = pipeline!.attributes;
     const vertexBuffers = binding!.vertex;
@@ -330,7 +330,7 @@ class App {
 
   frameCommit() {
     this.buffered = this.passBegun = false;
-    this.binding = this.pipeline = null;
+    this.boundBuffers = this.pipeline = null;
   }
 
   frameCount: number = 0;
@@ -778,7 +778,7 @@ interface AttrInfo {
   type: number;
 }
 
-interface Binding {
+interface Buffers {
   // TODO images/textures
   index: Buffer;
   vertex: Buffer[];
@@ -853,14 +853,14 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
 
 function makeAppEnv(app: App) {
   return {
-    taca_mesh_apply(bindings: number) {
-      app.bindingApply(bindings);
-    },
     taca_buffer_new(type: number, info: number) {
       return app.bufferNew(type, info);
     },
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
       return app.bufferUpdate(buffer, bytes, offset);
+    },
+    taca_buffers_apply(bindings: number) {
+      app.buffersApply(bindings);
     },
     taca_draw(itemBegin: number, itemCount: number, instanceCount: number) {
       app.draw(itemBegin, itemCount, instanceCount);

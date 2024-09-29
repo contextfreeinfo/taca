@@ -163,7 +163,7 @@ pub struct TextureData {
     pub view: wgpu::TextureView,
 }
 
-pub fn mesh_apply(system: &mut System, bindings: MeshBuffers) {
+pub fn buffers_apply(system: &mut System, bindings: MeshBuffers) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
@@ -230,7 +230,7 @@ pub fn buffered_ensure(system: &mut System) {
         vertex_buffers: &[vertex as u32 + 1],
         index_buffer: index as u32 + 1,
     };
-    mesh_apply(system, bindings);
+    buffers_apply(system, bindings);
 }
 
 pub fn create_buffer(system: &mut System, contents: Option<&[u8]>, size: u32, typ: u32) {

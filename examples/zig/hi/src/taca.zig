@@ -53,8 +53,8 @@ pub const PipelineInfo = struct {
 pub const RenderingContext = struct {
     const Self = RenderingContext;
 
-    pub fn applyMesh(bindings: Bindings) void {
-        taca_mesh_apply(ExternBindings.from(bindings));
+    pub fn applyBuffers(bindings: Bindings) void {
+        taca_buffers_apply(ExternBindings.from(bindings));
     }
 
     pub fn applyPipeline(pipeline: *Pipeline) void {
@@ -237,7 +237,7 @@ const ExternPipelineShaderInfo = extern struct {
     }
 };
 
-extern fn taca_mesh_apply(
+extern fn taca_buffers_apply(
     bindings: ExternBindings,
 ) void;
 

@@ -42,6 +42,7 @@ export fn start() void {
             .{},
             .{ .first_attribute = 1, .step = .instance },
         },
+        // .instance_buffers = ...
     });
     // App state.
     stage = .{
@@ -66,7 +67,7 @@ export fn update(event: taca.EventKind) void {
     // Decor
     ctx.applyPipeline(stage.?.decor_pipeline);
     const decor_vertex = stage.?.decor_vertex;
-    ctx.applyMesh(.{
+    ctx.applyBuffers(.{
         .index_buffer = stage.?.decor_index,
         // Same buffer for both vertex data and instance centers.
         .vertex_buffers = &[_]*taca.Buffer{ decor_vertex, decor_vertex },

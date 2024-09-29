@@ -4,6 +4,7 @@ module taca;
 
 extern fn Bindings bindings_apply(
     Bindings bindings,
+    // TODO ??? char[] uniform_bytes, // leave empty to avoid update
 ) @extern("taca_bindings_apply");
 
 extern fn Bindings bindings_new(
@@ -21,6 +22,12 @@ extern fn void buffer_update(
     usz buffer_offset = 0,
 ) @extern("taca_buffer_update");
 
+extern fn void buffers_apply(
+    // TODO Mesh mesh,
+    // TODO Does mesh make sense vs instance buffers?
+    MeshBuffers mesh,
+) @extern("taca_buffers_apply");
+
 extern fn void draw(
     uint item_begin,
     uint item_count,
@@ -31,14 +38,9 @@ extern fn KeyEvent key_event(
     // Nothing
 ) @extern("taca_key_event");
 
-extern fn void mesh_apply(
-    // TODO Mesh mesh,
-    MeshBuffers mesh,
-) @extern("taca_mesh_apply");
-
-extern fn Mesh mesh_new(
-    MeshBuffers mesh,
-) @extern("taca_mesh_apply");
+// extern fn Mesh mesh_new(
+//     MeshBuffers mesh,
+// ) @extern("taca_mesh_new");
 
 extern fn void pipeline_apply(
     Pipeline pipeline,
@@ -61,6 +63,7 @@ extern fn void text_align(
     TextAlignY y,
 ) @extern("taca_text_align");
 
+// TODO Combine into slice of text areas, each with alignment? Optional bounds?
 extern fn void text_draw(
     char[] bytes,
     float x,
@@ -71,8 +74,9 @@ extern fn void title_set(
     char[] title,
 ) @extern("taca_title_update");
 
+// TODO Allowed at most once per bindings per frame? No op after?
 extern fn void uniforms_update(
-    // TODO ??? usz binding,
+    // TODO ??? usz binding, // Or always just one?
     char[] bytes,
 ) @extern("taca_uniforms_apply");
 
@@ -100,7 +104,7 @@ distinct Buffer = void*;
 
 struct BufferInfo {
     usz first_attribute;
-    Step step;
+    Step step; // TODO Instead have a single first instance index?
     usz stride;
 }
 
@@ -137,9 +141,10 @@ struct KeyEvent {
     bool pressed;
 }
 
-distinct Mesh = void*;
+// distinct Mesh = void*;
 
 struct MeshBuffers {
+    // TODO Separate instance buffers from vertex buffers?
     Buffer[] vertex_buffers;
     Buffer index_buffer;
 }

@@ -21,7 +21,7 @@ use crate::{
     display::{Display, EventKind, Graphics, MaybeGraphics, UserEvent, WindowState},
     gpu::{
         bound_ensure, buffer_update, buffered_ensure, create_buffer, create_pipeline, frame_commit,
-        image_decode, image_to_texture, mesh_apply, pass_ensure, pipeline_apply, pipelined_ensure,
+        image_decode, image_to_texture, buffers_apply, pass_ensure, pipeline_apply, pipelined_ensure,
         shader_create, uniforms_apply, Binding, Buffer, BufferSlice, ExternMeshBuffers,
         ExternPipelineInfo, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame,
         Shader, Span, Texture,
@@ -53,9 +53,9 @@ impl App {
                 "taca_binding_apply" => Function::new_typed_with_env(&mut store, &env, taca_binding_apply),
                 "taca_binding_new" => Function::new_typed_with_env(&mut store, &env, taca_binding_new),
                 // Actually used ones.
-                "taca_mesh_apply" => Function::new_typed_with_env(&mut store, &env, taca_mesh_apply),
                 "taca_buffer_new" => Function::new_typed_with_env(&mut store, &env, taca_buffer_new),
                 "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
+                "taca_buffers_apply" => Function::new_typed_with_env(&mut store, &env, taca_buffers_apply),
                 "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
                 "taca_image_decode" => Function::new_typed_with_env(&mut store, &env, taca_image_decode),
                 "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
@@ -283,21 +283,6 @@ fn taca_binding_new(mut env: FunctionEnvMut<System>, binding: u32) -> u32 {
     system.bindings.len() as u32
 }
 
-fn taca_mesh_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
-    let (system, store) = env.data_and_store_mut();
-    let view = system.memory.as_ref().unwrap().view(&store);
-    let bindings = WasmPtr::<ExternMeshBuffers>::new(bindings)
-        .read(&view)
-        .unwrap();
-    // TODO Reusable buffer to read into!
-    let vertex_buffers = read_span(&view, bindings.vertex_buffers);
-    let bindings = MeshBuffers {
-        vertex_buffers: &vertex_buffers,
-        index_buffer: bindings.index_buffer,
-    };
-    mesh_apply(system, bindings);
-}
-
 fn taca_buffer_new(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
@@ -319,6 +304,21 @@ fn taca_buffer_update(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, 
     let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
     let bytes = read_span::<u8>(&view, bytes);
     buffer_update(system, buffer, &bytes, offset);
+}
+
+fn taca_buffers_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bindings = WasmPtr::<ExternMeshBuffers>::new(bindings)
+        .read(&view)
+        .unwrap();
+    // TODO Reusable buffer to read into!
+    let vertex_buffers = read_span(&view, bindings.vertex_buffers);
+    let buffers = MeshBuffers {
+        vertex_buffers: &vertex_buffers,
+        index_buffer: bindings.index_buffer,
+    };
+    buffers_apply(system, buffers);
 }
 
 fn taca_draw(
