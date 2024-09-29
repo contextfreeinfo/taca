@@ -2,7 +2,7 @@ module taca;
 
 // Functions
 
-extern fn Bindings bindings_apply(
+extern fn void bindings_apply(
     Bindings bindings,
     // TODO ??? char[] uniform_bytes, // leave empty to avoid update
 ) @extern("taca_bindings_apply");
