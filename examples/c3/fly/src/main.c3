@@ -10,10 +10,10 @@ fn void! start() @export("start") {
     taca::print("Hi from C3!");
     taca::title_set(TITLE);
     // TODO Apparently, !! doesn't crash wasm?
-    Mesh danger = glb::load($embed("boulder.glb"))!;
-    Mesh light = glb::load($embed("light.glb"))!;
-    Mesh ship = glb::load($embed("ship.glb"))!;
-    Mesh target = glb::load($embed("gem.glb"))!;
+    glb::Mesh danger = glb::load($embed("boulder.glb"))!;
+    glb::Mesh light = glb::load($embed("light.glb"))!;
+    glb::Mesh ship = glb::load($embed("ship.glb"))!;
+    glb::Mesh target = glb::load($embed("gem.glb"))!;
     // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));

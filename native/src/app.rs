@@ -20,11 +20,11 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, EventKind, Graphics, MaybeGraphics, UserEvent, WindowState},
     gpu::{
-        bindings_apply, bound_ensure, buffer_update, buffered_ensure, create_buffer,
-        create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure, pipeline_apply,
-        pipelined_ensure, shader_create, uniforms_apply, Binding, Bindings, Buffer, BufferSlice,
-        ExternBindings, ExternPipelineInfo, Pipeline, PipelineInfo, PipelineShaderInfo,
-        RenderFrame, Shader, Span, Texture,
+        bound_ensure, buffer_update, buffered_ensure, create_buffer, create_pipeline, frame_commit,
+        image_decode, image_to_texture, mesh_apply, pass_ensure, pipeline_apply, pipelined_ensure,
+        shader_create, uniforms_apply, Binding, Buffer, BufferSlice, ExternMeshBuffers,
+        ExternPipelineInfo, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame,
+        Shader, Span, Texture,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -53,7 +53,7 @@ impl App {
                 "taca_binding_apply" => Function::new_typed_with_env(&mut store, &env, taca_binding_apply),
                 "taca_binding_new" => Function::new_typed_with_env(&mut store, &env, taca_binding_new),
                 // Actually used ones.
-                "taca_bindings_apply" => Function::new_typed_with_env(&mut store, &env, taca_bindings_apply),
+                "taca_mesh_apply" => Function::new_typed_with_env(&mut store, &env, taca_mesh_apply),
                 "taca_buffer_new" => Function::new_typed_with_env(&mut store, &env, taca_buffer_new),
                 "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
                 "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
@@ -269,7 +269,9 @@ fn taca_binding_new(mut env: FunctionEnvMut<System>, binding: u32) -> u32 {
     // TOOD Consider this more.
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
-    let binding = WasmPtr::<ExternBindings>::new(binding).read(&view).unwrap();
+    let binding = WasmPtr::<ExternMeshBuffers>::new(binding)
+        .read(&view)
+        .unwrap();
     // TODO Reusable buffer to read into!
     let vertex_buffers = read_span(&view, binding.vertex_buffers);
     let binding = Binding {
@@ -281,19 +283,19 @@ fn taca_binding_new(mut env: FunctionEnvMut<System>, binding: u32) -> u32 {
     system.bindings.len() as u32
 }
 
-fn taca_bindings_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
+fn taca_mesh_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
-    let bindings = WasmPtr::<ExternBindings>::new(bindings)
+    let bindings = WasmPtr::<ExternMeshBuffers>::new(bindings)
         .read(&view)
         .unwrap();
     // TODO Reusable buffer to read into!
     let vertex_buffers = read_span(&view, bindings.vertex_buffers);
-    let bindings = Bindings {
+    let bindings = MeshBuffers {
         vertex_buffers: &vertex_buffers,
         index_buffer: bindings.index_buffer,
     };
-    bindings_apply(system, bindings);
+    mesh_apply(system, bindings);
 }
 
 fn taca_buffer_new(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32 {

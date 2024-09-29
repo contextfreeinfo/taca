@@ -716,6 +716,28 @@ class App {
     let size = -1;
     let tacaIndex = 0;
     let tacaSize = 0;
+
+    // TODO Loop gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+    // TODO Parse for group and binding
+    // gl.getActiveUniform(program, 0)
+    // WebGLActiveInfo { size: 1, type: 35664, name: "_group_0_binding_0_vs.member.member" }
+    // gl.getActiveUniform(program, 1)
+    // WebGLActiveInfo { size: 1, type: 35664, name: "taca.size" }
+    // gl.getActiveUniform(program, 2)
+    // WebGLActiveInfo { size: 1, type: 35678, name: "_group_0_binding_1_fs" }
+    // name
+    // "type_7_block_0Vertex"
+    // gl.getActiveUniformBlockParameter(program, i, gl.UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES)
+    // Uint32Array [ 0 ]
+    // gl.getActiveUniform(program, 0)
+    // WebGLActiveInfo { size: 1, type: 35664, name: "_group_0_binding_0_vs.member.member" }
+    // name
+    // "taca_uniform_block"
+    // gl.getActiveUniformBlockParameter(program, i, gl.UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES)
+    // Uint32Array [ 1 ]
+    // gl.getActiveUniform(program, 1)
+    // WebGLActiveInfo { size: 1, type: 35664, name: "taca.size" }
+
     // console.log(`uniforms: ${count}`);
     for (let i = 0; i < count; i += 1) {
       const name = gl.getActiveUniformBlockName(program, i);
@@ -831,7 +853,7 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
 
 function makeAppEnv(app: App) {
   return {
-    taca_bindings_apply(bindings: number) {
+    taca_mesh_apply(bindings: number) {
       app.bindingApply(bindings);
     },
     taca_buffer_new(type: number, info: number) {

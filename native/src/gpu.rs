@@ -30,7 +30,7 @@ pub struct Binding {
 }
 
 #[derive(Clone, Debug)]
-pub struct Bindings<'a> {
+pub struct MeshBuffers<'a> {
     pub vertex_buffers: &'a [u32],
     pub index_buffer: u32,
 }
@@ -49,7 +49,7 @@ pub struct Buffer {
 
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
-pub struct ExternBindings {
+pub struct ExternMeshBuffers {
     pub vertex_buffers: Span,
     pub index_buffer: u32,
 }
@@ -73,7 +73,7 @@ pub struct ExternPipelineShaderInfo {
 
 #[derive(Debug)]
 pub struct Pipeline {
-    // pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bind_group_layouts: Vec<Vec<wgpu::BindGroupLayoutEntry>>,
     pub bind_group_index: usize,
     pub bind_groups: Vec<PipelineBindGroup>,
     pub pipeline: wgpu::RenderPipeline,
@@ -163,7 +163,7 @@ pub struct TextureData {
     pub view: wgpu::TextureView,
 }
 
-pub fn bindings_apply(system: &mut System, bindings: Bindings) {
+pub fn mesh_apply(system: &mut System, bindings: MeshBuffers) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
@@ -226,11 +226,11 @@ pub fn buffered_ensure(system: &mut System) {
         .iter()
         .position(|it| it.usage.contains(BufferUsages::VERTEX))
         .unwrap();
-    let bindings = Bindings {
+    let bindings = MeshBuffers {
         vertex_buffers: &[vertex as u32 + 1],
         index_buffer: index as u32 + 1,
     };
-    bindings_apply(system, bindings);
+    mesh_apply(system, bindings);
 }
 
 pub fn create_buffer(system: &mut System, contents: Option<&[u8]>, size: u32, typ: u32) {
@@ -310,8 +310,8 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
     // TODO Option for no uniforms?
     // let min_binding_size = uniforms_binding_size_find(vertex_shader);
     // TODO Extract and use bindings, including uniforms.
-    let group_infos = shader_bindings_find(vertex_shader);
-    let group_layouts: Vec<_> = group_infos
+    let bind_group_layouts = shader_bindings_find(vertex_shader);
+    let group_layouts: Vec<_> = bind_group_layouts
         .iter()
         .map(|entries| {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -381,6 +381,7 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
         cache: None,
     });
     system.pipelines.push(Pipeline {
+        bind_group_layouts,
         bind_group_index: 0,
         bind_groups: vec![],
         pipeline,

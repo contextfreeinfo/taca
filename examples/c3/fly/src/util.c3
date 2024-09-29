@@ -10,7 +10,7 @@ const usz MAX_LIMIT = DANGER_LIMIT;
 const float MOVE_LIMIT = 4;
 const usz TARGET_LIMIT = 20;
 
-fn MeshBuf buf_mesh(Mesh mesh, usz limit = 1) {
+fn MeshBuf buf_mesh(glb::Mesh mesh, usz limit = 1) {
     return {
         .idx = taca::buffer_new(INDEX, mesh.idx),
         .idx_len = mesh.idx.len / ushort.sizeof,

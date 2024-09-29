@@ -2,9 +2,13 @@ module taca;
 
 // Functions
 
-extern fn void binding_apply(
-    Binding binding,
+extern fn Bindings bindings_apply(
+    Bindings bindings,
 ) @extern("taca_bindings_apply");
+
+extern fn Bindings bindings_new(
+    BindingsInfo info,
+) @extern("taca_bindings_new");
 
 extern fn Buffer buffer_new(
     BufferKind kind,
@@ -26,6 +30,15 @@ extern fn void draw(
 extern fn KeyEvent key_event(
     // Nothing
 ) @extern("taca_key_event");
+
+extern fn void mesh_apply(
+    // TODO Mesh mesh,
+    MeshBuffers mesh,
+) @extern("taca_mesh_apply");
+
+extern fn Mesh mesh_new(
+    MeshBuffers mesh,
+) @extern("taca_mesh_apply");
 
 extern fn void pipeline_apply(
     Pipeline pipeline,
@@ -59,6 +72,7 @@ extern fn void title_set(
 ) @extern("taca_title_update");
 
 extern fn void uniforms_update(
+    // TODO ??? usz binding,
     char[] bytes,
 ) @extern("taca_uniforms_apply");
 
@@ -73,9 +87,13 @@ struct AttributeInfo {
     usz value_offset;
 }
 
-struct Binding {
-    Buffer[] vertex_buffers;
-    Buffer index_buffer;
+distinct Bindings = void*;
+
+struct BindingsInfo {
+    Pipeline pipeline;
+    usz group_index;
+    // TODO ??? Sampler[] samplers;
+    Texture[] textures;
 }
 
 distinct Buffer = void*;
@@ -119,6 +137,13 @@ struct KeyEvent {
     bool pressed;
 }
 
+distinct Mesh = void*;
+
+struct MeshBuffers {
+    Buffer[] vertex_buffers;
+    Buffer index_buffer;
+}
+
 distinct Pipeline = void*;
 
 struct PipelineInfo {
@@ -153,6 +178,8 @@ enum TextAlignY : uint {
     MIDDLE,
     BOTTOM,
 }
+
+distinct Texture = void*;
 
 struct WindowState {
     float[2] pointer;
