@@ -96,7 +96,8 @@ distinct Bindings = void*;
 struct BindingsInfo {
     Pipeline pipeline;
     usz group_index;
-    // TODO ??? Sampler[] samplers;
+    Buffer[] buffers;
+    Sampler[] samplers;
     Texture[] textures;
 }
 
@@ -163,6 +164,8 @@ struct PipelineShaderInfo {
     char[] entry;
     Shader shader;
 }
+
+distinct Sampler = void*;
 
 distinct Shader = void*;
 

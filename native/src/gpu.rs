@@ -21,12 +21,21 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Binding {
-    // Need a different bind group per pipeline.
-    pub bind_groups: Vec<wgpu::BindGroup>,
-    pub index_buffer: u32,
-    // TODO textures
-    pub vertex_buffers: Vec<u32>,
+pub struct Bindings {
+    pub pipeline: usize,
+    pub bind_group: wgpu::BindGroup,
+    // TODO buffers
+    pub group_index: u32,
+    pub updated_this_frame: bool,
+}
+
+#[derive(Debug)]
+pub struct BindingsInfo {
+    pub pipeline: u32,
+    pub group_index: u32,
+    pub buffers: Vec<u32>,
+    pub samplers: Vec<u32>,
+    pub textures: Vec<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -45,6 +54,16 @@ pub struct BufferSlice {
 pub struct Buffer {
     pub buffer: wgpu::Buffer,
     pub usage: BufferUsages,
+}
+
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct ExternBindingsInfo {
+    pub pipeline: u32,
+    pub group_index: u32,
+    pub buffers: Span,
+    pub samplers: Span,
+    pub textures: Span,
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]
@@ -163,7 +182,88 @@ pub struct TextureData {
     pub view: wgpu::TextureView,
 }
 
-pub fn buffers_apply(system: &mut System, bindings: MeshBuffers) {
+pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
+    dbg!(&bindings);
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        panic!();
+    };
+    let device = &gfx.device;
+    let pipeline = match bindings.pipeline {
+        0 => 0,
+        _ => bindings.pipeline - 1,
+    } as usize;
+    let pipeline = &system.pipelines[pipeline];
+    let layout_entries = &pipeline.bind_group_layouts[bindings.group_index as usize];
+    let mut entries = vec![];
+    let mut buffer_index = 0;
+    let mut sampler_index = 0;
+    let mut texture_index = 0;
+    for layout_entry in layout_entries.iter() {
+        match layout_entry.ty {
+            wgpu::BindingType::Buffer {
+                min_binding_size, ..
+            } => {
+                if buffer_index < bindings.buffers.len() {
+                    buffer_index += 1;
+                    let buffer =
+                        &system.buffers[bindings.buffers[buffer_index - 1] as usize - 1].buffer;
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: layout_entry.binding,
+                        resource: buffer.as_entire_binding(),
+                    });
+                } else {
+                    // TODO Have to prebuild list of Option sizes and return list of buffer indices?
+                    let buffer = device.create_buffer(&BufferDescriptor {
+                        label: None,
+                        size: min_binding_size.unwrap().into(),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
+                    // system.buffers.push(Buffer {
+                    //     buffer,
+                    //     usage: buffer.usage(),
+                    // });
+                    // let resource = buffer.as_entire_binding();
+                    // entries.push(wgpu::BindGroupEntry {
+                    //     binding: layout_entry.binding,
+                    //     resource,
+                    // });
+                };
+            }
+            wgpu::BindingType::Sampler(sampler_binding_type) => {
+                // TODO
+            }
+            wgpu::BindingType::Texture { .. } => {
+                entries.push(wgpu::BindGroupEntry {
+                    binding: layout_entry.binding,
+                    resource: wgpu::BindingResource::TextureView(
+                        &system.textures[bindings.textures[texture_index] as usize - 1]
+                            .data
+                            .as_ref()
+                            .unwrap()
+                            .view,
+                    ),
+                });
+                texture_index += 1;
+            }
+            _ => todo!(),
+        }
+    }
+    let layout = pipeline
+        .pipeline
+        .get_bind_group_layout(bindings.group_index);
+    // let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    //     layout: &layout,
+    //     // TODO Textures also go in here!
+    //     entries: &[wgpu::BindGroupEntry {
+    //         binding: 0,
+    //         resource: uniform_buffer.as_entire_binding(),
+    //     }],
+    //     label: None,
+    // });
+}
+
+pub fn buffers_apply(system: &mut System, buffers: MeshBuffers) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
@@ -172,12 +272,12 @@ pub fn buffers_apply(system: &mut System, bindings: MeshBuffers) {
         return;
     };
     pass.set_index_buffer(
-        system.buffers[bindings.index_buffer as usize - 1]
+        system.buffers[buffers.index_buffer as usize - 1]
             .buffer
             .slice(..),
         wgpu::IndexFormat::Uint16,
     );
-    for (index, buffer) in bindings.vertex_buffers.iter().enumerate() {
+    for (index, buffer) in buffers.vertex_buffers.iter().enumerate() {
         pass.set_vertex_buffer(
             index as u32,
             system.buffers[*buffer as usize - 1].buffer.slice(..),
@@ -622,6 +722,10 @@ fn shader_bindings_find(shader: &Shader) -> Vec<Vec<wgpu::BindGroupLayoutEntry>>
             ),
             _ => {}
         }
+    }
+    // Groups themselves are already sorted, but also sort within group.
+    for group in groups.iter_mut() {
+        group.sort_by_key(|entry| entry.binding);
     }
     groups
 }

@@ -18,6 +18,19 @@ local function print_frames(name: string, frames: span(r.Rect))
   end
 end
 
+local TextureBindings = @record{
+  bindings: t.Bindings,
+  texture: t.Texture,
+}
+
+local Game = @record{
+  gem_bindings: TextureBindings,
+  player_bindings: TextureBindings,
+  tiles_bindings: TextureBindings,
+}
+
+local game: Game
+
 local function start()
   <cexport, codename "start">
   local gc <close> = support.GcStep{}
@@ -25,7 +38,6 @@ local function start()
   print "Hi from Nelua!"
   print_frames("gem shine", r.gem.shine)
   print_frames("player run", r.player.run)
-  local tiles = t.image_decode(r.tiles)
   t.shader_new(r.shader)
   t.pipeline_new({
     vertex_buffers = {
@@ -33,6 +45,21 @@ local function start()
       {first_attribute = 1, step = t.Step.Instance},
     },
   })
+  game = {
+    gem_bindings = {texture = t.image_decode(r.gem.image)},
+    player_bindings = {texture = t.image_decode(r.player.image)},
+    tiles_bindings = {texture = t.image_decode(r.tiles)},
+  }
+end
+
+local function finish_init()
+  t.print("images loaded")
+  local function make_bindings(bindings: TextureBindings)
+    bindings.bindings = t.bindings_new({textures = {bindings.texture}})
+  end
+  make_bindings(game.gem_bindings)
+  make_bindings(game.player_bindings)
+  make_bindings(game.tiles_bindings)
 end
 
 local function update(event: t.EventKind)
@@ -40,6 +67,6 @@ local function update(event: t.EventKind)
   local gc <close> = support.GcStep{}
   switch event do
   case t.EventKind.TasksDone then
-    t.print("images loaded")
+    finish_init()
   end
 end

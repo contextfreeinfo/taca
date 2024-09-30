@@ -2,9 +2,11 @@ local taca = @record{};
 
 -- Opaques
 
+-- TODO Change to numbers so we know they aren't unique across types?
 local taca.Bindings = @pointer
 local taca.Buffer = @pointer
 local taca.Pipeline = @pointer
+local taca.Sampler = @pointer
 local taca.Shader = @pointer
 local taca.Texture = @pointer
 
@@ -41,7 +43,8 @@ local taca.AttributeInfo = @record{
 local taca.BindingsInfo = @record{
   pipeline: taca.Pipeline,
   group_index: usize,
-  -- TODO ??? samplers: span(taca.Sampler),
+  buffers: span(taca.Buffer),
+  samplers: span(taca.Sampler),
   textures: span(taca.Texture),
 }
 
