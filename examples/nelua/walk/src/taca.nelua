@@ -51,6 +51,7 @@ local taca.BindingsInfo = @record{
 local taca.BufferKind = @enum(uint32) {
   Vertex = 0,
   Index,
+  Uniform,
 }
 
 local taca.Buffers = @record{

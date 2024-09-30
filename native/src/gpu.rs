@@ -11,8 +11,8 @@ use wasmer::ValueType;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BufferDescriptor, BufferUsages, CommandEncoder, MultisampleState, RenderPipelineDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture, TextureFormat, TextureView,
-    TextureViewDescriptor, VertexFormat,
+    SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture,
+    TextureFormat, TextureView, TextureViewDescriptor, VertexFormat,
 };
 
 use crate::{
@@ -183,16 +183,27 @@ pub struct TextureData {
 }
 
 pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
-    dbg!(&bindings);
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
     let device = &gfx.device;
-    let pipeline = match bindings.pipeline {
+    if system.samplers.is_empty() {
+        let sampler = device.create_sampler(&SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        system.samplers.push(sampler);
+    }
+    let pipeline_index = match bindings.pipeline {
         0 => 0,
-        _ => bindings.pipeline - 1,
-    } as usize;
-    let pipeline = &system.pipelines[pipeline];
+        _ => bindings.pipeline as usize - 1,
+    };
+    let pipeline = &system.pipelines[pipeline_index];
     let layout_entries = &pipeline.bind_group_layouts[bindings.group_index as usize];
     let mut entries = vec![];
     let mut buffer_index = 0;
@@ -219,6 +230,7 @@ pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
                         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
                     });
+                    let _ = buffer;
                     // system.buffers.push(Buffer {
                     //     buffer,
                     //     usage: buffer.usage(),
@@ -230,37 +242,53 @@ pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
                     // });
                 };
             }
-            wgpu::BindingType::Sampler(sampler_binding_type) => {
-                // TODO
+            wgpu::BindingType::Sampler(..) => {
+                let sampler = match bindings.samplers.get(sampler_index) {
+                    Some(sampler) => {
+                        sampler_index += 1;
+                        *sampler as usize - 1
+                    }
+                    None => 0,
+                };
+                entries.push(wgpu::BindGroupEntry {
+                    binding: layout_entry.binding,
+                    resource: wgpu::BindingResource::Sampler(&system.samplers[sampler]),
+                });
             }
             wgpu::BindingType::Texture { .. } => {
+                let texture = match bindings.textures.get(texture_index) {
+                    Some(texture) => {
+                        texture_index += 1;
+                        *texture as usize - 1
+                    }
+                    None => 0,
+                };
+                // Crash here if no texture.
                 entries.push(wgpu::BindGroupEntry {
                     binding: layout_entry.binding,
                     resource: wgpu::BindingResource::TextureView(
-                        &system.textures[bindings.textures[texture_index] as usize - 1]
-                            .data
-                            .as_ref()
-                            .unwrap()
-                            .view,
+                        &system.textures[texture].data.as_ref().unwrap().view,
                     ),
                 });
-                texture_index += 1;
             }
             _ => todo!(),
         }
     }
+    // dbg!(&entries);
     let layout = pipeline
         .pipeline
         .get_bind_group_layout(bindings.group_index);
-    // let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-    //     layout: &layout,
-    //     // TODO Textures also go in here!
-    //     entries: &[wgpu::BindGroupEntry {
-    //         binding: 0,
-    //         resource: uniform_buffer.as_entire_binding(),
-    //     }],
-    //     label: None,
-    // });
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &layout,
+        entries: &entries,
+        label: None,
+    });
+    system.bindings.push(Bindings {
+        pipeline: pipeline_index + 1,
+        bind_group,
+        group_index: bindings.group_index,
+        updated_this_frame: false,
+    });
 }
 
 pub fn buffers_apply(system: &mut System, buffers: MeshBuffers) {
@@ -343,6 +371,7 @@ pub fn create_buffer(system: &mut System, contents: Option<&[u8]>, size: u32, ty
     } | match typ {
         0 => BufferUsages::VERTEX,
         1 => BufferUsages::INDEX,
+        2 => BufferUsages::UNIFORM,
         _ => panic!(),
     };
     let buffer = match contents {

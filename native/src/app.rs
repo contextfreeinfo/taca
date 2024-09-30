@@ -187,13 +187,14 @@ impl App {
 
 pub struct System {
     pub bindings: Vec<Bindings>,
-    pub bindings_updated: Vec<usize>,
+    pub bindings_updated: Vec<usize>, // TODO Remove this and just defer webgl draws???
     pub buffers: Vec<Buffer>,
     pub display: Display,
     pub frame: Option<RenderFrame>,
     pub key_event: KeyEvent,
     pub memory: Option<Memory>,
     pub pipelines: Vec<Pipeline>,
+    pub samplers: Vec<wgpu::Sampler>,
     pub shaders: Vec<Shader>,
     pub tasks_active: usize,
     pub text: Option<Arc<Mutex<TextEngine>>>,
@@ -212,6 +213,7 @@ impl System {
             memory: None,
             frame: None,
             pipelines: vec![],
+            samplers: vec![],
             shaders: vec![],
             tasks_active: 0,
             text: None,
@@ -271,7 +273,7 @@ fn taca_bindings_new(mut env: FunctionEnvMut<System>, bindings: u32) -> u32 {
         textures: read_span(&view, bindings.textures),
     };
     bindings_new(system, bindings);
-    0
+    system.bindings.len().try_into().unwrap()
 }
 
 fn taca_buffer_new(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32 {

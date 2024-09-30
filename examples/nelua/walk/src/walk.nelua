@@ -18,6 +18,10 @@ local function print_frames(name: string, frames: span(r.Rect))
   end
 end
 
+local Uniforms = @record{
+  aspect: [2]float32,
+}
+
 local TextureBindings = @record{
   bindings: t.Bindings,
   texture: t.Texture,
@@ -27,6 +31,8 @@ local Game = @record{
   gem_bindings: TextureBindings,
   player_bindings: TextureBindings,
   tiles_bindings: TextureBindings,
+  uniforms: Uniforms,
+  uniforms_buffer: t.Buffer,
 }
 
 local game: Game
@@ -38,6 +44,7 @@ local function start()
   print "Hi from Nelua!"
   print_frames("gem shine", r.gem.shine)
   print_frames("player run", r.player.run)
+  -- TODO Explicit uniform buffer kind
   t.shader_new(r.shader)
   t.pipeline_new({
     vertex_buffers = {
@@ -49,13 +56,20 @@ local function start()
     gem_bindings = {texture = t.image_decode(r.gem.image)},
     player_bindings = {texture = t.image_decode(r.player.image)},
     tiles_bindings = {texture = t.image_decode(r.tiles)},
+    uniforms_buffer = t.buffer_new(
+      t.BufferKind.Uniform,
+      {data = nilptr, size = #Uniforms}
+    ),
   }
 end
 
 local function finish_init()
   t.print("images loaded")
   local function make_bindings(bindings: TextureBindings)
-    bindings.bindings = t.bindings_new({textures = {bindings.texture}})
+    bindings.bindings = t.bindings_new({
+      buffers = {game.uniforms_buffer},
+      textures = {bindings.texture},
+    })
   end
   make_bindings(game.gem_bindings)
   make_bindings(game.player_bindings)
