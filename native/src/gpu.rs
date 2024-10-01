@@ -26,7 +26,7 @@ pub struct Bindings {
     pub bind_group: wgpu::BindGroup,
     // TODO buffers
     pub group_index: u32,
-    pub updated_this_frame: bool,
+    pub updated_this_frame: bool, // TODO Track by buffer per queue instead?
 }
 
 #[derive(Debug)]
@@ -53,7 +53,8 @@ pub struct BufferSlice {
 
 pub struct Buffer {
     pub buffer: wgpu::Buffer,
-    pub usage: BufferUsages,
+    pub usage: BufferUsages, // TODO Already available from buffer.
+    // TODO Track against multiple writes during single queue?
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]

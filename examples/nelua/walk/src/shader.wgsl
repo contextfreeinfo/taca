@@ -16,11 +16,12 @@ fn vertex_main(
   @location(0) pos: vec2f,
   @location(1) offset: vec2f,
   @location(2) scale: vec2f,
-  @location(3) uv: vec2f,
+  @location(3) source_offset: vec2f,
+  @location(4) source_scale: vec2f,
 ) -> VertexOutput {
   var out: VertexOutput;
   out.pos = vec4f((pos * scale + offset) * uniforms.aspect, 0, 1);
-  out.uv = uv;
+  out.uv = pos * source_scale + source_offset;
   return out;
 }
 

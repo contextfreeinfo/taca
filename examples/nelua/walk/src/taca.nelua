@@ -1,4 +1,4 @@
-local taca = @record{};
+local taca = @record{}
 
 -- Opaques
 
@@ -56,7 +56,7 @@ local taca.BufferKind = @enum(uint32) {
 
 local taca.Buffers = @record{
   vertex_buffers: span(taca.Buffer),
-  index_buffer: span(taca.Buffer),
+  index_buffer: taca.Buffer,
 }
 
 local taca.KeyEvent = @record{
@@ -110,8 +110,8 @@ function taca.buffers_apply(buffers: taca.Buffers): void
 end
 
 function taca.draw(
-  item_begin: uint32,
-  item_count: uint32,
+  index_begin: uint32,
+  index_count: uint32,
   instance_count: uint32
 ): void
   <cimport, cattribute 'import_name("taca_draw")'>

@@ -1,10 +1,14 @@
 -- Support first!
 local support = require "support"
 
--- Others.
-local r = require "resources"
+-- Semi-externals.
 local s = require "string"
 local t = require "taca"
+
+-- Game-related.
+local c = require "./common.nelua"
+local f = require "./frame.nelua"
+local r = require "./resources.nelua"
 
 local function print_frames(name: string, frames: span(r.Rect))
   t.print(name)
@@ -18,24 +22,8 @@ local function print_frames(name: string, frames: span(r.Rect))
   end
 end
 
-local Uniforms = @record{
-  aspect: [2]float32,
-}
-
-local TextureBindings = @record{
-  bindings: t.Bindings,
-  texture: t.Texture,
-}
-
-local Game = @record{
-  gem_bindings: TextureBindings,
-  player_bindings: TextureBindings,
-  tiles_bindings: TextureBindings,
-  uniforms: Uniforms,
-  uniforms_buffer: t.Buffer,
-}
-
-local game: Game
+local game: c.Game
+local max_instances = 1000
 
 local function start()
   <cexport, codename "start">
@@ -52,20 +40,39 @@ local function start()
       {first_attribute = 1, step = t.Step.Instance},
     },
   })
+  -- local hi = (@span(@[2]float32)){
+  --   {-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5},
+  -- };
+  -- t.print(s.format("size: %d %d", #hi, #as_bytes(hi)))
   game = {
+    box_index = t.buffer_new(
+      t.BufferKind.Index,
+      c.as_bytes((@span(@uint16)){0, 1, 2, 1, 3, 2})
+    ),
+    box_instance = t.buffer_new(
+      t.BufferKind.Vertex,
+      {data = nilptr, size = max_instances * #c.Instance}
+    ),
+    box_vertex = t.buffer_new(
+      t.BufferKind.Vertex,
+      c.as_bytes((@span(@[2]float32)){
+        {-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5},
+      })
+    ),
     gem_bindings = {texture = t.image_decode(r.gem.image)},
+    max_instances = max_instances,
     player_bindings = {texture = t.image_decode(r.player.image)},
     tiles_bindings = {texture = t.image_decode(r.tiles)},
     uniforms_buffer = t.buffer_new(
       t.BufferKind.Uniform,
-      {data = nilptr, size = #Uniforms}
+      {data = nilptr, size = #c.Uniforms}
     ),
   }
 end
 
 local function finish_init()
   t.print("images loaded")
-  local function make_bindings(bindings: TextureBindings)
+  local function make_bindings(bindings: c.TextureBindings)
     bindings.bindings = t.bindings_new({
       buffers = {game.uniforms_buffer},
       textures = {bindings.texture},
@@ -74,12 +81,17 @@ local function finish_init()
   make_bindings(game.gem_bindings)
   make_bindings(game.player_bindings)
   make_bindings(game.tiles_bindings)
+  game.init_finished = true
 end
 
 local function update(event: t.EventKind)
   <cexport, codename "update">
   local gc <close> = support.GcStep{}
   switch event do
+  case t.EventKind.Frame then
+    if game.init_finished then
+      f.update(game)
+    end
   case t.EventKind.TasksDone then
     finish_init()
   end

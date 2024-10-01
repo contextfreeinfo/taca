@@ -187,7 +187,7 @@ impl App {
 
 pub struct System {
     pub bindings: Vec<Bindings>,
-    pub bindings_updated: Vec<usize>, // TODO Remove this and just defer webgl draws???
+    pub bindings_updated: Vec<usize>, // TODO Track by buffer per queue instead?
     pub buffers: Vec<Buffer>,
     pub display: Display,
     pub frame: Option<RenderFrame>,

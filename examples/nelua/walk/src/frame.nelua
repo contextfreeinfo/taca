@@ -1,0 +1,14 @@
+local frame = @record{}
+
+local t = require "taca"
+local c = require "./common.nelua"
+
+function frame.update(game: *c.Game)
+  t.buffers_apply({
+    index_buffer = game.box_index,
+    vertex_buffers = {game.box_vertex, game.box_instance},
+  })
+  -- t.draw(0, 6, 1)
+end
+
+return frame

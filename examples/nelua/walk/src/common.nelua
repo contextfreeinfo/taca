@@ -1,0 +1,38 @@
+local common = @record{}
+
+local t = require "taca"
+
+function common.as_bytes(items: auto): span(byte)
+  return {data = (@pointer([0]byte))(items.data), size = items:sizebytes()}
+end
+
+local common.Instance = @record{
+  offset: [2]float32,
+  scale: [2]float32,
+  source_offset: [2]float32,
+  source_scale: [2]float32,
+}
+
+local common.Uniforms = @record{
+  aspect: [2]float32,
+}
+
+local common.TextureBindings = @record{
+  bindings: t.Bindings,
+  texture: t.Texture,
+}
+
+local common.Game = @record{
+  box_index: t.Buffer,
+  box_instance: t.Buffer,
+  box_vertex: t.Buffer,
+  gem_bindings: common.TextureBindings,
+  init_finished: boolean,
+  max_instances: usize,
+  player_bindings: common.TextureBindings,
+  tiles_bindings: common.TextureBindings,
+  uniforms: common.Uniforms,
+  uniforms_buffer: t.Buffer,
+}
+
+return common
