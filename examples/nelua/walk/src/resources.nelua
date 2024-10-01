@@ -16,11 +16,19 @@ local Rect = @record{
 }
 local resources.Rect = Rect
 
+local PlayerInfo = @record{
+  image: span(byte),
+  run: vector(Rect),
+}
+local resources.PlayerInfo = PlayerInfo
+
 local GemInfo = @record{
   image: span(byte),
   shine: vector(Rect),
 }
 local resources.GemInfo = GemInfo
+
+local resources.back: span(byte) = #[read_all "src/tiles/back.png"]#
 
 ## local gem_resource = gd.resource_load("src/tiles/gem.tres")
 local resources.gem = GemInfo{
@@ -30,11 +38,7 @@ local resources.gem = GemInfo{
 
 local resources.level = #[read_all "src/tiles/tiles.tscn"]#
 
-local PlayerInfo = @record{
-  image: span(byte),
-  run: vector(Rect),
-}
-local resources.PlayerInfo = PlayerInfo
+local resources.middle: span(byte) = #[read_all "src/tiles/middle.png"]#
 
 ## local player_resource = gd.resource_load("src/tiles/player.tres")
 local resources.player = PlayerInfo{

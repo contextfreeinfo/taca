@@ -1,8 +1,8 @@
 local common = @record{}
 
+local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
-local r = require "./resources.nelua"
 
 local common.Instance = @record{
   offset: [2]float32,
@@ -21,12 +21,14 @@ local common.TextureBindings = @record{
 }
 
 local common.Game = @record{
+  back_bindings: common.TextureBindings,
   box_index: t.Buffer,
   box_instance: t.Buffer,
   box_vertex: t.Buffer,
   gem_bindings: common.TextureBindings,
   init_finished: boolean,
   max_instances: usize,
+  middle_bindings: common.TextureBindings,
   player_bindings: common.TextureBindings,
   tiles_bindings: common.TextureBindings,
   uniforms: common.Uniforms,

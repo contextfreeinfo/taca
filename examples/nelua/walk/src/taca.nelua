@@ -83,6 +83,12 @@ local taca.PipelineInfo = @record{
     vertex_buffers: span(taca.BufferInfo),
 }
 
+local taca.WindowState = @record{
+    pointer: [2]float32,
+    press: uint32,
+    size: [2]float32,
+}
+
 -- Functions
 
 function taca.bindings_apply(bindings: taca.Bindings): void
@@ -139,6 +145,10 @@ end
 
 function taca.shader_new(bytes: span(byte)): taca.Shader
   <cimport, cattribute 'import_name("taca_shader_new")'>
+end
+
+function taca.window_state(): taca.WindowState
+  <cimport, cattribute 'import_name("taca_window_state")'>
 end
 
 return taca;

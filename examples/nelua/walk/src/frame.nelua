@@ -1,9 +1,14 @@
 local frame = @record{}
 
-local t = require "taca"
 local c = require "./common.nelua"
+local s = require "string"
+local t = require "taca"
 
 function frame.update(game: *c.Game)
+  -- Window
+  local window = t.window_state();
+  local aspect = window.size[0] / window.size[1]
+  -- Mesh
   t.buffers_apply({
     index_buffer = game.box_index,
     vertex_buffers = {game.box_vertex, game.box_instance},
@@ -11,8 +16,8 @@ function frame.update(game: *c.Game)
   -- Instance
   local instance: c.Instance = {
     offset = {0, 0},
-    scale = {1, 1},
-    source_offset = {0, 0},
+    scale = {2, 2},
+    source_offset = {0.5, 0.5},
     source_scale = {1, 1},
   }
   t.buffer_update(
@@ -20,16 +25,23 @@ function frame.update(game: *c.Game)
     {data = (@pointer(byte))(&instance), size = #c.Instance},
     0
   )
-  -- Uniforms
-  game.uniforms = {
-    aspect = {1, 1},
-  }
+  -- Bindings
+  if aspect > 1 then
+    game.uniforms.aspect = {1 / aspect, 1}
+  else
+    game.uniforms.aspect = {1, aspect}
+  end
   t.buffer_update(
     game.uniforms_buffer,
     {data = (@pointer(byte))(&game.uniforms), size = #c.Uniforms},
     0
   )
   -- Draw
+  t.bindings_apply(game.back_bindings.bindings)
+  t.draw(0, 6, 1)
+  t.bindings_apply(game.middle_bindings.bindings)
+  t.draw(0, 6, 1)
+  t.bindings_apply(game.tiles_bindings.bindings)
   t.draw(0, 6, 1)
 end
 

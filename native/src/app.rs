@@ -20,11 +20,12 @@ use winit::event_loop::EventLoop;
 use crate::{
     display::{Display, EventKind, Graphics, MaybeGraphics, UserEvent, WindowState},
     gpu::{
-        bindings_new, bound_ensure, buffer_update, buffered_ensure, buffers_apply, create_buffer,
-        create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure, pipeline_apply,
-        pipelined_ensure, shader_create, uniforms_apply, Bindings, BindingsInfo, Buffer,
-        BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo, MeshBuffers,
-        Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span, Texture,
+        bindings_apply, bindings_new, bound_ensure, buffer_update, buffered_ensure, buffers_apply,
+        create_buffer, create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure,
+        pipeline_apply, pipelined_ensure, shader_create, uniforms_apply, Bindings, BindingsInfo,
+        Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo,
+        MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
+        Texture,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -252,10 +253,8 @@ fn read_string(view: &MemoryView, span: Span) -> String {
 }
 
 fn taca_bindings_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
-    let (system, store) = env.data_and_store_mut();
-    let _ = system;
-    let _ = store;
-    let _ = bindings;
+    let system = env.data_mut();
+    bindings_apply(system, bindings);
 }
 
 fn taca_bindings_new(mut env: FunctionEnvMut<System>, bindings: u32) -> u32 {

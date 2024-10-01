@@ -54,7 +54,7 @@ pub struct BufferSlice {
 pub struct Buffer {
     pub buffer: wgpu::Buffer,
     pub usage: BufferUsages, // TODO Already available from buffer.
-    // TODO Track against multiple writes during single queue?
+                             // TODO Track against multiple writes during single queue?
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]
@@ -190,6 +190,7 @@ pub fn bindings_apply(system: &mut System, bindings: u32) {
     let Some(pass) = &mut frame.pass else {
         return;
     };
+    // TODO Check pipeline vs bindings.
     let bindings = &system.bindings[bindings as usize - 1];
     pass.set_bind_group(bindings.group_index, &bindings.bind_group, &[]);
     frame.bound = true;
@@ -341,6 +342,7 @@ pub fn bound_ensure(system: &mut System) {
             uniforms_apply(system, &[0; 4]);
         }
         _ => {
+            // TODO Choose a bind group that's actually for this pipeline.
             bindings_apply(system, 1);
         }
     }
@@ -579,7 +581,7 @@ pub fn image_to_texture(system: &mut System, handle: usize, image: DynamicImage)
         height: image.height(),
         depth_or_array_layers: 1,
     };
-    dbg!(size);
+    // dbg!(size);
     // TODO Convert to rgba8 earlier?
     let image = image.into_rgba8().into_raw();
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
@@ -599,9 +601,22 @@ pub fn image_to_texture(system: &mut System, handle: usize, image: DynamicImage)
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     let texture_info = &mut system.textures[handle - 1];
     assert!(texture_info.data.is_none());
+    gfx.queue.write_texture(
+        wgpu::ImageCopyTexture {
+            aspect: wgpu::TextureAspect::All,
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        },
+        &image,
+        wgpu::ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * size.width),
+            rows_per_image: Some(size.height),
+        },
+        size,
+    );
     texture_info.data = Some(TextureData { texture, view });
-    // TODO Write image data, which needs a queue.
-    let _ = image;
 }
 
 pub fn pass_ensure(system: &mut System) {

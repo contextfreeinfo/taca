@@ -1,10 +1,10 @@
 -- Support first!
 local support = require "support"
-
-local t = require "taca"
 local c = require "./common.nelua"
 local f = require "./frame.nelua"
 local r = require "./resources.nelua"
+local s = require "string"
+local t = require "taca"
 
 -- Content.
 local game: c.Game
@@ -25,6 +25,7 @@ local function start()
     },
   })
   game = {
+    back_bindings = {texture = t.image_decode(r.back)},
     box_index = t.buffer_new(
       t.BufferKind.Index,
       c.as_bytes((@span(@uint16)){0, 1, 2, 1, 3, 2})
@@ -41,6 +42,7 @@ local function start()
     ),
     gem_bindings = {texture = t.image_decode(r.gem.image)},
     max_instances = max_instances,
+    middle_bindings = {texture = t.image_decode(r.middle)},
     player_bindings = {texture = t.image_decode(r.player.image)},
     tiles_bindings = {texture = t.image_decode(r.tiles)},
     uniforms_buffer = t.buffer_new(
@@ -52,13 +54,15 @@ end
 
 local function finish_init()
   t.print("images loaded")
-  local function make_bindings(bindings: c.TextureBindings)
+  local function make_bindings(bindings: *c.TextureBindings)
     bindings.bindings = t.bindings_new({
       buffers = {game.uniforms_buffer},
       textures = {bindings.texture},
     })
   end
+  make_bindings(game.back_bindings)
   make_bindings(game.gem_bindings)
+  make_bindings(game.middle_bindings)
   make_bindings(game.player_bindings)
   make_bindings(game.tiles_bindings)
   game.init_finished = true

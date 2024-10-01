@@ -29,7 +29,6 @@ fn vertex_main(
 fn fragment_main(
   in: VertexOutput,
 ) -> @location(0) vec4f {
-  // let color = textureSample(diffuse_texture, diffuse_sampler, in.uv);
-  let color = vec4f(0.4, 0.3, 0.2, 1.0);
+  let color = textureSample(diffuse_texture, diffuse_sampler, in.uv);
   return color;
 }
