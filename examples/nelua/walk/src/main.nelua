@@ -32,7 +32,6 @@ local function start()
   print "Hi from Nelua!"
   print_frames("gem shine", r.gem.shine)
   print_frames("player run", r.player.run)
-  -- TODO Explicit uniform buffer kind
   t.shader_new(r.shader)
   t.pipeline_new({
     vertex_buffers = {
@@ -40,10 +39,6 @@ local function start()
       {first_attribute = 1, step = t.Step.Instance},
     },
   })
-  -- local hi = (@span(@[2]float32)){
-  --   {-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5},
-  -- };
-  -- t.print(s.format("size: %d %d", #hi, #as_bytes(hi)))
   game = {
     box_index = t.buffer_new(
       t.BufferKind.Index,
