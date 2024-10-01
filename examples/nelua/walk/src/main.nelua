@@ -1,27 +1,12 @@
 -- Support first!
 local support = require "support"
 
--- Semi-externals.
-local s = require "string"
 local t = require "taca"
-
--- Game-related.
 local c = require "./common.nelua"
 local f = require "./frame.nelua"
 local r = require "./resources.nelua"
 
-local function print_frames(name: string, frames: span(r.Rect))
-  t.print(name)
-  for i, frame in ipairs(frames) do
-    t.print(s.format(
-      "frame %i: %d %d %d %d",
-      i,
-      frame.pos[0], frame.pos[1],
-      frame.size[0], frame.size[1]
-    ))
-  end
-end
-
+-- Content.
 local game: c.Game
 local max_instances = 1000
 
@@ -30,8 +15,8 @@ local function start()
   local gc <close> = support.GcStep{}
   -- For kicks, use an example of wasi printing.
   print "Hi from Nelua!"
-  print_frames("gem shine", r.gem.shine)
-  print_frames("player run", r.player.run)
+  c.print_frames("gem shine", r.gem.shine)
+  c.print_frames("player run", r.player.run)
   t.shader_new(r.shader)
   t.pipeline_new({
     vertex_buffers = {

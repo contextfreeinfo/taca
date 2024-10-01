@@ -1,10 +1,8 @@
 local common = @record{}
 
+local s = require "string"
 local t = require "taca"
-
-function common.as_bytes(items: auto): span(byte)
-  return {data = (@pointer([0]byte))(items.data), size = items:sizebytes()}
-end
+local r = require "./resources.nelua"
 
 local common.Instance = @record{
   offset: [2]float32,
@@ -34,5 +32,21 @@ local common.Game = @record{
   uniforms: common.Uniforms,
   uniforms_buffer: t.Buffer,
 }
+
+function common.as_bytes(items: auto): span(byte)
+  return {data = (@pointer([0]byte))(items.data), size = items:sizebytes()}
+end
+
+function common.print_frames(name: string, frames: span(r.Rect))
+  t.print(name)
+  for i, frame in ipairs(frames) do
+    t.print(s.format(
+      "frame %i: %d %d %d %d",
+      i,
+      frame.pos[0], frame.pos[1],
+      frame.size[0], frame.size[1]
+    ))
+  end
+end
 
 return common
