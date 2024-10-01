@@ -183,6 +183,18 @@ pub struct TextureData {
     pub view: wgpu::TextureView,
 }
 
+pub fn bindings_apply(system: &mut System, bindings: u32) {
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    let Some(pass) = &mut frame.pass else {
+        return;
+    };
+    let bindings = &system.bindings[bindings as usize - 1];
+    pass.set_bind_group(bindings.group_index, &bindings.bind_group, &[]);
+    frame.bound = true;
+}
+
 pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
@@ -323,8 +335,15 @@ pub fn bound_ensure(system: &mut System) {
     if frame.bound {
         return;
     }
-    // We apparently need something bound, and neither size 0 nor 1 works.
-    uniforms_apply(system, &[0; 4]);
+    match () {
+        _ if system.bindings.is_empty() => {
+            // We apparently need something bound, and neither size 0 nor 1 works.
+            uniforms_apply(system, &[0; 4]);
+        }
+        _ => {
+            bindings_apply(system, 1);
+        }
+    }
 }
 
 pub fn buffer_update(system: &mut System, buffer: u32, bytes: &[u8], offset: u32) {

@@ -8,7 +8,29 @@ function frame.update(game: *c.Game)
     index_buffer = game.box_index,
     vertex_buffers = {game.box_vertex, game.box_instance},
   })
-  -- t.draw(0, 6, 1)
+  -- Instance
+  local instance: c.Instance = {
+    offset = {0, 0},
+    scale = {1, 1},
+    source_offset = {0, 0},
+    source_scale = {1, 1},
+  }
+  t.buffer_update(
+    game.box_instance,
+    {data = (@pointer(byte))(&instance), size = #c.Instance},
+    0
+  )
+  -- Uniforms
+  game.uniforms = {
+    aspect = {1, 1},
+  }
+  t.buffer_update(
+    game.uniforms_buffer,
+    {data = (@pointer(byte))(&game.uniforms), size = #c.Uniforms},
+    0
+  )
+  -- Draw
+  t.draw(0, 6, 1)
 end
 
 return frame
