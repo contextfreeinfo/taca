@@ -46,9 +46,13 @@ local resources.player = PlayerInfo{
   run = #[macros.animation_build(player_resource, "run")]#,
 }
 
-local resources.project = #[read_all "src/tiles/project.godot"]#
+## local display = gd.resource_load("src/tiles/project.godot").display.body
+local resources.viewport_size: [2]int32 = {
+  #[display["window/size/viewport_width"]]#,
+  #[display["window/size/viewport_height"]]#,
+}
 
-local resources.shader: span(byte) = #[read_all "out/shader.spv"]#;
+local resources.shader: span(byte) = #[read_all "out/shader.spv"]#
 
 ## local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
 local resources.tiles: span(byte) = #[read_all "src/tiles/tileset.png"]#

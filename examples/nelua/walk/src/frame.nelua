@@ -1,13 +1,15 @@
 local frame = @record{}
 
 local c = require "./common.nelua"
+local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
 
 function frame.update(game: *c.Game)
   -- Window
   local window = t.window_state();
-  local aspect = window.size[0] / window.size[1]
+  local viewport_aspect = r.viewport_size[1] / r.viewport_size[0]
+  local aspect = window.size[0] / window.size[1] * viewport_aspect
   -- Mesh
   t.buffers_apply({
     index_buffer = game.box_index,

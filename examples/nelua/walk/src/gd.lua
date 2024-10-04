@@ -192,6 +192,8 @@ function gd.resource_load(file_path)
       }
     end
   end
+  -- print("--------------------", file_path)
+  -- print_table(resource)
   return resource
 end
 
