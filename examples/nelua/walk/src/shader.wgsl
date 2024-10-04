@@ -9,7 +9,7 @@ struct Uniforms {
 struct VertexOutput {
   @builtin(position) pos: vec4f,
   @location(1) uv: vec2f,
-};
+}
 
 @vertex
 fn vertex_main(

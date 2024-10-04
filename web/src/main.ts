@@ -13,6 +13,7 @@ import {
   imageDecode,
   shaderProgramBuild,
 } from "./drawing";
+import { BindGroupLayout, findBindGroups } from "./gpu";
 import { keys } from "./key";
 import { dataViewOf, fail, getU32, setF32, setU32 } from "./util";
 import { makeWasiEnv } from "./wasi";
@@ -137,6 +138,71 @@ class App {
     return result;
   }
 
+  bindGroups = [] as {
+    pipeline: number;
+    group: number;
+    buffers: number[];
+    samplers: number[];
+    textures: number[];
+  }[];
+
+  bindingsApply(bindings: number) {
+    this.#pipelinedEnsure();
+    // TODO Assert pipeline.
+    const bindGroup = this.bindGroups[bindings - 1];
+    const layout = this.pipeline!.bindGroups[bindGroup.group];
+    // TODO Samplers.
+    let bufferIndex = 0;
+    let textureIndex = 0;
+    for (const bindingLayout of layout.bindings) {
+      switch (bindingLayout?.kind) {
+        case "buffer": {
+          const buffer = this.buffers[bindGroup.buffers[bufferIndex] - 1];
+          this.gl.uniformBlockBinding(
+            this.pipeline!.program,
+            bindingLayout.index,
+            bufferIndex
+          );
+          this.gl.bindBufferBase(
+            this.gl.UNIFORM_BUFFER,
+            bufferIndex,
+            buffer.buffer
+          );
+          bufferIndex += 1;
+          break;
+        }
+        case "sampler": {
+          const texture = this.textures[bindGroup.textures[textureIndex] - 1];
+          this.gl.activeTexture(this.gl.TEXTURE0 + textureIndex);
+          this.gl.bindTexture(this.gl.TEXTURE_2D, texture.texture);
+          this.gl.uniform1i(bindingLayout.location, textureIndex);
+          textureIndex += 1;
+          break;
+        }
+      }
+    }
+  }
+
+  bindingsNew(info: number) {
+    const infoBytes = this.memoryViewMake(info, 8 * 4);
+    const pipeline = getU32(infoBytes, 0);
+    const group = getU32(infoBytes, 4);
+    const buffers = this.readAny(info + 8, 4, (view, offset) =>
+      getU32(view, offset)
+    );
+    const samplers = this.readAny(info + 16, 4, (view, offset) =>
+      getU32(view, offset)
+    );
+    const textures = this.readAny(info + 24, 4, (view, offset) =>
+      getU32(view, offset)
+    );
+    // TODO Connecting samplers to textures is hard without more shader digging.
+    // TODO Assert just one sampler for now?
+    const bindGroup = { pipeline, group, buffers, samplers, textures };
+    this.bindGroups.push(bindGroup);
+    return this.bindGroups.length;
+  }
+
   buffersApply(buffersPtr: number) {
     const { buffers } = this;
     // Minimize allocations because this is in the draw loop.
@@ -165,10 +231,12 @@ class App {
       : new Uint8Array(size);
     const { gl } = this;
     const buffer = gl.createBuffer() ?? fail();
-    const kind = ["vertex", "index"][type] as "vertex" | "index";
+    const kind = ["vertex", "index", "uniform"][type] as BufferKind;
     const usage = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
     // TODO Change to numbers for kind or just cache these elsewhere?
-    const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
+    const target =
+      [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER, gl.UNIFORM_BUFFER][type] ??
+      fail();
     gl.bindBuffer(target, buffer);
     gl.bufferData(target, data, usage);
     this.buffers.push({ buffer, kind, mutable: !ptr, size });
@@ -181,9 +249,11 @@ class App {
     const bytes = this.readBytes(slice);
     // TODO Is this checked automatically?
     mutable || fail();
-    const target = { vertex: gl.ARRAY_BUFFER, index: gl.ELEMENT_ARRAY_BUFFER }[
-      kind
-    ];
+    const target = {
+      vertex: gl.ARRAY_BUFFER,
+      index: gl.ELEMENT_ARRAY_BUFFER,
+      uniform: gl.UNIFORM_BUFFER,
+    }[kind];
     gl.bindBuffer(target, buffer);
     gl.bufferSubData(target, offset, bytes);
   }
@@ -194,17 +264,17 @@ class App {
     if (!this.buffered) {
       this.#pipelinedEnsure();
       if (!this.boundBuffers) {
-        let { boundBuffersDefault: bindingDefault } = this;
+        let { boundBuffersDefault } = this;
         if (!this.boundBuffersDefault) {
           const { buffers } = this;
           const find = (kind: string) =>
             buffers.find((buffer) => buffer.kind == kind) ?? fail();
-          this.boundBuffersDefault = bindingDefault = {
+          this.boundBuffersDefault = boundBuffersDefault = {
             index: find("index"),
             vertex: [find("vertex")],
           };
         }
-        this.boundBuffers = bindingDefault;
+        this.boundBuffers = boundBuffersDefault;
       }
       this.#buffersBind();
     }
@@ -214,10 +284,10 @@ class App {
 
   #buffersBind() {
     // If at least two buffers, presumes one is data and one index.
-    const { boundBuffers: binding, gl, pipeline } = this;
+    const { boundBuffers, gl, pipeline } = this;
     // Vertex buffer.
     const attrs = pipeline!.attributes;
-    const vertexBuffers = binding!.vertex;
+    const vertexBuffers = boundBuffers!.vertex;
     const vertexBufferInfos = pipeline!.buffers;
     let vertexBufferIndex = -1;
     let vertex: Buffer;
@@ -245,7 +315,7 @@ class App {
     }
     // TODO Instance buffer.
     // Index buffer.
-    const index = binding!.index;
+    const index = boundBuffers!.index;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
     this.buffered = true;
   }
@@ -440,7 +510,7 @@ class App {
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
     (pipeline.depthTest ? gl.enable : gl.disable).call(gl, gl.DEPTH_TEST);
     gl.useProgram(pipeline.program);
-    // Presume we need new buffer binding when the program changes.
+    // Presume we need new buffers bound when the program changes.
     this.buffered = false;
   }
 
@@ -456,10 +526,12 @@ class App {
     // console.log(vertex);
     // console.log(fragment);
     const program = shaderProgramBuild(gl, vertex, fragment);
+    const bindGroups = findBindGroups(gl, program);
     pipelineInfo = this.#attributesBuild(program, pipelineInfo);
     const uniforms = this.#uniformsBuild(program);
     pipelines.push({
       attributes: pipelineInfo.vertexAttrs,
+      bindGroups,
       buffers: pipelineInfo.vertexBuffers,
       depthTest: pipelineInfo.depthTest,
       program,
@@ -786,7 +858,7 @@ interface Buffers {
 
 interface Buffer {
   buffer: WebGLBuffer;
-  kind: "index" | "vertex";
+  kind: BufferKind;
   mutable: boolean;
   size: number;
 }
@@ -796,6 +868,8 @@ interface BufferInfo {
   step: number;
   stride: number;
 }
+
+type BufferKind = "vertex" | "index" | "uniform";
 
 const eventTypes = {
   frame: 0,
@@ -853,14 +927,20 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
 
 function makeAppEnv(app: App) {
   return {
+    taca_bindings_apply(bindings: number) {
+      app.bindingsApply(bindings);
+    },
+    taca_bindings_new(info: number) {
+      return app.bindingsNew(info);
+    },
     taca_buffer_new(type: number, info: number) {
       return app.bufferNew(type, info);
     },
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
       return app.bufferUpdate(buffer, bytes, offset);
     },
-    taca_buffers_apply(bindings: number) {
-      app.buffersApply(bindings);
+    taca_buffers_apply(buffers: number) {
+      app.buffersApply(buffers);
     },
     taca_draw(itemBegin: number, itemCount: number, instanceCount: number) {
       app.draw(itemBegin, itemCount, instanceCount);
@@ -913,6 +993,7 @@ function makeAppEnv(app: App) {
 
 interface Pipeline {
   attributes: AttrInfo[];
+  bindGroups: BindGroupLayout[];
   buffers: BufferInfo[];
   depthTest: boolean;
   program: WebGLProgram;
