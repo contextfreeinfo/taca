@@ -148,34 +148,31 @@ class App {
 
   bindingsApply(bindings: number) {
     this.#pipelinedEnsure();
+    const { bindGroups, buffers, gl, pipeline, textures } = this;
     // TODO Assert pipeline.
-    const bindGroup = this.bindGroups[bindings - 1];
-    const layout = this.pipeline!.bindGroups[bindGroup.group];
+    const bindGroup = bindGroups[bindings - 1];
+    const layout = pipeline!.bindGroups[bindGroup.group];
     // TODO Samplers.
     let bufferIndex = 0;
     let textureIndex = 0;
     for (const bindingLayout of layout.bindings) {
       switch (bindingLayout?.kind) {
         case "buffer": {
-          const buffer = this.buffers[bindGroup.buffers[bufferIndex] - 1];
-          this.gl.uniformBlockBinding(
-            this.pipeline!.program,
+          const buffer = buffers[bindGroup.buffers[bufferIndex] - 1];
+          gl.uniformBlockBinding(
+            pipeline!.program,
             bindingLayout.index,
-            bufferIndex
+            bufferIndex + 1
           );
-          this.gl.bindBufferBase(
-            this.gl.UNIFORM_BUFFER,
-            bufferIndex,
-            buffer.buffer
-          );
+          gl.bindBufferBase(gl.UNIFORM_BUFFER, bufferIndex + 1, buffer.buffer);
           bufferIndex += 1;
           break;
         }
         case "sampler": {
-          const texture = this.textures[bindGroup.textures[textureIndex] - 1];
-          this.gl.activeTexture(this.gl.TEXTURE0 + textureIndex);
-          this.gl.bindTexture(this.gl.TEXTURE_2D, texture.texture);
-          this.gl.uniform1i(bindingLayout.location, textureIndex);
+          const texture = textures[bindGroup.textures[textureIndex] - 1];
+          gl.activeTexture(gl.TEXTURE0 + textureIndex);
+          gl.bindTexture(gl.TEXTURE_2D, texture.texture);
+          gl.uniform1i(bindingLayout.location, textureIndex);
           textureIndex += 1;
           break;
         }
@@ -510,6 +507,7 @@ class App {
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
     (pipeline.depthTest ? gl.enable : gl.disable).call(gl, gl.DEPTH_TEST);
     gl.useProgram(pipeline.program);
+    this.tacaBufferEnsure();
     // Presume we need new buffers bound when the program changes.
     this.buffered = false;
   }
@@ -643,7 +641,20 @@ class App {
   shaders: Shader[] = [];
   tacaBuffer: WebGLBuffer | null = null;
 
-  tacaBufferUpdate() {
+  private tacaBufferEnsure() {
+    const { gl, pipeline } = this;
+    if (!this.tacaBuffer) {
+      const tacaSize = pipeline!.uniforms.tacaSize;
+      const tacaBuffer = gl.createBuffer() ?? fail();
+      gl.bindBuffer(gl.UNIFORM_BUFFER, tacaBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, tacaSize, gl.STREAM_DRAW);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, tacaBuffer);
+      this.tacaBuffer = tacaBuffer;
+      this.tacaBufferUpdate();
+    }
+  }
+
+  private tacaBufferUpdate() {
     const { canvas } = this.config;
     if (this.tacaBuffer) {
       const { gl } = this;
@@ -767,13 +778,6 @@ class App {
         }
       }
       this.uniformsBuffer = uniformsBuffer;
-      // Custom taca uniforms.
-      const tacaBuffer = gl.createBuffer() ?? fail();
-      gl.bindBuffer(gl.UNIFORM_BUFFER, tacaBuffer);
-      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.tacaSize, gl.STREAM_DRAW);
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, uniforms.tacaIndex + 1, tacaBuffer);
-      this.tacaBuffer = tacaBuffer;
-      this.tacaBufferUpdate();
     }
     const uniformsBytes = this.readBytes(uniforms);
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.uniformsBuffer);
@@ -788,29 +792,7 @@ class App {
     let size = -1;
     let tacaIndex = 0;
     let tacaSize = 0;
-
-    // TODO Loop gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-    // TODO Parse for group and binding
-    // gl.getActiveUniform(program, 0)
-    // WebGLActiveInfo { size: 1, type: 35664, name: "_group_0_binding_0_vs.member.member" }
-    // gl.getActiveUniform(program, 1)
-    // WebGLActiveInfo { size: 1, type: 35664, name: "taca.size" }
-    // gl.getActiveUniform(program, 2)
-    // WebGLActiveInfo { size: 1, type: 35678, name: "_group_0_binding_1_fs" }
-    // name
-    // "type_7_block_0Vertex"
-    // gl.getActiveUniformBlockParameter(program, i, gl.UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES)
-    // Uint32Array [ 0 ]
-    // gl.getActiveUniform(program, 0)
-    // WebGLActiveInfo { size: 1, type: 35664, name: "_group_0_binding_0_vs.member.member" }
-    // name
-    // "taca_uniform_block"
-    // gl.getActiveUniformBlockParameter(program, i, gl.UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES)
-    // Uint32Array [ 1 ]
-    // gl.getActiveUniform(program, 1)
-    // WebGLActiveInfo { size: 1, type: 35664, name: "taca.size" }
-
-    // console.log(`uniforms: ${count}`);
+    console.log(`uniforms: ${count}`);
     for (let i = 0; i < count; i += 1) {
       const name = gl.getActiveUniformBlockName(program, i);
       // console.log(`uniform: ${name}`);
@@ -820,14 +802,18 @@ class App {
           i,
           gl.UNIFORM_BLOCK_DATA_SIZE
         ) ?? fail();
-      if (name == "taca_uniform_block") {
+      const isTaca = name == "taca_uniform_block";
+      if (isTaca) {
         tacaIndex = i;
         tacaSize = nextSize;
       } else {
-        if (size > 0 && nextSize != size) fail();
+        // The idea here was expecting only one but repeated as fs vs vs, like
+        // naga likes to do, but it doesn't accommodate actual multiple.
+        // TODO Replace all this once we move to pure bind groups.
+        // if (size > 0 && nextSize != size) fail();
         size = nextSize;
       }
-      gl.uniformBlockBinding(program, i, i + 1);
+      gl.uniformBlockBinding(program, i, isTaca ? 0 : i + 1);
     }
     return { count, size, tacaIndex, tacaSize };
   }

@@ -13,6 +13,7 @@ local common.Instance = @record{
 
 local common.Uniforms = @record{
   aspect: [2]float32,
+  pad: [2]float32,
 }
 
 local common.TextureBindings = @record{
