@@ -78,19 +78,7 @@ function frame.update(game: *c.Game)
       },
     },
   })
-  game.blitter:blit({
-    texture = game.tiles,
-    -- TODO Actual tiles.
-    blits = {
-      {
-        source_rect = {
-          pos = {0, 0},
-          size = {game.tiles.size[0], game.tiles.size[1]},
-        },
-        view_pos = {0, 0},
-      },
-    }
-  })
+  game.blitter:blit({texture = game.tiles, blits = game.tile_map})
 end
 
 return frame

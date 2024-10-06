@@ -58,17 +58,31 @@ function draw.Blitter:blit(info: draw.BlitInfo)
         (2 * blit.view_pos[1]) / self.view_size[1] - 1,
       },
       scale = {2 * view_scale_x, 2 * view_scale_y},
-      source_offset = {0.5, 0.5},
+      source_offset = {
+        (rect.pos[0] + 0.5 * rect.size[0]) / info.texture.size[0],
+        (rect.pos[1] + 0.5 * rect.size[1]) / info.texture.size[1],
+      },
       source_scale = {
         rect.size[0] / info.texture.size[0],
         rect.size[1] / info.texture.size[1],
       },
     })
   end
-  local instances: span(draw.Instance) = {
-    data = self.instances.data.data,
-    size = #info.blits,
-  }
+  local instances: span(draw.Instance) = self.instances
+  -- if #instances > 10 then
+  --   local function hi(label: string, instance: *draw.Instance)
+  --     t.print(s.format(
+  --       "%s: %f %f %f %f",
+  --       label,
+  --       instance.source_offset[0],
+  --       instance.source_offset[1],
+  --       instance.source_scale[0],
+  --       instance.source_scale[1]
+  --     ))
+  --   end
+  --   hi("first", &instances[0])
+  --   hi(" last", &instances[#instances - 1])
+  -- end
   t.buffer_update(
     info.texture.instance_buffer,
     u.as_bytes(instances),

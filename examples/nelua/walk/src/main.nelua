@@ -67,6 +67,7 @@ local function start()
       instance_buffer = make_instance_buffer(1),
       texture = t.image_decode(r.player.image),
     },
+    tile_map = ti.decode(r.tile_map),
     tiles = {
       instance_buffer = make_instance_buffer(max_instances),
       texture = t.image_decode(r.tiles),
@@ -77,9 +78,19 @@ local function start()
     ),
   }
   game.blitter.instances:reserve(max_instances)
-  -- for i, b in ipairs(r.tile_map) do
-  --   if i > 24 then break end
-  --   t.print(s.format("byte: %d", b))
+  -- t.print(s.format("tile map size: %d", #game.tile_map))
+  -- local tile_map: span(d.Blit) = game.tile_map
+  -- for i, blit in ipairs(tile_map) do
+  --   -- if i > 5 then break end
+  --   t.print(s.format(
+  --     "blit: [%d %d %d %d] -> [%d %d]",
+  --     blit.source_rect.pos[0],
+  --     blit.source_rect.pos[1],
+  --     blit.source_rect.size[0],
+  --     blit.source_rect.size[1],
+  --     blit.view_pos[0],
+  --     blit.view_pos[1]
+  --   ))
   -- end
 end
 

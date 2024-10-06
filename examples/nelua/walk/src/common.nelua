@@ -15,6 +15,7 @@ local common.Game = @record{
   init_finished: boolean,
   middle: d.TextureBindings,
   player: d.TextureBindings,
+  tile_map: vector(d.Blit),
   tiles: d.TextureBindings,
   uniforms: common.Uniforms,
   uniforms_buffer: t.Buffer,

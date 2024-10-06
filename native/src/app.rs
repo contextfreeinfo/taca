@@ -317,6 +317,10 @@ fn taca_buffers_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
 
 fn taca_clip(mut env: FunctionEnvMut<System>, x: f32, y: f32, size_x: f32, size_y: f32) {
     let system = env.data_mut();
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    let wgpu::SurfaceConfiguration { width, height, .. } = gfx.config;
     pass_ensure(system);
     let Some(RenderFrame {
         pass: Some(pass), ..
@@ -324,7 +328,15 @@ fn taca_clip(mut env: FunctionEnvMut<System>, x: f32, y: f32, size_x: f32, size_
     else {
         return;
     };
-    pass.set_scissor_rect(x as u32, y as u32, size_x as u32, size_y as u32);
+    // gfx.surface.get_current_texture().unwrap().texture.size();
+    let x = (x as u32).clamp(0, width);
+    let y = (y as u32).clamp(0, height);
+    pass.set_scissor_rect(
+        x,
+        y,
+        (size_x as u32).clamp(0, width - x),
+        (size_y as u32).clamp(0, height - y),
+    );
 }
 
 fn taca_draw(
