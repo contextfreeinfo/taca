@@ -119,6 +119,15 @@ function taca.buffers_apply(buffers: taca.Buffers): void
   <cimport, cattribute 'import_name("taca_buffers_apply")'>
 end
 
+function taca.clip(
+  x: float32,
+  y: float32,
+  size_x: float32,
+  size_y: float32
+): void
+  <cimport, cattribute 'import_name("taca_clip")'>
+end
+
 function taca.draw(
   index_begin: uint32,
   index_count: uint32,

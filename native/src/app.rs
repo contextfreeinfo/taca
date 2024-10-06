@@ -55,6 +55,7 @@ impl App {
                 "taca_buffer_new" => Function::new_typed_with_env(&mut store, &env, taca_buffer_new),
                 "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
                 "taca_buffers_apply" => Function::new_typed_with_env(&mut store, &env, taca_buffers_apply),
+                "taca_clip" => Function::new_typed_with_env(&mut store, &env, taca_clip),
                 "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
                 "taca_image_decode" => Function::new_typed_with_env(&mut store, &env, taca_image_decode),
                 "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
@@ -312,6 +313,18 @@ fn taca_buffers_apply(mut env: FunctionEnvMut<System>, bindings: u32) {
         index_buffer: bindings.index_buffer,
     };
     buffers_apply(system, buffers);
+}
+
+fn taca_clip(mut env: FunctionEnvMut<System>, x: f32, y: f32, size_x: f32, size_y: f32) {
+    let system = env.data_mut();
+    pass_ensure(system);
+    let Some(RenderFrame {
+        pass: Some(pass), ..
+    }) = &mut system.frame
+    else {
+        return;
+    };
+    pass.set_scissor_rect(x as u32, y as u32, size_x as u32, size_y as u32);
 }
 
 fn taca_draw(
