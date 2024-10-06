@@ -49,12 +49,15 @@ function draw.Blitter:blit(info: draw.BlitInfo)
   -- Instances
   self.instances:clear()
   for i, rect in ipairs(info.source_rects) do
+    local view_scale_x = rect.size[0] / self.view_size[0]
+    local view_scale_y = rect.size[1] / self.view_size[1]
+    local view_point = info.view_points[i]
     self.instances:push({
-      offset = {0, 0},
-      scale = {
-        2 * rect.size[0] / self.view_size[0],
-        2 * rect.size[1] / self.view_size[1],
+      offset = {
+        rect.size[0] / self.view_size[0] - 1,
+        rect.size[1] / self.view_size[1] - 1,
       },
+      scale = {2 * view_scale_x, 2 * view_scale_y},
       source_offset = {0.5, 0.5},
       source_scale = {
         rect.size[0] / info.texture.size[0],
