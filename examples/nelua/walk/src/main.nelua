@@ -1,10 +1,12 @@
 -- Support first!
 local support = require "support"
 local c = require "./common.nelua"
+local d = require "./draw.nelua"
 local f = require "./frame.nelua"
 local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
+local u = require "./util.nelua"
 
 -- Content.
 local game: c.Game
@@ -15,8 +17,8 @@ local function start()
   local gc <close> = support.GcStep{}
   -- For kicks, use an example of wasi printing.
   print "Hi from Nelua!"
-  c.print_frames("gem shine", r.gem.shine)
-  c.print_frames("player run", r.player.run)
+  d.print_frames("gem shine", r.gem.shine)
+  d.print_frames("player run", r.player.run)
   t.shader_new(r.shader)
   t.pipeline_new({
     vertex_buffers = {
@@ -24,47 +26,57 @@ local function start()
       {first_attribute = 1, step = t.Step.Instance},
     },
   })
+  local box_instance = t.buffer_new(
+    t.BufferKind.Vertex,
+    {data = nilptr, size = max_instances * #d.Instance}
+  )
   game = {
-    back_bindings = {texture = t.image_decode(r.back)},
+    back = {texture = t.image_decode(r.back)},
+    blitter = {
+      buffer = box_instance,
+      view_size = {r.viewport_size[0], r.viewport_size[1]},
+    },
     box_index = t.buffer_new(
       t.BufferKind.Index,
-      c.as_bytes((@span(@uint16)){0, 1, 2, 1, 3, 2})
+      u.as_bytes((@span(@uint16)){0, 1, 2, 1, 3, 2})
     ),
-    box_instance = t.buffer_new(
-      t.BufferKind.Vertex,
-      {data = nilptr, size = max_instances * #c.Instance}
-    ),
+    box_instance = box_instance,
     box_vertex = t.buffer_new(
       t.BufferKind.Vertex,
-      c.as_bytes((@span(@[2]float32)){
+      u.as_bytes((@span(@[2]float32)){
         {-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5},
       })
     ),
     gem_bindings = {texture = t.image_decode(r.gem.image)},
     max_instances = max_instances,
-    middle_bindings = {texture = t.image_decode(r.middle)},
+    middle = {texture = t.image_decode(r.middle)},
     player_bindings = {texture = t.image_decode(r.player.image)},
-    tiles_bindings = {texture = t.image_decode(r.tiles)},
+    tiles = {texture = t.image_decode(r.tiles)},
     uniforms_buffer = t.buffer_new(
       t.BufferKind.Uniform,
       {data = nilptr, size = #c.Uniforms}
     ),
   }
+  game.blitter.instances:reserve(max_instances)
 end
 
 local function finish_init()
   t.print("images loaded")
-  local function make_bindings(bindings: *c.TextureBindings)
+  local function make_bindings(bindings: *d.TextureBindings)
     bindings.bindings = t.bindings_new({
       buffers = {game.uniforms_buffer},
       textures = {bindings.texture},
     })
+    local info = t.texture_info(bindings.texture)
+    bindings.size[0] = info.size[0]
+    bindings.size[1] = info.size[1]
+    -- t.print(s.format("size: %d %d", info.size[0], info.size[1]))
   end
-  make_bindings(game.back_bindings)
+  make_bindings(game.back)
   make_bindings(game.gem_bindings)
-  make_bindings(game.middle_bindings)
+  make_bindings(game.middle)
   make_bindings(game.player_bindings)
-  make_bindings(game.tiles_bindings)
+  make_bindings(game.tiles)
   game.init_finished = true
 end
 

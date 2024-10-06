@@ -1,6 +1,7 @@
 local frame = @record{}
 
 local c = require "./common.nelua"
+local d = require "./draw.nelua"
 local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
@@ -15,18 +16,6 @@ function frame.update(game: *c.Game)
     index_buffer = game.box_index,
     vertex_buffers = {game.box_vertex, game.box_instance},
   })
-  -- Instance
-  local instance: c.Instance = {
-    offset = {0, 0},
-    scale = {2, 2},
-    source_offset = {0.5, 0.5},
-    source_scale = {1, 1},
-  }
-  t.buffer_update(
-    game.box_instance,
-    {data = (@pointer(byte))(&instance), size = #c.Instance},
-    0
-  )
   -- Bindings
   if aspect > 1 then
     game.uniforms.aspect = {1 / aspect, 1}
@@ -39,12 +28,30 @@ function frame.update(game: *c.Game)
     0
   )
   -- Draw
-  t.bindings_apply(game.back_bindings.bindings)
-  t.draw(0, 6, 1)
-  t.bindings_apply(game.middle_bindings.bindings)
-  t.draw(0, 6, 1)
-  t.bindings_apply(game.tiles_bindings.bindings)
-  t.draw(0, 6, 1)
+  game.blitter:blit({
+    texture = game.back,
+    -- TODO Proper location and repeat.
+    source_rects = {
+      {pos = {0, 0}, size = {game.back.size[0], game.back.size[1]}},
+    },
+    view_points = {{0, 0}},
+  })
+  game.blitter:blit({
+    texture = game.middle,
+    -- TODO Proper location and repeat.
+    source_rects = {
+      {pos = {0, 0}, size = {game.middle.size[0], game.middle.size[1]}},
+    },
+    view_points = {{0, 0}},
+  })
+  game.blitter:blit({
+    texture = game.tiles,
+    -- TODO Actual tiles.
+    source_rects = {
+      {pos = {0, 0}, size = {game.tiles.size[0], game.tiles.size[1]}},
+    },
+    view_points = {{0, 0}},
+  })
 end
 
 return frame

@@ -1,0 +1,85 @@
+local draw = @record{}
+
+local s = require "string"
+local t = require "taca"
+local u = require "./util.nelua"
+
+local draw.Rect = @record{
+  pos: [2]int32,
+  size: [2]int32,
+}
+
+local draw.Instance = @record{
+  offset: [2]float32,
+  scale: [2]float32,
+  source_offset: [2]float32,
+  source_scale: [2]float32,
+}
+
+local draw.TextureBindings = @record{
+  bindings: t.Bindings,
+  size: [2]float32,
+  texture: t.Texture,
+}
+
+local draw.Blitter = @record{
+  buffer: t.Buffer,
+  instances: vector(draw.Instance),
+  view_size: [2]float32,
+}
+
+local draw.BlitInfo = @record{
+  texture: draw.TextureBindings,
+  source_rects: span(draw.Rect),
+  view_points: span([2]float32),
+}
+
+function draw.Blitter:blit(info: draw.BlitInfo)
+  -- Check
+  if #info.source_rects ~= #info.view_points then
+    t.print("inconsistent blit")
+    return
+  end
+  if #info.source_rects > self.instances:capacity() then
+    t.print("blit too big")
+    return
+  end
+  -- Instances
+  self.instances:clear()
+  for i, rect in ipairs(info.source_rects) do
+    local aspect_x = self.view_size[0] / info.texture.size[0] -- * rect.size[0]
+    local aspect_y = self.view_size[1] / info.texture.size[1] -- * rect.size[1]
+    self.instances:push({
+      offset = {0, 0},
+      scale = {2 * aspect_x, 2 * aspect_y},
+      source_offset = {0.5, 0.5},
+      source_scale = {1, 1},
+    })
+  end
+  local instances: span(draw.Instance) = {
+    data = self.instances.data.data,
+    size = #info.source_rects,
+  }
+  t.buffer_update(
+    self.buffer,
+    u.as_bytes(instances),
+    0
+  )
+  -- Draw
+  t.bindings_apply(info.texture.bindings)
+  t.draw(0, 6, 1)
+end
+
+function draw.print_frames(name: string, frames: span(draw.Rect))
+  t.print(name)
+  for i, frame in ipairs(frames) do
+    t.print(s.format(
+      "frame %i: %d %d %d %d",
+      i,
+      frame.pos[0], frame.pos[1],
+      frame.size[0], frame.size[1]
+    ))
+  end
+end
+
+return draw

@@ -760,6 +760,14 @@ class App {
   textTexture: number = 0;
   textTextureText: string = "";
   texturePipeline: TexturePipeline;
+
+  textureInfo(result: number, texture: number) {
+    let size = this.textures[texture - 1]?.size ?? [0, 0];
+    const view = this.memoryViewMake(result, 2 * 4);
+    setF32(view, 0, size[0]);
+    setF32(view, 4, size[1]);
+  }
+
   textures: Texture[] = [];
 
   uniformsApply(uniforms: number) {
@@ -819,6 +827,18 @@ class App {
   }
 
   vertexBuffer: Buffer | null = null;
+
+  windowState(result: number) {
+    // TODO Include time.
+    const { clientWidth, clientHeight } = this.canvas;
+    const [pointerX, pointerY] = this.pointerPos;
+    const view = this.memoryViewMake(result, 5 * 4);
+    setF32(view, 0, pointerX);
+    setF32(view, 4, pointerY);
+    setU32(view, 8, this.pointerPress);
+    setF32(view, 12, clientWidth);
+    setF32(view, 16, clientHeight);
+  }
 }
 
 interface AppExports {
@@ -956,6 +976,9 @@ function makeAppEnv(app: App) {
     taca_text_draw(text: number, x: number, y: number) {
       app.drawText(app.readString(text), x, y);
     },
+    taca_texture_info(result: number, texture: number) {
+      app.textureInfo(result, texture);
+    },
     taca_title_update(title: number) {
       // TODO Abstract to provide callbacks for these things?
       document.title = app.readString(title);
@@ -964,15 +987,7 @@ function makeAppEnv(app: App) {
       app.uniformsApply(uniforms);
     },
     taca_window_state(result: number) {
-      // TODO Include time.
-      const { clientWidth, clientHeight } = app.canvas;
-      const [pointerX, pointerY] = app.pointerPos;
-      const view = app.memoryViewMake(result, 5 * 4);
-      setF32(view, 0, pointerX);
-      setF32(view, 4, pointerY);
-      setU32(view, 8, app.pointerPress);
-      setF32(view, 12, clientWidth);
-      setF32(view, 16, clientHeight);
+      app.windowState(result);
     },
   };
 }

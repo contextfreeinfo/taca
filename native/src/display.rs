@@ -273,7 +273,11 @@ pub fn create_depth_texture(
     };
     let texture = device.create_texture(&desc);
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    TextureData { texture, view }
+    TextureData {
+        size,
+        texture,
+        view,
+    }
 }
 
 fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphics> + 'static {

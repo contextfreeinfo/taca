@@ -25,7 +25,7 @@ use crate::{
         pipeline_apply, pipelined_ensure, shader_create, uniforms_apply, Bindings, BindingsInfo,
         Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo,
         MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
-        Texture,
+        Texture, TextureInfoExtern,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -64,6 +64,7 @@ impl App {
                 "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
                 "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
+                "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
                 "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
                 "taca_uniforms_apply" => Function::new_typed_with_env(&mut store, &env, taca_uniforms_apply),
                 "taca_window_state" => Function::new_typed_with_env(&mut store, &env, taca_window_state),
@@ -427,6 +428,25 @@ fn taca_text_draw(mut env: FunctionEnvMut<System>, text: u32, x: f32, y: f32) {
     text_engine.lock().unwrap().draw(system, &text, x, y);
 }
 
+fn taca_texture_info(mut env: FunctionEnvMut<System>, result: u32, texture: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let size = system.textures[texture as usize - 1].data.as_ref().map_or(
+        wgpu::Extent3d {
+            width: 0,
+            height: 0,
+            depth_or_array_layers: 0,
+        },
+        |x| x.size,
+    );
+    let info = TextureInfoExtern {
+        size: [size.width as f32, size.height as f32],
+    };
+    let view = system.memory.as_ref().unwrap().view(&store);
+    WasmRef::<TextureInfoExtern>::new(&view, result as u64)
+        .write(info)
+        .unwrap();
+}
+
 fn taca_title_update(mut env: FunctionEnvMut<System>, text: u32) {
     let (system, store) = env.data_and_store_mut();
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
@@ -453,12 +473,12 @@ fn taca_window_state(mut env: FunctionEnvMut<System>, result: u32) {
     };
     let pointer = system.display.pointer_pos.unwrap_or(Default::default());
     let size = gfx.window.inner_size();
-    let view = system.memory.as_ref().unwrap().view(&store);
     let state = WindowState {
         pointer: [pointer.x as f32, pointer.y as f32],
         press: system.display.pointer_press,
         size: [size.width as f32, size.height as f32],
     };
+    let view = system.memory.as_ref().unwrap().view(&store);
     WasmRef::<WindowState>::new(&view, result as u64)
         .write(state)
         .unwrap();

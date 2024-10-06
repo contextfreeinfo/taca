@@ -178,9 +178,18 @@ pub struct Texture {
 
 #[derive(Debug)]
 pub struct TextureData {
+    pub size: wgpu::Extent3d,
     #[allow(unused)]
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
+}
+
+#[derive(Clone, Copy, Debug, Default, ValueType)]
+#[repr(C)]
+pub struct TextureInfoExtern {
+    // TODO What else?
+    // TODO Depth also? Padding effect?
+    pub size: [f32; 2],
 }
 
 pub fn bindings_apply(system: &mut System, bindings: u32) {
@@ -616,7 +625,11 @@ pub fn image_to_texture(system: &mut System, handle: usize, image: DynamicImage)
         },
         size,
     );
-    texture_info.data = Some(TextureData { texture, view });
+    texture_info.data = Some(TextureData {
+        size,
+        texture,
+        view,
+    });
 }
 
 pub fn pass_ensure(system: &mut System) {

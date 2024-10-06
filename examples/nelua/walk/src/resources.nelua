@@ -8,23 +8,20 @@ require "support"
 ## local src = fs.scriptdir()
 print(#[src]#)
 
-local resources = @record{}
+local c = require "./common.nelua"
+local d = require "./draw.nelua"
 
-local Rect = @record{
-  pos: [2]int32,
-  size: [2]int32,
-}
-local resources.Rect = Rect
+local resources = @record{}
 
 local PlayerInfo = @record{
   image: span(byte),
-  run: vector(Rect),
+  run: vector(d.Rect),
 }
 local resources.PlayerInfo = PlayerInfo
 
 local GemInfo = @record{
   image: span(byte),
-  shine: vector(Rect),
+  shine: vector(d.Rect),
 }
 local resources.GemInfo = GemInfo
 
@@ -47,7 +44,7 @@ local resources.player = PlayerInfo{
 }
 
 ## local display = gd.resource_load("src/tiles/project.godot").display.body
-local resources.viewport_size: [2]int32 = {
+local resources.viewport_size: [2]float32 = {
   #[display["window/size/viewport_width"]]#,
   #[display["window/size/viewport_height"]]#,
 }
