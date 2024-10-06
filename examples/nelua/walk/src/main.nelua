@@ -30,28 +30,46 @@ local function start()
     t.BufferKind.Vertex,
     {data = nilptr, size = max_instances * #d.Instance}
   )
+  local function make_instance_buffer(max_instances: usize)
+    return t.buffer_new(
+      t.BufferKind.Vertex,
+      {data = nilptr, size = max_instances * #d.Instance}
+    )
+  end
   game = {
-    back = {texture = t.image_decode(r.back)},
+    back = {
+      instance_buffer = make_instance_buffer(10),
+      texture = t.image_decode(r.back),
+    },
     blitter = {
-      buffer = box_instance,
+      index_buffer = t.buffer_new(
+        t.BufferKind.Index,
+        u.as_bytes((@span(@uint16)){0, 1, 2, 1, 3, 2})
+      ),
+      vertex_buffer = t.buffer_new(
+        t.BufferKind.Vertex,
+        u.as_bytes((@span(@[2]float32)){
+          {-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5},
+        })
+      ),
       view_size = {r.viewport_size[0], r.viewport_size[1]},
     },
-    box_index = t.buffer_new(
-      t.BufferKind.Index,
-      u.as_bytes((@span(@uint16)){0, 1, 2, 1, 3, 2})
-    ),
-    box_instance = box_instance,
-    box_vertex = t.buffer_new(
-      t.BufferKind.Vertex,
-      u.as_bytes((@span(@[2]float32)){
-        {-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5},
-      })
-    ),
-    gem_bindings = {texture = t.image_decode(r.gem.image)},
-    max_instances = max_instances,
-    middle = {texture = t.image_decode(r.middle)},
-    player_bindings = {texture = t.image_decode(r.player.image)},
-    tiles = {texture = t.image_decode(r.tiles)},
+    gem = {
+      instance_buffer = make_instance_buffer(100),
+      texture = t.image_decode(r.gem.image),
+    },
+    middle = {
+      instance_buffer = make_instance_buffer(10),
+      texture = t.image_decode(r.middle),
+    },
+    player = {
+      instance_buffer = make_instance_buffer(1),
+      texture = t.image_decode(r.player.image),
+    },
+    tiles = {
+      instance_buffer = make_instance_buffer(max_instances),
+      texture = t.image_decode(r.tiles),
+    },
     uniforms_buffer = t.buffer_new(
       t.BufferKind.Uniform,
       {data = nilptr, size = #c.Uniforms}
@@ -73,9 +91,9 @@ local function finish_init()
     -- t.print(s.format("size: %d %d", info.size[0], info.size[1]))
   end
   make_bindings(game.back)
-  make_bindings(game.gem_bindings)
+  make_bindings(game.gem)
   make_bindings(game.middle)
-  make_bindings(game.player_bindings)
+  make_bindings(game.player)
   make_bindings(game.tiles)
   game.init_finished = true
 end

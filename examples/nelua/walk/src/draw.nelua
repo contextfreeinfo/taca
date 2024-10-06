@@ -18,13 +18,15 @@ local draw.Instance = @record{
 
 local draw.TextureBindings = @record{
   bindings: t.Bindings,
+  instance_buffer: t.Buffer,
   size: [2]float32,
   texture: t.Texture,
 }
 
 local draw.Blitter = @record{
-  buffer: t.Buffer,
+  index_buffer: t.Buffer,
   instances: vector(draw.Instance),
+  vertex_buffer: t.Buffer,
   view_size: [2]float32,
 }
 
@@ -47,13 +49,17 @@ function draw.Blitter:blit(info: draw.BlitInfo)
   -- Instances
   self.instances:clear()
   for i, rect in ipairs(info.source_rects) do
-    local aspect_x = self.view_size[0] / info.texture.size[0] -- * rect.size[0]
-    local aspect_y = self.view_size[1] / info.texture.size[1] -- * rect.size[1]
     self.instances:push({
       offset = {0, 0},
-      scale = {2 * aspect_x, 2 * aspect_y},
+      scale = {
+        2 * rect.size[0] / self.view_size[0],
+        2 * rect.size[1] / self.view_size[1],
+      },
       source_offset = {0.5, 0.5},
-      source_scale = {1, 1},
+      source_scale = {
+        rect.size[0] / info.texture.size[0],
+        rect.size[1] / info.texture.size[1],
+      },
     })
   end
   local instances: span(draw.Instance) = {
@@ -61,11 +67,15 @@ function draw.Blitter:blit(info: draw.BlitInfo)
     size = #info.source_rects,
   }
   t.buffer_update(
-    self.buffer,
+    info.texture.instance_buffer,
     u.as_bytes(instances),
     0
   )
   -- Draw
+  t.buffers_apply({
+    index_buffer = self.index_buffer,
+    vertex_buffers = {self.vertex_buffer, info.texture.instance_buffer},
+  })
   t.bindings_apply(info.texture.bindings)
   t.draw(0, 6, 1)
 end
