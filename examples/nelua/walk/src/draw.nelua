@@ -80,7 +80,7 @@ function draw.Blitter:blit(info: draw.BlitInfo)
     vertex_buffers = {self.vertex_buffer, info.texture.instance_buffer},
   })
   t.bindings_apply(info.texture.bindings)
-  t.draw(0, 6, 1)
+  t.draw(0, 6, #info.source_rects)
 end
 
 function draw.print_frames(name: string, frames: span(draw.Rect))
