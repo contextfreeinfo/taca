@@ -13,6 +13,8 @@ local d = require "./draw.nelua"
 
 local resources = @record{}
 
+## local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
+
 local PlayerInfo = @record{
   image: span(byte),
   run: vector(d.Rect),
@@ -26,6 +28,10 @@ local GemInfo = @record{
 local resources.GemInfo = GemInfo
 
 local resources.back: span(byte) = #[read_all "src/tiles/back.png"]#
+local resources.back_offset: [2]float32 = {
+  #[tiles_scene["Back"]["body"]["position"]["args"][1]]#,
+  #[tiles_scene["Back"]["body"]["position"]["args"][2]]#,
+}
 
 ## local gem_resource = gd.resource_load("src/tiles/gem.tres")
 local resources.gem = GemInfo{
@@ -36,6 +42,10 @@ local resources.gem = GemInfo{
 local resources.level = #[read_all "src/tiles/tiles.tscn"]#
 
 local resources.middle: span(byte) = #[read_all "src/tiles/middle.png"]#
+local resources.middle_offset: [2]float32 = {
+  #[tiles_scene["Middle"]["body"]["position"]["args"][1]]#,
+  #[tiles_scene["Middle"]["body"]["position"]["args"][2]]#,
+}
 
 ## local player_resource = gd.resource_load("src/tiles/player.tres")
 local resources.player = PlayerInfo{
@@ -51,7 +61,6 @@ local resources.viewport_size: [2]float32 = {
 
 local resources.shader: span(byte) = #[read_all "out/shader.spv"]#
 
-## local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
 local resources.tiles: span(byte) = #[read_all "src/tiles/tileset.png"]#
 
 return resources

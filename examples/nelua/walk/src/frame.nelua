@@ -29,7 +29,7 @@ function frame.update(game: *c.Game)
     source_rects = {
       {pos = {0, 0}, size = {game.back.size[0], game.back.size[1]}},
     },
-    view_points = {{0, 0}},
+    view_points = {{r.back_offset[0], r.back_offset[1]}},
   })
   game.blitter:blit({
     texture = game.middle,
@@ -37,7 +37,7 @@ function frame.update(game: *c.Game)
     source_rects = {
       {pos = {0, 0}, size = {game.middle.size[0], game.middle.size[1]}},
     },
-    view_points = {{0, 0}},
+    view_points = {{r.middle_offset[0], r.middle_offset[1]}},
   })
   game.blitter:blit({
     texture = game.tiles,
