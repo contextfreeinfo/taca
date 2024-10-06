@@ -36,12 +36,20 @@ function frame.update(game: *c.Game)
   }
   game.blitter:blit({
     texture = game.back,
-    source_rects = {back_source, back_source, back_source},
-    view_points = {
-      {r.back_offset[0] - game.back.size[0], r.back_offset[1]},
-      {r.back_offset[0], r.back_offset[1]},
-      {r.back_offset[0] + game.back.size[0], r.back_offset[1]},
-    },
+    blits = {
+      {
+        source_rect = back_source,
+        view_pos = {r.back_offset[0] - game.back.size[0], r.back_offset[1]},
+      },
+      {
+        source_rect = back_source,
+        view_pos = {r.back_offset[0], r.back_offset[1]},
+      },
+      {
+        source_rect = back_source,
+        view_pos = {r.back_offset[0] + game.back.size[0], r.back_offset[1]},
+      },
+    }
   })
   local middle_source: d.Rect = {
     pos = {0, 0},
@@ -49,20 +57,39 @@ function frame.update(game: *c.Game)
   }
   game.blitter:blit({
     texture = game.middle,
-    source_rects = {middle_source, middle_source, middle_source},
-    view_points = {
-      {r.middle_offset[0] - game.middle.size[0], r.middle_offset[1]},
-      {r.middle_offset[0], r.middle_offset[1]},
-      {r.middle_offset[0] + game.middle.size[0], r.middle_offset[1]},
+    blits = {
+      {
+        source_rect = middle_source,
+        view_pos = {
+          r.middle_offset[0] - game.middle.size[0],
+          r.middle_offset[1],
+        },
+      },
+      {
+        source_rect = middle_source,
+        view_pos = {r.middle_offset[0], r.middle_offset[1]},
+      },
+      {
+        source_rect = middle_source,
+        view_pos = {
+          r.middle_offset[0] + game.middle.size[0],
+          r.middle_offset[1],
+        },
+      },
     },
   })
   game.blitter:blit({
     texture = game.tiles,
     -- TODO Actual tiles.
-    source_rects = {
-      {pos = {0, 0}, size = {game.tiles.size[0], game.tiles.size[1]}},
-    },
-    view_points = {{0, 0}},
+    blits = {
+      {
+        source_rect = {
+          pos = {0, 0},
+          size = {game.tiles.size[0], game.tiles.size[1]},
+        },
+        view_pos = {0, 0},
+      },
+    }
   })
 end
 

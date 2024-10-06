@@ -1,0 +1,22 @@
+local pub = @record{}
+
+local d = require "./draw.nelua"
+
+local TileInfo = @record{
+  x: uint16,
+  y: uint16,
+  source: uint16,
+  atlas_x: uint16,
+  atlas_y: uint16,
+  alternate: uint16,
+}
+
+function pub.decode(bytes: span(byte)): vector(d.Blit)
+  local blits: vector(d.Blit)
+  -- Start at 2 because first uint16 is metadata. TODO Assert value 0?
+  for index = 2, #bytes - 1, #TileInfo do
+  end
+  return blits
+end
+
+return pub

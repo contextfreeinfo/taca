@@ -168,6 +168,22 @@ local function print_table(t, indent)
 end
 gd.print_table = print_table
 
+-- Variation on http://lua-users.org/wiki/BaseSixtyFour
+function gd.base64_decode(data)
+  local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+  return (data:gsub('.', function(x)
+    if (x == '=') then return '' end
+    local r, f = '', (b:find(x) - 1)
+    for i = 6, 1, -1 do
+      r = r .. (f % 2 ^ i - f % 2 ^ (i - 1) > 0 and '1' or '0')
+    end
+    return r
+  end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
+    if (#x ~= 8) then return '' end
+    return string.char(tonumber(x, 2))
+  end))
+end
+
 function gd.resource_load(file_path)
   local file <close> = io.open(file_path, "r")
   if not file then

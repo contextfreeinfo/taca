@@ -6,6 +6,7 @@ local f = require "./frame.nelua"
 local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
+local ti = require "./tiles.nelua"
 local u = require "./util.nelua"
 
 -- Content.
@@ -76,6 +77,10 @@ local function start()
     ),
   }
   game.blitter.instances:reserve(max_instances)
+  -- for i, b in ipairs(r.tile_map) do
+  --   if i > 24 then break end
+  --   t.print(s.format("byte: %d", b))
+  -- end
 end
 
 local function finish_init()
@@ -88,7 +93,6 @@ local function finish_init()
     local info = t.texture_info(bindings.texture)
     bindings.size[0] = info.size[0]
     bindings.size[1] = info.size[1]
-    -- t.print(s.format("size: %d %d", info.size[0], info.size[1]))
   end
   make_bindings(game.back)
   make_bindings(game.gem)

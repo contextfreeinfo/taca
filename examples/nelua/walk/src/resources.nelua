@@ -62,5 +62,8 @@ local resources.viewport_size: [2]float32 = {
 local resources.shader: span(byte) = #[read_all "out/shader.spv"]#
 
 local resources.tiles: span(byte) = #[read_all "src/tiles/tileset.png"]#
+local resources.tile_map: span(byte) = #[gd.base64_decode(
+  tiles_scene["TileMapLayer"]["body"]["tile_map_data"]["args"][1]
+)]#
 
 return resources
