@@ -18,8 +18,8 @@ local function start()
   local gc <close> = support.GcStep{}
   -- For kicks, use an example of wasi printing.
   print "Hi from Nelua!"
-  d.print_frames("gem shine", r.gem.shine)
-  d.print_frames("player run", r.player.run)
+  -- d.print_frames("gem shine", r.gem.shine)
+  -- d.print_frames("player run", r.player.run)
   t.shader_new(r.shader)
   t.pipeline_new({
     vertex_buffers = {
@@ -78,24 +78,10 @@ local function start()
     ),
   }
   game.blitter.instances:reserve(max_instances)
-  -- t.print(s.format("tile map size: %d", #game.tile_map))
-  -- local tile_map: span(d.Blit) = game.tile_map
-  -- for i, blit in ipairs(tile_map) do
-  --   -- if i > 5 then break end
-  --   t.print(s.format(
-  --     "blit: [%d %d %d %d] -> [%d %d]",
-  --     blit.source_rect.pos[0],
-  --     blit.source_rect.pos[1],
-  --     blit.source_rect.size[0],
-  --     blit.source_rect.size[1],
-  --     blit.view_pos[0],
-  --     blit.view_pos[1]
-  --   ))
-  -- end
 end
 
 local function finish_init()
-  t.print("images loaded")
+  -- t.print("images loaded")
   local function make_bindings(bindings: *d.TextureBindings)
     bindings.bindings = t.bindings_new({
       buffers = {game.uniforms_buffer},

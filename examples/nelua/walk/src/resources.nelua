@@ -14,43 +14,54 @@ local d = require "./draw.nelua"
 local resources = @record{}
 
 ## local tiles_scene = gd.resource_load("src/tiles/tiles.tscn")
+## local function pos_of(name) return tiles_scene[name].body.position.args end
+
+local GemInfo = @record{
+  image: span(byte),
+  pos: [2]float32,
+  shine: vector(d.Rect),
+  speed: float32,
+}
+local resources.GemInfo = GemInfo
 
 local PlayerInfo = @record{
   image: span(byte),
   run: vector(d.Rect),
+  speed: float32,
+  start: [2]float32,
 }
 local resources.PlayerInfo = PlayerInfo
 
-local GemInfo = @record{
-  image: span(byte),
-  shine: vector(d.Rect),
-}
-local resources.GemInfo = GemInfo
-
 local resources.back: span(byte) = #[read_all "src/tiles/back.png"]#
 local resources.back_offset: [2]float32 = {
-  #[tiles_scene["Back"]["body"]["position"]["args"][1]]#,
-  #[tiles_scene["Back"]["body"]["position"]["args"][2]]#,
+  #[pos_of("Back")[1]]#,
+  #[pos_of("Back")[2]]#,
 }
 
 ## local gem_resource = gd.resource_load("src/tiles/gem.tres")
+## local gem_shine = macros.animation_find(gem_resource, "shine")
 local resources.gem = GemInfo{
   image = #[read_all "src/tiles/gem.png"]#,
-  shine = #[macros.animation_build(gem_resource, "shine")]#,
+  pos = {#[pos_of("Gem")[1]]#, #[pos_of("Gem")[2]]#},
+  shine = #[macros.animation_build(gem_resource, gem_shine)]#,
+  speed = #[gem_shine.speed]#,
 }
 
 local resources.level = #[read_all "src/tiles/tiles.tscn"]#
 
 local resources.middle: span(byte) = #[read_all "src/tiles/middle.png"]#
 local resources.middle_offset: [2]float32 = {
-  #[tiles_scene["Middle"]["body"]["position"]["args"][1]]#,
-  #[tiles_scene["Middle"]["body"]["position"]["args"][2]]#,
+  #[pos_of("Middle")[1]]#,
+  #[pos_of("Middle")[2]]#,
 }
 
 ## local player_resource = gd.resource_load("src/tiles/player.tres")
+## local player_run = macros.animation_find(player_resource, "run")
 local resources.player = PlayerInfo{
   image = #[read_all "src/tiles/player.png"]#,
-  run = #[macros.animation_build(player_resource, "run")]#,
+  run = #[macros.animation_build(player_resource, player_run)]#,
+  speed = #[player_run.speed]#,
+  start = {#[pos_of("Player")[1]]#, #[pos_of("Player")[2]]#}
 }
 
 ## local display = gd.resource_load("src/tiles/project.godot").display.body

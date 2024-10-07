@@ -2,6 +2,7 @@ local frame = @record{}
 
 local c = require "./common.nelua"
 local d = require "./draw.nelua"
+local m = require "math"
 local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
@@ -15,13 +16,13 @@ function frame.update(game: *c.Game)
   -- t.print(s.format("aspect: %f", aspect))
   -- Uniform and clip
   if aspect > 1 then
-    -- Fill height. TODO Adjust aspect for integer scaling.
+    -- Fill height.
     local size_x = window.size[0] / aspect
     local x = (window.size[0] - size_x) * 0.5
     t.clip(x, 0, size_x, window.size[1])
     game.uniforms.aspect = {1 / aspect, 1}
   else
-    -- Fill width. TODO Adjust aspect for integer scaling.
+    -- Fill width.
     local size_y = window.size[1] * aspect
     local y = (window.size[1] - size_y) * 0.5
     t.clip(0, y, window.size[0], size_y)
@@ -31,6 +32,12 @@ function frame.update(game: *c.Game)
     game.uniforms_buffer,
     {data = (@pointer(byte))(&game.uniforms), size = #c.Uniforms},
     0
+  )
+  -- Sprite frames
+  game.gem_frame = m.fmod(game.gem_frame + r.gem.speed / 60, #r.gem.shine)
+  game.player_frame = m.fmod(
+    game.player_frame + r.player.speed / 60,
+    #r.player.run
   )
   -- Draw
   local back_source: d.Rect = {
@@ -82,6 +89,20 @@ function frame.update(game: *c.Game)
     },
   })
   game.blitter:blit({texture = game.tiles, blits = game.tile_map})
+  game.blitter:blit({
+    texture = game.gem,
+    blits = {{
+      source_rect = r.gem.shine[m.floor(game.gem_frame)],
+      view_pos = r.gem.pos,
+    }},
+  })
+  game.blitter:blit({
+    texture = game.player,
+    blits = {{
+      source_rect = r.player.run[m.floor(game.player_frame)],
+      view_pos = r.player.start,
+    }},
+  })
 end
 
 return frame

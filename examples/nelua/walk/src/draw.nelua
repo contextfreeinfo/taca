@@ -69,20 +69,6 @@ function draw.Blitter:blit(info: draw.BlitInfo)
     })
   end
   local instances: span(draw.Instance) = self.instances
-  -- if #instances > 10 then
-  --   local function hi(label: string, instance: *draw.Instance)
-  --     t.print(s.format(
-  --       "%s: %f %f %f %f",
-  --       label,
-  --       instance.source_offset[0],
-  --       instance.source_offset[1],
-  --       instance.source_scale[0],
-  --       instance.source_scale[1]
-  --     ))
-  --   end
-  --   hi("first", &instances[0])
-  --   hi(" last", &instances[#instances - 1])
-  -- end
   t.buffer_update(
     info.texture.instance_buffer,
     u.as_bytes(instances),

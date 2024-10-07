@@ -20,11 +20,7 @@ local function map(array, fun)
   return new_array
 end
 
-function macros.animation_build(resource, name)
-  local animations = resource.resource.body.animations
-  local animation = find(animations, function(anim)
-    return anim.name == name
-  end)
+function macros.animation_build(resource, animation)
   return n.InitList(map(animation.frames, function(frame)
     local region = resource[frame.texture.args[1]].body.region.args
     return n.InitList{
@@ -32,6 +28,13 @@ function macros.animation_build(resource, name)
       n.Pair{"size", n.InitList{n.Number{region[3]}, n.Number{region[4]}}},
     }
   end))
+end
+
+function macros.animation_find(resource, name)
+  local animations = resource.resource.body.animations
+  return find(animations, function(anim)
+    return anim.name == name
+  end)
 end
 
 return macros
