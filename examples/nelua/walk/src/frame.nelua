@@ -12,13 +12,16 @@ function frame.update(game: *c.Game)
   local viewport_aspect = r.viewport_size[0] / r.viewport_size[1]
   local window_aspect = window.size[0] / window.size[1]
   local aspect = window_aspect / viewport_aspect
+  -- t.print(s.format("aspect: %f", aspect))
   -- Uniform and clip
   if aspect > 1 then
+    -- Fill height. TODO Adjust aspect for integer scaling.
     local size_x = window.size[0] / aspect
     local x = (window.size[0] - size_x) * 0.5
     t.clip(x, 0, size_x, window.size[1])
     game.uniforms.aspect = {1 / aspect, 1}
   else
+    -- Fill width. TODO Adjust aspect for integer scaling.
     local size_y = window.size[1] * aspect
     local y = (window.size[1] - size_y) * 0.5
     t.clip(0, y, window.size[0], size_y)

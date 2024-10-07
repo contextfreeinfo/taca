@@ -951,7 +951,12 @@ function makeAppEnv(app: App) {
     taca_clip(x: number, y: number, sizeX: number, sizeY: number) {
       const { gl } = app;
       gl.enable(gl.SCISSOR_TEST);
-      gl.scissor(x, y, sizeX, sizeY);
+      gl.scissor(
+        Math.round(x),
+        Math.round(y),
+        Math.round(sizeX),
+        Math.round(sizeY)
+      );
     },
     taca_draw(itemBegin: number, itemCount: number, instanceCount: number) {
       app.draw(itemBegin, itemCount, instanceCount);

@@ -329,13 +329,13 @@ fn taca_clip(mut env: FunctionEnvMut<System>, x: f32, y: f32, size_x: f32, size_
         return;
     };
     // gfx.surface.get_current_texture().unwrap().texture.size();
-    let x = (x as u32).clamp(0, width);
-    let y = (y as u32).clamp(0, height);
+    let x = (x.round() as u32).clamp(0, width);
+    let y = (y.round() as u32).clamp(0, height);
     pass.set_scissor_rect(
         x,
         y,
-        (size_x as u32).clamp(0, width - x),
-        (size_y as u32).clamp(0, height - y),
+        (size_x.round() as u32).clamp(0, width - x),
+        (size_y.round() as u32).clamp(0, height - y),
     );
 }
 
