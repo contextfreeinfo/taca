@@ -1,8 +1,9 @@
 -- Support first!
 local support = require "support"
-local c = require "./common.nelua"
+local c = require "./control.nelua"
 local d = require "./draw.nelua"
 local f = require "./frame.nelua"
+local g = require "./game.nelua"
 local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
@@ -10,7 +11,7 @@ local ti = require "./tiles.nelua"
 local u = require "./util.nelua"
 
 -- Content.
-local game: c.Game
+local game: g.Game
 local max_instances = 1000
 
 local function start()
@@ -67,6 +68,8 @@ local function start()
       instance_buffer = make_instance_buffer(1),
       texture = t.image_decode(r.player.image),
     },
+    player_dir = 1,
+    player_pos = r.player.start,
     tile_map = ti.decode(r.tile_map),
     tiles = {
       instance_buffer = make_instance_buffer(max_instances),
@@ -74,7 +77,7 @@ local function start()
     },
     uniforms_buffer = t.buffer_new(
       t.BufferKind.Uniform,
-      {data = nilptr, size = #c.Uniforms}
+      {data = nilptr, size = #g.Uniforms}
     ),
   }
   game.blitter.instances:reserve(max_instances)
@@ -106,6 +109,10 @@ local function update(event: t.EventKind)
   case t.EventKind.Frame then
     if game.init_finished then
       f.update(game)
+    end
+  case t.EventKind.Key then
+    if game.init_finished then
+      c.update_key(game)
     end
   case t.EventKind.TasksDone then
     finish_init()

@@ -8,7 +8,6 @@ require "support"
 ## local src = fs.scriptdir()
 print(#[src]#)
 
-local c = require "./common.nelua"
 local d = require "./draw.nelua"
 
 local resources = @record{}

@@ -33,6 +33,7 @@ local draw.Blitter = @record{
 local draw.Blit = @record{
   source_rect: draw.Rect,
   view_pos: [2]float32,
+  view_scale: [2]float32,
 }
 
 local draw.BlitInfo = @record{
@@ -52,6 +53,12 @@ function draw.Blitter:blit(info: draw.BlitInfo)
     local rect = blit.source_rect
     local view_scale_x = rect.size[0] / self.view_size[0]
     local view_scale_y = rect.size[1] / self.view_size[1]
+    if blit.view_scale[0] ~= 0 then
+      view_scale_x = view_scale_x * blit.view_scale[0]
+    end
+    if blit.view_scale[1] ~= 0 then
+      view_scale_y = view_scale_y * blit.view_scale[1]
+    end
     self.instances:push({
       offset = {
         (2 * blit.view_pos[0]) / self.view_size[0] - 1,

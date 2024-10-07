@@ -1,19 +1,22 @@
 local frame = @record{}
 
-local c = require "./common.nelua"
+local c = require "./control.nelua"
 local d = require "./draw.nelua"
+local g = require "./game.nelua"
 local m = require "math"
 local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
 
-function frame.update(game: *c.Game)
+function frame.update(game: *g.Game)
   -- Window
   local window = t.window_state();
   local viewport_aspect = r.viewport_size[0] / r.viewport_size[1]
   local window_aspect = window.size[0] / window.size[1]
   local aspect = window_aspect / viewport_aspect
   -- t.print(s.format("aspect: %f", aspect))
+  -- Control
+  c.update_control(game)
   -- Uniform and clip
   if aspect > 1 then
     -- Fill height.
@@ -30,15 +33,17 @@ function frame.update(game: *c.Game)
   end
   t.buffer_update(
     game.uniforms_buffer,
-    {data = (@pointer(byte))(&game.uniforms), size = #c.Uniforms},
+    {data = (@pointer(byte))(&game.uniforms), size = #g.Uniforms},
     0
   )
   -- Sprite frames
   game.gem_frame = m.fmod(game.gem_frame + r.gem.speed / 60, #r.gem.shine)
-  game.player_frame = m.fmod(
-    game.player_frame + r.player.speed / 60,
-    #r.player.run
-  )
+  if game.player_animate then
+    game.player_frame = m.fmod(
+      game.player_frame + r.player.speed / 60,
+      #r.player.run
+    )
+  end
   -- Draw
   local back_source: d.Rect = {
     pos = {0, 0},
@@ -100,7 +105,8 @@ function frame.update(game: *c.Game)
     texture = game.player,
     blits = {{
       source_rect = r.player.run[m.floor(game.player_frame)],
-      view_pos = r.player.start,
+      view_pos = game.player_pos,
+      view_scale = {game.player_dir, 1},
     }},
   })
 end
