@@ -28,7 +28,9 @@ pub const BufferKind = enum(c_int) {
 };
 
 pub const EventKind = enum(c_int) {
-    draw,
+    frame,
+    key,
+    tasks_done,
 };
 
 pub const Pipeline = extern struct {};
@@ -51,8 +53,8 @@ pub const PipelineInfo = struct {
 pub const RenderingContext = struct {
     const Self = RenderingContext;
 
-    pub fn applyBindings(bindings: Bindings) void {
-        taca_bindings_apply(ExternBindings.from(bindings));
+    pub fn applyBuffers(bindings: Bindings) void {
+        taca_buffers_apply(ExternBindings.from(bindings));
     }
 
     pub fn applyPipeline(pipeline: *Pipeline) void {
@@ -235,7 +237,7 @@ const ExternPipelineShaderInfo = extern struct {
     }
 };
 
-extern fn taca_bindings_apply(
+extern fn taca_buffers_apply(
     bindings: ExternBindings,
 ) void;
 

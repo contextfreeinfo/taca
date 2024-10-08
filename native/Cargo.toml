@@ -14,6 +14,11 @@ wasmer-types = "4.3.2"
 wgpu = { version = "22.1.0", features = ["spirv"] }
 winit = "0.30.3"
 
+[dependencies.image]
+version = "0.25.2"
+default-features = false
+features = ["jpeg", "png"]
+
 [dependencies.naga]
 version = "22.1.0"
 default-features = false

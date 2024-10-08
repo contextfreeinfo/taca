@@ -44,7 +44,7 @@ fn void update_frame(Game* game) {
     // Ship
     uniforms.color = { 0.6, 0.7, 1 };
     taca::uniforms_update(value_as_slice(char, uniforms));
-    taca::binding_apply({
+    taca::buffers_apply({
         .index_buffer = game.ship.idx,
         .vertex_buffers = { game.ship.pos, game.ship.norm, game.ship.offset },
     });
@@ -80,7 +80,7 @@ fn void draw_light(Game* game, Uniforms* uniforms) {
         0,
     };
     uniforms.light = -pos;
-    taca::binding_apply({
+    taca::buffers_apply({
         .index_buffer = game.light.idx,
         .vertex_buffers = {
             game.light.pos, game.light.norm, game.light.offset
@@ -95,9 +95,10 @@ fn void draw_light(Game* game, Uniforms* uniforms) {
 }
 
 fn void draw_multi(Multi multi) {
-    taca::binding_apply({
+    taca::buffers_apply({
         .index_buffer = multi.buf.idx,
         .vertex_buffers = { multi.buf.pos, multi.buf.norm, multi.buf.offset },
+        // .instance_buffers = ...???
     });
     taca::buffer_update(
         multi.buf.offset, slice_as_slice(char, multi.offsets[:multi.count])

@@ -6,9 +6,17 @@ import {
   shaderToGlsl,
   ShaderStage,
 } from "../pkg/cana";
-import { TexturePipeline, fragmentMunge, shaderProgramBuild } from "./drawing";
+import {
+  Texture,
+  TexturePipeline,
+  fragmentMunge,
+  imageDecode,
+  shaderProgramBuild,
+} from "./drawing";
+import { BindGroupLayout, findBindGroups } from "./gpu";
 import { keys } from "./key";
-import { fail } from "./util";
+import { dataViewOf, fail, getU32, setF32, setU32 } from "./util";
+import { makeWasiEnv } from "./wasi";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
@@ -130,24 +138,86 @@ class App {
     return result;
   }
 
-  bindingApply(bindingsPtr: number) {
+  bindGroups = [] as {
+    pipeline: number;
+    group: number;
+    buffers: number[];
+    samplers: number[];
+    textures: number[];
+  }[];
+
+  bindingsApply(bindings: number) {
+    this.#pipelinedEnsure();
+    const { bindGroups, buffers, gl, pipeline, textures } = this;
+    // TODO Assert pipeline.
+    const bindGroup = bindGroups[bindings - 1];
+    const layout = pipeline!.bindGroups[bindGroup.group];
+    // TODO Samplers.
+    let bufferIndex = 0;
+    let textureIndex = 0;
+    for (const bindingLayout of layout.bindings) {
+      switch (bindingLayout?.kind) {
+        case "buffer": {
+          const buffer = buffers[bindGroup.buffers[bufferIndex] - 1];
+          gl.uniformBlockBinding(
+            pipeline!.program,
+            bindingLayout.index,
+            bufferIndex + 1
+          );
+          gl.bindBufferBase(gl.UNIFORM_BUFFER, bufferIndex + 1, buffer.buffer);
+          bufferIndex += 1;
+          break;
+        }
+        case "sampler": {
+          const texture = textures[bindGroup.textures[textureIndex] - 1];
+          gl.activeTexture(gl.TEXTURE0 + textureIndex);
+          gl.bindTexture(gl.TEXTURE_2D, texture.texture);
+          gl.uniform1i(bindingLayout.location, textureIndex);
+          textureIndex += 1;
+          break;
+        }
+      }
+    }
+  }
+
+  bindingsNew(info: number) {
+    const infoBytes = this.memoryViewMake(info, 8 * 4);
+    const pipeline = getU32(infoBytes, 0);
+    const group = getU32(infoBytes, 4);
+    const buffers = this.readAny(info + 8, 4, (view, offset) =>
+      getU32(view, offset)
+    );
+    const samplers = this.readAny(info + 16, 4, (view, offset) =>
+      getU32(view, offset)
+    );
+    const textures = this.readAny(info + 24, 4, (view, offset) =>
+      getU32(view, offset)
+    );
+    // TODO Connecting samplers to textures is hard without more shader digging.
+    // TODO Assert just one sampler for now?
+    const bindGroup = { pipeline, group, buffers, samplers, textures };
+    this.bindGroups.push(bindGroup);
+    return this.bindGroups.length;
+  }
+
+  buffersApply(buffersPtr: number) {
     const { buffers } = this;
     // Minimize allocations because this is in the draw loop.
     const view = this.memoryView();
-    const vertexPtr = getU32(view, bindingsPtr);
-    const vertexLen = getU32(view, bindingsPtr + 4);
-    const index = buffers[getU32(view, bindingsPtr + 8) - 1];
+    const vertexPtr = getU32(view, buffersPtr);
+    const vertexLen = getU32(view, buffersPtr + 4);
+    const index = buffers[getU32(view, buffersPtr + 8) - 1];
     // TODO Predefine bindings to avoid allocations?
     const vertex = new Array<Buffer>(vertexLen);
     for (var i = 0; i < vertexLen; i += 1) {
       vertex[i] = buffers[getU32(view, vertexPtr + 4 * i) - 1];
     }
-    this.binding = { index, vertex };
+    this.boundBuffers = { index, vertex };
     this.buffered = false;
   }
 
-  binding: Binding | null = null;
-  bindingDefault: Binding | null = null;
+  boundBuffers: Buffers | null = null;
+  boundBuffersDefault: Buffers | null = null;
 
   bufferNew(type: number, info: number) {
     const infoBytes = this.memoryViewMake(info, 2 * 4);
@@ -158,10 +228,12 @@ class App {
       : new Uint8Array(size);
     const { gl } = this;
     const buffer = gl.createBuffer() ?? fail();
-    const kind = ["vertex", "index"][type] as "vertex" | "index";
+    const kind = ["vertex", "index", "uniform"][type] as BufferKind;
     const usage = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
     // TODO Change to numbers for kind or just cache these elsewhere?
-    const target = [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER][type] ?? fail();
+    const target =
+      [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER, gl.UNIFORM_BUFFER][type] ??
+      fail();
     gl.bindBuffer(target, buffer);
     gl.bufferData(target, data, usage);
     this.buffers.push({ buffer, kind, mutable: !ptr, size });
@@ -174,9 +246,11 @@ class App {
     const bytes = this.readBytes(slice);
     // TODO Is this checked automatically?
     mutable || fail();
-    const target = { vertex: gl.ARRAY_BUFFER, index: gl.ELEMENT_ARRAY_BUFFER }[
-      kind
-    ];
+    const target = {
+      vertex: gl.ARRAY_BUFFER,
+      index: gl.ELEMENT_ARRAY_BUFFER,
+      uniform: gl.UNIFORM_BUFFER,
+    }[kind];
     gl.bindBuffer(target, buffer);
     gl.bufferSubData(target, offset, bytes);
   }
@@ -186,18 +260,18 @@ class App {
   #bufferedEnsure() {
     if (!this.buffered) {
       this.#pipelinedEnsure();
-      if (!this.binding) {
-        let { bindingDefault } = this;
-        if (!this.bindingDefault) {
+      if (!this.boundBuffers) {
+        let { boundBuffersDefault } = this;
+        if (!this.boundBuffersDefault) {
           const { buffers } = this;
           const find = (kind: string) =>
             buffers.find((buffer) => buffer.kind == kind) ?? fail();
-          this.bindingDefault = bindingDefault = {
+          this.boundBuffersDefault = boundBuffersDefault = {
             index: find("index"),
             vertex: [find("vertex")],
           };
         }
-        this.binding = bindingDefault;
+        this.boundBuffers = boundBuffersDefault;
       }
       this.#buffersBind();
     }
@@ -207,10 +281,10 @@ class App {
 
   #buffersBind() {
     // If at least two buffers, presumes one is data and one index.
-    const { binding, gl, pipeline } = this;
+    const { boundBuffers, gl, pipeline } = this;
     // Vertex buffer.
     const attrs = pipeline!.attributes;
-    const vertexBuffers = binding!.vertex;
+    const vertexBuffers = boundBuffers!.vertex;
     const vertexBufferInfos = pipeline!.buffers;
     let vertexBufferIndex = -1;
     let vertex: Buffer;
@@ -238,7 +312,7 @@ class App {
     }
     // TODO Instance buffer.
     // Index buffer.
-    const index = binding!.index;
+    const index = boundBuffers!.index;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
     this.buffered = true;
   }
@@ -323,7 +397,7 @@ class App {
 
   frameCommit() {
     this.buffered = this.passBegun = false;
-    this.binding = this.pipeline = null;
+    this.boundBuffers = this.pipeline = null;
   }
 
   frameCount: number = 0;
@@ -357,11 +431,29 @@ class App {
     setU32(keyEvent, 0, keys[event.key] ?? 0);
     setU32(keyEvent, 4, pressed ? 1 : 0);
     if (exports.update) {
-      exports.update!(1);
+      exports.update!(eventTypes.key);
     }
   }
 
   gl: WebGL2RenderingContext;
+
+  imageDecode(bytes: number) {
+    let { gl, textures } = this;
+    let pointer = 0;
+    const texture = imageDecode(
+      gl,
+      this.readBytes(bytes),
+      () => this.taskFinish(),
+      (reason) => {
+        this.taskFinish();
+        fail(reason);
+      }
+    );
+    this.tasksActive += 1;
+    textures.push(texture);
+    pointer = textures.length;
+    return pointer;
+  }
 
   indexBuffer: Buffer | null = null;
 
@@ -415,7 +507,8 @@ class App {
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
     (pipeline.depthTest ? gl.enable : gl.disable).call(gl, gl.DEPTH_TEST);
     gl.useProgram(pipeline.program);
-    // Presume we need new buffer binding when the program changes.
+    this.tacaBufferEnsure();
+    // Presume we need new buffers bound when the program changes.
     this.buffered = false;
   }
 
@@ -431,10 +524,12 @@ class App {
     // console.log(vertex);
     // console.log(fragment);
     const program = shaderProgramBuild(gl, vertex, fragment);
+    const bindGroups = findBindGroups(gl, program);
     pipelineInfo = this.#attributesBuild(program, pipelineInfo);
     const uniforms = this.#uniformsBuild(program);
     pipelines.push({
       attributes: pipelineInfo.vertexAttrs,
+      bindGroups,
       buffers: pipelineInfo.vertexBuffers,
       depthTest: pipelineInfo.depthTest,
       program,
@@ -546,7 +641,20 @@ class App {
   shaders: Shader[] = [];
   tacaBuffer: WebGLBuffer | null = null;
 
-  tacaBufferUpdate() {
+  private tacaBufferEnsure() {
+    const { gl, pipeline } = this;
+    if (!this.tacaBuffer) {
+      const tacaSize = pipeline!.uniforms.tacaSize;
+      const tacaBuffer = gl.createBuffer() ?? fail();
+      gl.bindBuffer(gl.UNIFORM_BUFFER, tacaBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, tacaSize, gl.STREAM_DRAW);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, tacaBuffer);
+      this.tacaBuffer = tacaBuffer;
+      this.tacaBufferUpdate();
+    }
+  }
+
+  private tacaBufferUpdate() {
     const { canvas } = this.config;
     if (this.tacaBuffer) {
       const { gl } = this;
@@ -561,6 +669,15 @@ class App {
         // console.log(tacaBytes);
         gl.bufferSubData(gl.UNIFORM_BUFFER, 0, tacaBytes);
       }
+    }
+  }
+
+  tasksActive = 0;
+
+  taskFinish() {
+    this.tasksActive -= 1;
+    if (!this.tasksActive && this.exports.update) {
+      this.exports.update!(eventTypes.tasksDone);
     }
   }
 
@@ -643,12 +760,21 @@ class App {
   textTexture: number = 0;
   textTextureText: string = "";
   texturePipeline: TexturePipeline;
+
+  textureInfo(result: number, texture: number) {
+    let size = this.textures[texture - 1]?.size ?? [0, 0];
+    const view = this.memoryViewMake(result, 2 * 4);
+    setF32(view, 0, size[0]);
+    setF32(view, 4, size[1]);
+  }
+
   textures: Texture[] = [];
 
   uniformsApply(uniforms: number) {
     this.#pipelinedEnsure();
     const { gl } = this;
-    if (!this.uniformsBuffer) { // TODO Per pipeline!
+    if (!this.uniformsBuffer) {
+      // TODO Per pipeline!
       const { pipeline } = this;
       const uniformsBuffer = gl.createBuffer() ?? fail();
       const { uniforms } = pipeline!;
@@ -660,13 +786,6 @@ class App {
         }
       }
       this.uniformsBuffer = uniformsBuffer;
-      // Custom taca uniforms.
-      const tacaBuffer = gl.createBuffer() ?? fail();
-      gl.bindBuffer(gl.UNIFORM_BUFFER, tacaBuffer);
-      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.tacaSize, gl.STREAM_DRAW);
-      gl.bindBufferBase(gl.UNIFORM_BUFFER, uniforms.tacaIndex + 1, tacaBuffer);
-      this.tacaBuffer = tacaBuffer;
-      this.tacaBufferUpdate();
     }
     const uniformsBytes = this.readBytes(uniforms);
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.uniformsBuffer);
@@ -691,24 +810,41 @@ class App {
           i,
           gl.UNIFORM_BLOCK_DATA_SIZE
         ) ?? fail();
-      if (name == "taca_uniform_block") {
+      const isTaca = name == "taca_uniform_block";
+      if (isTaca) {
         tacaIndex = i;
         tacaSize = nextSize;
       } else {
-        if (size > 0 && nextSize != size) fail();
+        // The idea here was expecting only one but repeated as fs vs vs, like
+        // naga likes to do, but it doesn't accommodate actual multiple.
+        // TODO Replace all this once we move to pure bind groups.
+        // if (size > 0 && nextSize != size) fail();
         size = nextSize;
       }
-      gl.uniformBlockBinding(program, i, i + 1);
+      gl.uniformBlockBinding(program, i, isTaca ? 0 : i + 1);
     }
     return { count, size, tacaIndex, tacaSize };
   }
 
   vertexBuffer: Buffer | null = null;
+
+  windowState(result: number) {
+    // TODO Include time.
+    const { clientWidth, clientHeight } = this.canvas;
+    const [pointerX, pointerY] = this.pointerPos;
+    const view = this.memoryViewMake(result, 5 * 4);
+    setF32(view, 0, pointerX);
+    setF32(view, 4, pointerY);
+    setU32(view, 8, this.pointerPress);
+    setF32(view, 12, clientWidth);
+    setF32(view, 16, clientHeight);
+  }
 }
 
 interface AppExports {
   _initialize: (() => void) | undefined;
-  start: () => void;
+  _start: (() => void) | undefined;
+  start: (() => void) | undefined;
   update: ((event: number) => void) | undefined;
 }
 
@@ -720,7 +856,7 @@ interface AttrInfo {
   type: number;
 }
 
-interface Binding {
+interface Buffers {
   // TODO images/textures
   index: Buffer;
   vertex: Buffer[];
@@ -728,7 +864,7 @@ interface Binding {
 
 interface Buffer {
   buffer: WebGLBuffer;
-  kind: "index" | "vertex";
+  kind: BufferKind;
   mutable: boolean;
   size: number;
 }
@@ -739,13 +875,13 @@ interface BufferInfo {
   stride: number;
 }
 
-function dataViewOf(array: Uint8Array) {
-  return new DataView(array.buffer, array.byteOffset, array.byteLength);
-}
+type BufferKind = "vertex" | "index" | "uniform";
 
-function getU32(view: DataView, byteOffset: number) {
-  return view.getUint32(byteOffset, true);
-}
+const eventTypes = {
+  frame: 0,
+  key: 1,
+  tasksDone: 2,
+};
 
 async function loadApp(config: AppConfig) {
   const appData = config.code as ArrayBuffer;
@@ -758,14 +894,22 @@ async function loadApp(config: AppConfig) {
       : appData;
   let app = new App(config);
   const env = makeAppEnv(app);
-  let { instance } = await WebAssembly.instantiate(actualData, { env });
+  const wasi = makeWasiEnv(app);
+  let { instance } = await WebAssembly.instantiate(actualData, {
+    env,
+    wasi_snapshot_preview1: wasi,
+  });
   app.init(instance);
-  // TODO Fold config into start once we get fully off miniquad.
+  // TODO Fold config into start.
   const exports = app.exports;
   if (exports._initialize) {
     exports._initialize();
+  } else if (exports._start) {
+    exports._start();
   }
-  exports.start();
+  if (exports.start) {
+    exports.start();
+  }
   if (exports.update) {
     const update = () => {
       try {
@@ -790,80 +934,77 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
 function makeAppEnv(app: App) {
   return {
     taca_bindings_apply(bindings: number) {
-      app.bindingApply(bindings);
+      app.bindingsApply(bindings);
     },
-    taca_pipeline_apply(pipeline: number) {
-      app.pipelineApply(pipeline);
+    taca_bindings_new(info: number) {
+      return app.bindingsNew(info);
     },
-    taca_uniforms_apply(uniforms: number) {
-      app.uniformsApply(uniforms);
-    },
-    taca_RenderingContext_beginPass() {},
-    taca_RenderingContext_commitFrame() {
-      app.frameCommit();
-    },
-    taca_draw(
-      itemBegin: number,
-      itemCount: number,
-      instanceCount: number
-    ) {
-      app.draw(itemBegin, itemCount, instanceCount);
-    },
-    taca_text_draw(text: number, x: number, y: number) {
-      app.drawText(app.readString(text), x, y);
-    },
-    taca_text_align(x: number, y: number) {
-      app.textAlign(x, y);
-    },
-    taca_text_drawure(texture: number, x: number, y: number) {
-      // TODO Source and dest rect? Instanced?
-      app.drawTexture(texture, x, y);
-    },
-    taca_RenderingContext_endPass() {},
     taca_buffer_new(type: number, info: number) {
       return app.bufferNew(type, info);
     },
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
       return app.bufferUpdate(buffer, bytes, offset);
     },
+    taca_buffers_apply(buffers: number) {
+      app.buffersApply(buffers);
+    },
+    taca_clip(x: number, y: number, sizeX: number, sizeY: number) {
+      const { gl } = app;
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(
+        Math.round(x),
+        Math.round(y),
+        Math.round(sizeX),
+        Math.round(sizeY)
+      );
+    },
+    taca_draw(itemBegin: number, itemCount: number, instanceCount: number) {
+      app.draw(itemBegin, itemCount, instanceCount);
+    },
+    taca_image_decode(bytes: number) {
+      return app.imageDecode(bytes);
+    },
     taca_key_event(result: number) {
       app.memoryBytes().set(app.keyEventBytes, result);
     },
+    taca_pipeline_apply(pipeline: number) {
+      app.pipelineApply(pipeline);
+    },
     taca_pipeline_new(info: number) {
       return app.pipelineNew(info);
+    },
+    taca_print(text: number) {
+      console.log(app.readString(text));
     },
     taca_shader_new(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
-    taca_Window_newRenderingContext() {
-      // TODO Use this for offscreen contexts for render to texture.
-      // TODO Need size? Resizable? Reallocate in same index?
-      return 1;
+    taca_text_align(x: number, y: number) {
+      app.textAlign(x, y);
     },
-    taca_print(text: number) {
-      console.log(app.readString(text));
+    taca_text_draw(text: number, x: number, y: number) {
+      app.drawText(app.readString(text), x, y);
+    },
+    taca_texture_info(result: number, texture: number) {
+      app.textureInfo(result, texture);
     },
     taca_title_update(title: number) {
       // TODO Abstract to provide callbacks for these things?
       document.title = app.readString(title);
     },
+    taca_uniforms_apply(uniforms: number) {
+      app.uniformsApply(uniforms);
+    },
     taca_window_state(result: number) {
-      // TODO Include time.
-      const { clientWidth, clientHeight } = app.canvas;
-      const [pointerX, pointerY] = app.pointerPos;
-      const view = app.memoryViewMake(result, 5 * 4);
-      setF32(view, 0, pointerX);
-      setF32(view, 4, pointerY);
-      setU32(view, 8, app.pointerPress);
-      setF32(view, 12, clientWidth);
-      setF32(view, 16, clientHeight);
+      app.windowState(result);
     },
   };
 }
 
 interface Pipeline {
   attributes: AttrInfo[];
+  bindGroups: BindGroupLayout[];
   buffers: BufferInfo[];
   depthTest: boolean;
   program: WebGLProgram;
@@ -895,31 +1036,12 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
   };
 }
 
-function setF32(view: DataView, byteOffset: number, value: number) {
-  return view.setFloat32(byteOffset, value, true);
-}
-
-function setU32(view: DataView, byteOffset: number, value: number) {
-  return view.setUint32(byteOffset, value, true);
-}
-
-// function setU32(view: DataView, byteOffset: number, value: number) {
-//   return view.setUint32(byteOffset, value, true);
-// }
-
 interface ShaderInfo {
   entry: string;
   shader: number;
 }
 
 const textDecoder = new TextDecoder();
-
-interface Texture {
-  // TODO Also store a baseline for all textures that for non-text is y size.
-  size: [number, number];
-  texture: WebGLTexture;
-  usedSize: [number, number];
-}
 
 interface Uniforms {
   count: number;

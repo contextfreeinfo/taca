@@ -1,0 +1,39 @@
+local pub = @record{}
+
+local d = require "./draw.nelua"
+local t = require "taca"
+
+local pub.Uniforms = @record{
+  aspect: [2]float32,
+  pad: [2]float32,
+}
+
+local pub.Control = @record{
+  left: boolean,
+  jump: boolean,
+  right: boolean,
+}
+
+local pub.Game = @record{
+  back: d.TextureBindings,
+  blitter: d.Blitter,
+  gem: d.TextureBindings,
+  gem_frame: float32,
+  gem_map: vector(d.Blit),
+  init_finished: boolean,
+  middle: d.TextureBindings,
+  player: d.TextureBindings,
+  player_animate: boolean,
+  player_control: pub.Control,
+  player_dir: float32,
+  player_frame: float32,
+  player_grounded: boolean,
+  player_pos: [2]float32,
+  player_vel_y: float32,
+  tile_map: vector(d.Blit),
+  tiles: d.TextureBindings,
+  uniforms: pub.Uniforms,
+  uniforms_buffer: t.Buffer,
+}
+
+return pub

@@ -7,8 +7,10 @@ cbuffer Uniforms : register(b0) {
 };
 
 struct VSInput {
+    // Vertex.
     float3 pos : POSITION;
     float3 norm : NORMAL;
+    // Instance.
     float3 offset : TEXCOORD0;
 };
 

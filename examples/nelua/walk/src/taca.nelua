@@ -1,0 +1,171 @@
+local taca = @record{}
+
+-- Opaques
+
+-- TODO Change to numbers so we know they aren't unique across types?
+local taca.Bindings = @pointer
+local taca.Buffer = @pointer
+local taca.Pipeline = @pointer
+local taca.Sampler = @pointer
+local taca.Shader = @pointer
+local taca.Texture = @pointer
+
+-- Enums
+
+local taca.EventKind = @enum(uint32){
+  Frame = 0,
+  Key,
+  TasksDone,
+}
+
+local taca.Key = @enum(uint32){
+  None = 0,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Space,
+  Escape,
+}
+
+local taca.Step = @enum(uint32){
+  Vertex = 0,
+  Instance,
+}
+
+-- Records
+
+local taca.AttributeInfo = @record{
+  shader_location: usize,
+  value_offset: usize,
+}
+
+local taca.BindingsInfo = @record{
+  pipeline: taca.Pipeline,
+  group_index: usize,
+  buffers: span(taca.Buffer),
+  samplers: span(taca.Sampler),
+  textures: span(taca.Texture),
+}
+
+local taca.BufferKind = @enum(uint32) {
+  Vertex = 0,
+  Index,
+  Uniform,
+}
+
+local taca.Buffers = @record{
+  vertex_buffers: span(taca.Buffer),
+  index_buffer: taca.Buffer,
+}
+
+local taca.KeyEvent = @record{
+  key: taca.Key,
+  pressed: boolean,
+}
+
+local taca.BufferInfo = @record{
+  first_attribute: usize,
+  step: taca.Step,
+  stride: usize,
+}
+
+local taca.PipelineShaderInfo = @record{
+  entry: string,
+  shader: taca.Shader,
+}
+
+local taca.PipelineInfo = @record{
+    depth_test: boolean,
+    fragment: taca.PipelineShaderInfo,
+    vertex: taca.PipelineShaderInfo,
+    vertex_attributes: span(taca.AttributeInfo),
+    vertex_buffers: span(taca.BufferInfo),
+}
+
+local taca.TextureInfo = @record{
+    size: [2]float32,
+}
+
+local taca.WindowState = @record{
+    pointer: [2]float32,
+    press: uint32,
+    size: [2]float32,
+}
+
+-- Functions
+
+function taca.bindings_apply(bindings: taca.Bindings): void
+  <cimport, cattribute 'import_name("taca_bindings_apply")'>
+end
+
+function taca.bindings_new(info: taca.BindingsInfo): taca.Bindings
+  <cimport, cattribute 'import_name("taca_bindings_new")'>
+end
+
+function taca.buffer_new(kind: taca.BufferKind, bytes: span(byte)): taca.Buffer
+  <cimport, cattribute 'import_name("taca_buffer_new")'>
+end
+
+function taca.buffer_update(
+  buffer: taca.Buffer,
+  bytes: span(byte),
+  buffer_offset: usize
+): void
+  <cimport, cattribute 'import_name("taca_buffer_update")'>
+end
+
+function taca.buffers_apply(buffers: taca.Buffers): void
+  <cimport, cattribute 'import_name("taca_buffers_apply")'>
+end
+
+function taca.clip(
+  x: float32,
+  y: float32,
+  size_x: float32,
+  size_y: float32
+): void
+  <cimport, cattribute 'import_name("taca_clip")'>
+end
+
+function taca.draw(
+  index_begin: uint32,
+  index_count: uint32,
+  instance_count: uint32
+): void
+  <cimport, cattribute 'import_name("taca_draw")'>
+end
+
+function taca.image_decode(bytes: span(byte)): taca.Texture
+  <cimport, cattribute 'import_name("taca_image_decode")'>
+end
+
+function taca.key_event(): taca.KeyEvent
+  <cimport, cattribute 'import_name("taca_key_event")'>
+end
+
+function taca.pipeline_apply(pipeline: taca.Pipeline): void
+  <cimport, cattribute 'import_name("taca_pipeline_apply")'>
+end
+
+function taca.pipeline_new(info: taca.PipelineInfo): taca.Pipeline
+  <cimport, cattribute 'import_name("taca_pipeline_new")'>
+end
+
+function taca.print(text: string): void
+  <cimport, cattribute 'import_name("taca_print")'>
+end
+
+function taca.shader_new(bytes: span(byte)): taca.Shader
+  <cimport, cattribute 'import_name("taca_shader_new")'>
+end
+
+function taca.texture_info(texture: taca.Texture): taca.TextureInfo
+  <cimport, cattribute 'import_name("taca_texture_info")'>
+end
+
+function taca.window_state(): taca.WindowState
+  <cimport, cattribute 'import_name("taca_window_state")'>
+end
+
+return taca;

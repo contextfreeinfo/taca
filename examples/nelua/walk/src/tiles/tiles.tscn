@@ -1,0 +1,48 @@
+[gd_scene load_steps=8 format=4 uid="uid://c6e3vkghujj5y"]
+
+[ext_resource type="TileSet" uid="uid://b4pqs621sj0p7" path="res://tiles.tres" id="1_pu7yx"]
+[ext_resource type="Texture2D" uid="uid://bowi6ipba774n" path="res://back.png" id="1_vr5x4"]
+[ext_resource type="Texture2D" uid="uid://k7v73wtlfasb" path="res://middle.png" id="2_wj31b"]
+[ext_resource type="SpriteFrames" uid="uid://c01wdkgh5u8r1" path="res://player.tres" id="4_7rpep"]
+[ext_resource type="SpriteFrames" uid="uid://c6nsm7jexm8al" path="res://gem.tres" id="5_h6wqg"]
+[ext_resource type="Script" path="res://player.gd" id="5_kyqbn"]
+[ext_resource type="Script" path="res://gem.gd" id="6_1mira"]
+
+[node name="Node2D" type="Node2D"]
+texture_filter = 1
+
+[node name="BackLayer" type="Parallax2D" parent="."]
+repeat_size = Vector2(384, 0)
+autoscroll = Vector2(-20, 0)
+repeat_times = 2
+
+[node name="Back" type="Sprite2D" parent="BackLayer"]
+position = Vector2(280, 118)
+texture = ExtResource("1_vr5x4")
+
+[node name="MiddleLayer" type="Parallax2D" parent="."]
+repeat_size = Vector2(176, 0)
+autoscroll = Vector2(-50, 0)
+repeat_times = 3
+
+[node name="Middle" type="Sprite2D" parent="MiddleLayer"]
+position = Vector2(83, 207)
+texture = ExtResource("2_wj31b")
+
+[node name="TileMapLayer" type="TileMapLayer" parent="."]
+tile_map_data = PackedByteArray("AAAAAAoAAAADAAEAAAABAAoAAAADAAEAAAACAAoAAAADAAEAAAADAAoAAAADAAEAAAAEAAoAAAADAAEAAAAFAAoAAAADAAEAAAAGAAoAAAADAAEAAAAHAAoAAAADAAEAAAAIAAoAAAADAAEAAAAJAAoAAAADAAEAAAAKAAoAAAABAAMAAAALAAoAAAAHAAcAAAAMAAoAAAAHAAcAAAANAAoAAAAHAAcAAAAOAAoAAAAHAAcAAAAPAAoAAAAHAAcAAAAQAAoAAAAHAAcAAAATAAkAAAADAAEAAAATAAoAAAAHAAcAAAASAAoAAAAHAAcAAAARAAoAAAAHAAcAAAAKAAkAAAADAAEAAAALAAkAAAADAAEAAAAMAAkAAAADAAEAAAANAAkAAAADAAEAAAAOAAkAAAADAAEAAAAPAAkAAAADAAEAAAAQAAkAAAADAAEAAAARAAkAAAADAAEAAAASAAkAAAADAAEAAAADAAgAAAAPAA4AAAAEAAgAAAATAA4AAAAEAAMAAAADAAEAAAAFAAMAAAATAA4AAAAGAAYAAAAPAA4AAAAHAAYAAAATAA4AAAAKAAYAAAAPAAkAAAANAAYAAAAPAA4AAAAOAAYAAAATAA4AAAAPAAQAAAAPAA4AAAAQAAQAAAADAAEAAAARAAQAAAADAAEAAAASAAQAAAATAA4AAAAKAAgAAAAPAAkAAAAKAAcAAAAPAAkAAAAKAAQAAAABABQAAAAKAAUAAAAPAAkAAAALAAQAAAADAAEAAAAMAAQAAAATAA4AAAACAAMAAAAPAA4AAAADAAMAAAADAAEAAAA=")
+tile_set = ExtResource("1_pu7yx")
+
+[node name="Player" type="AnimatedSprite2D" parent="."]
+position = Vector2(17, 144)
+sprite_frames = ExtResource("4_7rpep")
+animation = &"run"
+frame_progress = 0.932707
+script = ExtResource("5_kyqbn")
+
+[node name="Gem" type="AnimatedSprite2D" parent="."]
+position = Vector2(185, 136)
+sprite_frames = ExtResource("5_h6wqg")
+animation = &"shine"
+frame_progress = 0.763465
+script = ExtResource("6_1mira")

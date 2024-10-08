@@ -2,9 +2,14 @@ module taca;
 
 // Functions
 
-extern fn void binding_apply(
-    Binding binding,
+extern fn void bindings_apply(
+    Bindings bindings,
+    // TODO ??? char[] uniform_bytes, // leave empty to avoid update
 ) @extern("taca_bindings_apply");
+
+extern fn Bindings bindings_new(
+    BindingsInfo info,
+) @extern("taca_bindings_new");
 
 extern fn Buffer buffer_new(
     BufferKind kind,
@@ -17,6 +22,12 @@ extern fn void buffer_update(
     usz buffer_offset = 0,
 ) @extern("taca_buffer_update");
 
+extern fn void buffers_apply(
+    // TODO Mesh mesh,
+    // TODO Does mesh make sense vs instance buffers?
+    MeshBuffers mesh,
+) @extern("taca_buffers_apply");
+
 extern fn void draw(
     uint item_begin,
     uint item_count,
@@ -26,6 +37,10 @@ extern fn void draw(
 extern fn KeyEvent key_event(
     // Nothing
 ) @extern("taca_key_event");
+
+// extern fn Mesh mesh_new(
+//     MeshBuffers mesh,
+// ) @extern("taca_mesh_new");
 
 extern fn void pipeline_apply(
     Pipeline pipeline,
@@ -48,6 +63,7 @@ extern fn void text_align(
     TextAlignY y,
 ) @extern("taca_text_align");
 
+// TODO Combine into slice of text areas, each with alignment? Optional bounds?
 extern fn void text_draw(
     char[] bytes,
     float x,
@@ -58,7 +74,9 @@ extern fn void title_set(
     char[] title,
 ) @extern("taca_title_update");
 
+// TODO Allowed at most once per bindings per frame? No op after?
 extern fn void uniforms_update(
+    // TODO ??? usz binding, // Or always just one?
     char[] bytes,
 ) @extern("taca_uniforms_apply");
 
@@ -73,16 +91,21 @@ struct AttributeInfo {
     usz value_offset;
 }
 
-struct Binding {
-    Buffer[] vertex_buffers;
-    Buffer index_buffer;
+distinct Bindings = void*;
+
+struct BindingsInfo {
+    Pipeline pipeline;
+    usz group_index;
+    Buffer[] buffers;
+    Sampler[] samplers;
+    Texture[] textures;
 }
 
 distinct Buffer = void*;
 
 struct BufferInfo {
     usz first_attribute;
-    Step step;
+    Step step; // TODO Instead have a single first instance index?
     usz stride;
 }
 
@@ -119,6 +142,14 @@ struct KeyEvent {
     bool pressed;
 }
 
+// distinct Mesh = void*;
+
+struct MeshBuffers {
+    // TODO Separate instance buffers from vertex buffers?
+    Buffer[] vertex_buffers;
+    Buffer index_buffer;
+}
+
 distinct Pipeline = void*;
 
 struct PipelineInfo {
@@ -133,6 +164,8 @@ struct PipelineShaderInfo {
     char[] entry;
     Shader shader;
 }
+
+distinct Sampler = void*;
 
 distinct Shader = void*;
 
@@ -153,6 +186,8 @@ enum TextAlignY : uint {
     MIDDLE,
     BOTTOM,
 }
+
+distinct Texture = void*;
 
 struct WindowState {
     float[2] pointer;

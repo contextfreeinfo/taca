@@ -1,0 +1,39 @@
+[gd_resource type="SpriteFrames" load_steps=6 format=3 uid="uid://c6nsm7jexm8al"]
+
+[ext_resource type="Texture2D" uid="uid://d0tgy5uyvsfg6" path="res://gem.png" id="1_wg5px"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_eea5e"]
+atlas = ExtResource("1_wg5px")
+region = Rect2(15, 0, 15, 13)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hxrwj"]
+atlas = ExtResource("1_wg5px")
+region = Rect2(30, 0, 15, 13)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_icpys"]
+atlas = ExtResource("1_wg5px")
+region = Rect2(45, 0, 15, 13)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ai1bc"]
+atlas = ExtResource("1_wg5px")
+region = Rect2(60, 0, 15, 13)
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_eea5e")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hxrwj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_icpys")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ai1bc")
+}],
+"loop": true,
+"name": &"shine",
+"speed": 6.0
+}]

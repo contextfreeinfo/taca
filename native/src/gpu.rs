@@ -1,30 +1,45 @@
+use std::{io::Cursor, num::NonZeroU64};
+
 use bytemuck::PodCastError;
+use image::{DynamicImage, ImageError, ImageReader};
 use naga::{
     front::spv,
     valid::{Capabilities, ValidationFlags, Validator},
-    ScalarKind, VectorSize,
+    ImageClass, ScalarKind, VectorSize,
 };
 use wasmer::ValueType;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     BufferDescriptor, BufferUsages, CommandEncoder, MultisampleState, RenderPipelineDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture, TextureFormat, TextureView,
-    TextureViewDescriptor, VertexFormat,
+    SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, SurfaceTexture,
+    TextureFormat, TextureView, TextureViewDescriptor, VertexFormat,
 };
 
-use crate::{app::System, display::MaybeGraphics};
+use crate::{
+    app::System,
+    display::{MaybeGraphics, UserEvent},
+};
 
 #[derive(Debug)]
-pub struct Binding {
-    // Need a different bind group per pipeline.
-    pub bind_groups: Vec<wgpu::BindGroup>,
-    pub index_buffer: u32,
-    // TODO textures
-    pub vertex_buffers: Vec<u32>,
+pub struct Bindings {
+    pub pipeline: usize,
+    pub bind_group: wgpu::BindGroup,
+    // TODO buffers
+    pub group_index: u32,
+    pub updated_this_frame: bool, // TODO Track by buffer per queue instead?
+}
+
+#[derive(Debug)]
+pub struct BindingsInfo {
+    pub pipeline: u32,
+    pub group_index: u32,
+    pub buffers: Vec<u32>,
+    pub samplers: Vec<u32>,
+    pub textures: Vec<u32>,
 }
 
 #[derive(Clone, Debug)]
-pub struct Bindings<'a> {
+pub struct MeshBuffers<'a> {
     pub vertex_buffers: &'a [u32],
     pub index_buffer: u32,
 }
@@ -38,12 +53,23 @@ pub struct BufferSlice {
 
 pub struct Buffer {
     pub buffer: wgpu::Buffer,
-    pub usage: BufferUsages,
+    pub usage: BufferUsages, // TODO Already available from buffer.
+                             // TODO Track against multiple writes during single queue?
 }
 
 #[derive(Clone, Copy, Debug, ValueType)]
 #[repr(C)]
-pub struct ExternBindings {
+pub struct ExternBindingsInfo {
+    pub pipeline: u32,
+    pub group_index: u32,
+    pub buffers: Span,
+    pub samplers: Span,
+    pub textures: Span,
+}
+
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct ExternMeshBuffers {
     pub vertex_buffers: Span,
     pub index_buffer: u32,
 }
@@ -67,7 +93,7 @@ pub struct ExternPipelineShaderInfo {
 
 #[derive(Debug)]
 pub struct Pipeline {
-    // pub bind_group_layout: wgpu::BindGroupLayout,
+    pub bind_group_layouts: Vec<Vec<wgpu::BindGroupLayoutEntry>>,
     pub bind_group_index: usize,
     pub bind_groups: Vec<PipelineBindGroup>,
     pub pipeline: wgpu::RenderPipeline,
@@ -145,13 +171,150 @@ pub struct VertexBufferLayout {
     attributes: Vec<wgpu::VertexAttribute>,
 }
 
+#[derive(Debug)]
+pub struct Texture {
+    pub data: Option<TextureData>,
+}
+
+#[derive(Debug)]
 pub struct TextureData {
+    pub size: wgpu::Extent3d,
     #[allow(unused)]
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
 }
 
-pub fn bindings_apply(system: &mut System, bindings: Bindings) {
+#[derive(Clone, Copy, Debug, Default, ValueType)]
+#[repr(C)]
+pub struct TextureInfoExtern {
+    // TODO What else?
+    // TODO Depth also? Padding effect?
+    pub size: [f32; 2],
+}
+
+pub fn bindings_apply(system: &mut System, bindings: u32) {
+    let Some(frame) = system.frame.as_mut() else {
+        return;
+    };
+    let Some(pass) = &mut frame.pass else {
+        return;
+    };
+    // TODO Check pipeline vs bindings.
+    let bindings = &system.bindings[bindings as usize - 1];
+    pass.set_bind_group(bindings.group_index, &bindings.bind_group, &[]);
+    frame.bound = true;
+}
+
+pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        panic!();
+    };
+    let device = &gfx.device;
+    if system.samplers.is_empty() {
+        let sampler = device.create_sampler(&SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        system.samplers.push(sampler);
+    }
+    let pipeline_index = match bindings.pipeline {
+        0 => 0,
+        _ => bindings.pipeline as usize - 1,
+    };
+    let pipeline = &system.pipelines[pipeline_index];
+    let layout_entries = &pipeline.bind_group_layouts[bindings.group_index as usize];
+    let mut entries = vec![];
+    let mut buffer_index = 0;
+    let mut sampler_index = 0;
+    let mut texture_index = 0;
+    for layout_entry in layout_entries.iter() {
+        match layout_entry.ty {
+            wgpu::BindingType::Buffer {
+                min_binding_size, ..
+            } => {
+                if buffer_index < bindings.buffers.len() {
+                    buffer_index += 1;
+                    let buffer =
+                        &system.buffers[bindings.buffers[buffer_index - 1] as usize - 1].buffer;
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: layout_entry.binding,
+                        resource: buffer.as_entire_binding(),
+                    });
+                } else {
+                    // TODO Have to prebuild list of Option sizes and return list of buffer indices?
+                    let buffer = device.create_buffer(&BufferDescriptor {
+                        label: None,
+                        size: min_binding_size.unwrap().into(),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
+                    let _ = buffer;
+                    // system.buffers.push(Buffer {
+                    //     buffer,
+                    //     usage: buffer.usage(),
+                    // });
+                    // let resource = buffer.as_entire_binding();
+                    // entries.push(wgpu::BindGroupEntry {
+                    //     binding: layout_entry.binding,
+                    //     resource,
+                    // });
+                };
+            }
+            wgpu::BindingType::Sampler(..) => {
+                let sampler = match bindings.samplers.get(sampler_index) {
+                    Some(sampler) => {
+                        sampler_index += 1;
+                        *sampler as usize - 1
+                    }
+                    None => 0,
+                };
+                entries.push(wgpu::BindGroupEntry {
+                    binding: layout_entry.binding,
+                    resource: wgpu::BindingResource::Sampler(&system.samplers[sampler]),
+                });
+            }
+            wgpu::BindingType::Texture { .. } => {
+                let texture = match bindings.textures.get(texture_index) {
+                    Some(texture) => {
+                        texture_index += 1;
+                        *texture as usize - 1
+                    }
+                    None => 0,
+                };
+                // Crash here if no texture.
+                entries.push(wgpu::BindGroupEntry {
+                    binding: layout_entry.binding,
+                    resource: wgpu::BindingResource::TextureView(
+                        &system.textures[texture].data.as_ref().unwrap().view,
+                    ),
+                });
+            }
+            _ => todo!(),
+        }
+    }
+    // dbg!(&entries);
+    let layout = pipeline
+        .pipeline
+        .get_bind_group_layout(bindings.group_index);
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &layout,
+        entries: &entries,
+        label: None,
+    });
+    system.bindings.push(Bindings {
+        pipeline: pipeline_index + 1,
+        bind_group,
+        group_index: bindings.group_index,
+        updated_this_frame: false,
+    });
+}
+
+pub fn buffers_apply(system: &mut System, buffers: MeshBuffers) {
     pass_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
@@ -160,12 +323,12 @@ pub fn bindings_apply(system: &mut System, bindings: Bindings) {
         return;
     };
     pass.set_index_buffer(
-        system.buffers[bindings.index_buffer as usize - 1]
+        system.buffers[buffers.index_buffer as usize - 1]
             .buffer
             .slice(..),
         wgpu::IndexFormat::Uint16,
     );
-    for (index, buffer) in bindings.vertex_buffers.iter().enumerate() {
+    for (index, buffer) in buffers.vertex_buffers.iter().enumerate() {
         pass.set_vertex_buffer(
             index as u32,
             system.buffers[*buffer as usize - 1].buffer.slice(..),
@@ -182,8 +345,16 @@ pub fn bound_ensure(system: &mut System) {
     if frame.bound {
         return;
     }
-    // We apparently need something bound, and neither size 0 nor 1 works.
-    uniforms_apply(system, &[0; 4]);
+    match () {
+        _ if system.bindings.is_empty() => {
+            // We apparently need something bound, and neither size 0 nor 1 works.
+            uniforms_apply(system, &[0; 4]);
+        }
+        _ => {
+            // TODO Choose a bind group that's actually for this pipeline.
+            bindings_apply(system, 1);
+        }
+    }
 }
 
 pub fn buffer_update(system: &mut System, buffer: u32, bytes: &[u8], offset: u32) {
@@ -214,11 +385,11 @@ pub fn buffered_ensure(system: &mut System) {
         .iter()
         .position(|it| it.usage.contains(BufferUsages::VERTEX))
         .unwrap();
-    let bindings = Bindings {
+    let bindings = MeshBuffers {
         vertex_buffers: &[vertex as u32 + 1],
         index_buffer: index as u32 + 1,
     };
-    bindings_apply(system, bindings);
+    buffers_apply(system, bindings);
 }
 
 pub fn create_buffer(system: &mut System, contents: Option<&[u8]>, size: u32, typ: u32) {
@@ -231,6 +402,7 @@ pub fn create_buffer(system: &mut System, contents: Option<&[u8]>, size: u32, ty
     } | match typ {
         0 => BufferUsages::VERTEX,
         1 => BufferUsages::INDEX,
+        2 => BufferUsages::UNIFORM,
         _ => panic!(),
     };
     let buffer = match contents {
@@ -295,23 +467,23 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
     let device = &gfx.device;
     let fragment_shader = &system.shaders[fragment_shader as usize - 1];
     let vertex_shader = &system.shaders[vertex_shader as usize - 1];
-    let min_binding_size = uniforms_binding_size_find(vertex_shader);
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size,
-            },
-            count: None,
-        }],
-    });
+    // TODO Option for no uniforms?
+    // let min_binding_size = uniforms_binding_size_find(vertex_shader);
+    // TODO Extract and use bindings, including uniforms.
+    let bind_group_layouts = shader_bindings_find(vertex_shader);
+    let group_layouts: Vec<_> = bind_group_layouts
+        .iter()
+        .map(|entries| {
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: None,
+                entries: &entries,
+            })
+        })
+        .collect();
+    let group_layout_refs: Vec<_> = group_layouts.iter().map(|it| it).collect();
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &group_layout_refs,
         push_constant_ranges: &[],
     });
     // dbg!(&attr_info);
@@ -369,19 +541,11 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
         cache: None,
     });
     system.pipelines.push(Pipeline {
+        bind_group_layouts,
         bind_group_index: 0,
         bind_groups: vec![],
         pipeline,
     });
-}
-
-pub fn end_pass(system: &mut System) {
-    let Some(frame) = system.frame.as_mut() else {
-        return;
-    };
-    if let Some(pass) = frame.pass.take() {
-        drop(pass);
-    }
 }
 
 pub fn frame_commit(system: &mut System) {
@@ -402,6 +566,70 @@ pub fn frame_commit(system: &mut System) {
         let mut text = text.lock().unwrap();
         text.renderer_index = 0;
     }
+}
+
+pub fn image_decode(
+    handle: usize,
+    bytes: Vec<u8>,
+    event_loop_proxy: &winit::event_loop::EventLoopProxy<UserEvent>,
+) {
+    let cursor = Cursor::new(bytes);
+    let image = ImageReader::new(cursor)
+        .with_guessed_format()
+        .map_err(|err| ImageError::IoError(err))
+        .and_then(|reader| reader.decode());
+    event_loop_proxy
+        .send_event(UserEvent::ImageDecoded { handle, image })
+        .unwrap();
+}
+
+pub fn image_to_texture(system: &mut System, handle: usize, image: DynamicImage) {
+    // TODO Also need the texture index!
+    let size = wgpu::Extent3d {
+        width: image.width(),
+        height: image.height(),
+        depth_or_array_layers: 1,
+    };
+    // dbg!(size);
+    // TODO Convert to rgba8 earlier?
+    let image = image.into_rgba8().into_raw();
+    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
+        return;
+    };
+    // Build texture.
+    let texture = gfx.device.create_texture(&wgpu::TextureDescriptor {
+        label: None,
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm, // TODO Srgb???
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let texture_info = &mut system.textures[handle - 1];
+    assert!(texture_info.data.is_none());
+    gfx.queue.write_texture(
+        wgpu::ImageCopyTexture {
+            aspect: wgpu::TextureAspect::All,
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        },
+        &image,
+        wgpu::ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * size.width),
+            rows_per_image: Some(size.height),
+        },
+        size,
+    );
+    texture_info.data = Some(TextureData {
+        size,
+        texture,
+        view,
+    });
 }
 
 pub fn pass_ensure(system: &mut System) {
@@ -497,6 +725,88 @@ pub fn pipelined_ensure(system: &mut System) {
     }
 }
 
+fn shader_bindings_find(shader: &Shader) -> Vec<Vec<wgpu::BindGroupLayoutEntry>> {
+    let mut groups: Vec<Vec<wgpu::BindGroupLayoutEntry>> = vec![];
+    // TODO Need to loop through multiple shaders?
+    fn push_if_missing(
+        group: &mut Vec<wgpu::BindGroupLayoutEntry>,
+        entry: wgpu::BindGroupLayoutEntry,
+    ) {
+        for existing in group.iter() {
+            if existing.binding == entry.binding {
+                return;
+            }
+        }
+        group.push(entry);
+    }
+    for (_, global) in shader.module.global_variables.iter() {
+        let Some(binding) = &global.binding else {
+            continue;
+        };
+        // dbg!(binding);
+        while groups.len() < binding.group as usize + 1 {
+            groups.push(vec![]);
+        }
+        let group = &mut groups[binding.group as usize];
+        match &shader.module.types[global.ty].inner {
+            naga::TypeInner::Image {
+                dim,
+                class: ImageClass::Sampled { multi, .. },
+                ..
+            } => {
+                push_if_missing(
+                    group,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: binding.binding,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: *multi,
+                            view_dimension: match dim {
+                                naga::ImageDimension::D1 => wgpu::TextureViewDimension::D1,
+                                naga::ImageDimension::D2 => wgpu::TextureViewDimension::D2,
+                                naga::ImageDimension::D3 => wgpu::TextureViewDimension::D3,
+                                naga::ImageDimension::Cube => wgpu::TextureViewDimension::Cube,
+                            },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                );
+            }
+            naga::TypeInner::Sampler { .. } => {
+                push_if_missing(
+                    group,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: binding.binding,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                );
+            }
+            naga::TypeInner::Struct { span, .. } => push_if_missing(
+                group,
+                wgpu::BindGroupLayoutEntry {
+                    binding: binding.binding,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(NonZeroU64::new(*span as u64).unwrap()),
+                    },
+                    count: None,
+                },
+            ),
+            _ => {}
+        }
+    }
+    // Groups themselves are already sorted, but also sort within group.
+    for group in groups.iter_mut() {
+        group.sort_by_key(|entry| entry.binding);
+    }
+    groups
+}
+
 pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
@@ -579,20 +889,6 @@ pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
     };
     pass.set_bind_group(0, &bind_group.bind_group, &[]);
     frame.bound = true;
-}
-
-fn uniforms_binding_size_find(shader: &Shader) -> Option<wgpu::BufferSize> {
-    let types = &shader.module.types;
-    for var in shader.module.global_variables.iter() {
-        let var = var.1;
-        if var.space == naga::AddressSpace::Uniform {
-            let ty = &types[var.ty];
-            let size = ty.inner.size(shader.module.to_ctx()) as u64;
-            // println!("{var:?}: {ty:?}");
-            return wgpu::BufferSize::new(size);
-        }
-    }
-    None
 }
 
 fn vertex_buffer_layouts_build(

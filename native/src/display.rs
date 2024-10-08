@@ -1,3 +1,4 @@
+use image::{DynamicImage, ImageResult};
 use std::{
     future::Future,
     ptr::null_mut,
@@ -35,14 +36,15 @@ pub struct Display {
 #[derive(Clone, Copy, Debug)]
 #[repr(i32)]
 pub enum EventKind {
-    Tick = 0,
+    Frame = 0,
     Key = 1,
+    TasksDone = 2,
 }
 
 const REPORT_DELAY: Duration = Duration::from_secs(10);
 
 impl Display {
-    pub fn new(event_loop: &EventLoop<Graphics>) -> Self {
+    pub fn new(event_loop: &EventLoop<UserEvent>) -> Self {
         Self {
             app: AppPtr(null_mut()),
             graphics: MaybeGraphics::Builder(GraphicsBuilder::new(event_loop.create_proxy())),
@@ -87,12 +89,12 @@ impl Display {
         gfx.depth_texture = create_depth_texture(&gfx.device, &gfx.config);
     }
 
-    pub fn run(&mut self, event_loop: EventLoop<Graphics>) {
+    pub fn run(&mut self, event_loop: EventLoop<UserEvent>) {
         event_loop.run_app(self).unwrap();
     }
 }
 
-impl<'a> ApplicationHandler<Graphics> for Display {
+impl<'a> ApplicationHandler<UserEvent> for Display {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -134,9 +136,11 @@ impl<'a> ApplicationHandler<Graphics> for Display {
                         let pressed = state.is_pressed();
                         let system = app.env.as_mut(&mut app.store);
                         system.key_event = KeyEvent { key, pressed };
-                        app.update
-                            .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
-                            .unwrap();
+                        if let Some(update) = &app.update {
+                            update
+                                .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
+                                .unwrap();
+                        }
                     }
                     _ => {}
                 },
@@ -176,17 +180,31 @@ impl<'a> ApplicationHandler<Graphics> for Display {
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, graphics: Graphics) {
-        graphics.window.as_ref().set_title("Taca");
-        self.graphics = MaybeGraphics::Graphics(graphics);
-        let MaybeGraphics::Graphics(gfx) = &self.graphics else {
-            panic!()
-        };
-        unsafe { &mut *self.app.0 }.start(gfx);
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: UserEvent) {
+        match event {
+            UserEvent::Graphics(graphics) => {
+                graphics.window.as_ref().set_title("Taca");
+                self.graphics = MaybeGraphics::Graphics(graphics);
+                let MaybeGraphics::Graphics(gfx) = &self.graphics else {
+                    panic!()
+                };
+                unsafe { &mut *self.app.0 }.start(gfx);
+            }
+            event => unsafe { &mut *self.app.0 }.handle(event),
+        }
     }
 }
 
-#[allow(dead_code)]
+#[derive(Debug)]
+pub enum UserEvent {
+    Graphics(Graphics),
+    ImageDecoded {
+        handle: usize,
+        image: ImageResult<DynamicImage>,
+    },
+}
+
+#[derive(Debug)]
 pub struct Graphics {
     pub window: Arc<Window>,
     pub config: SurfaceConfiguration,
@@ -199,11 +217,11 @@ pub struct Graphics {
 }
 
 pub struct GraphicsBuilder {
-    event_loop_proxy: Option<EventLoopProxy<Graphics>>,
+    event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
 }
 
 impl GraphicsBuilder {
-    fn new(event_loop_proxy: EventLoopProxy<Graphics>) -> Self {
+    fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Self {
         Self {
             event_loop_proxy: Some(event_loop_proxy),
         }
@@ -215,7 +233,9 @@ impl GraphicsBuilder {
             return;
         };
         let gfx = pollster::block_on(create_graphics(event_loop));
-        assert!(event_loop_proxy.send_event(gfx).is_ok());
+        assert!(event_loop_proxy
+            .send_event(UserEvent::Graphics(gfx))
+            .is_ok());
     }
 }
 
@@ -253,8 +273,11 @@ pub fn create_depth_texture(
     };
     let texture = device.create_texture(&desc);
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-    TextureData { texture, view }
+    TextureData {
+        size,
+        texture,
+        view,
+    }
 }
 
 fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphics> + 'static {

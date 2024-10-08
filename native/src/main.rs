@@ -6,6 +6,7 @@ mod display;
 mod gpu;
 mod key;
 mod text;
+mod wasi;
 use crate::app::App;
 use crate::display::Display;
 

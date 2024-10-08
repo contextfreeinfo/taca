@@ -1,0 +1,30 @@
+-- Setup
+
+##[[
+  cflags "-Os"
+  -- cflags "-Os -flto" -- slower to build but slightly smaller
+  ldflags "-Wl,--export-dynamic,--strip-all"
+  context.rootpragmas.nogcentry = true
+
+  function read_all(file)
+    local f <close> = assert(io.open(file, "rb"))
+    return f:read("*all")
+  end
+]]
+
+-- Init gc first!
+
+require "allocators.gc"
+gc:init(nilptr)
+
+-- Actual exported things
+
+local support = @record{}
+
+local support.GcStep = @record{}
+
+function support.GcStep:__close()
+  gc:step()
+end
+
+return support

@@ -1,0 +1,112 @@
+local draw = @record{}
+
+local m = require "math"
+local s = require "string"
+local t = require "taca"
+local u = require "./util.nelua"
+
+local draw.Rect = @record{
+  pos: [2]float32,
+  size: [2]float32,
+}
+
+function draw.Rect:contains(point: [2]float32): boolean
+  return
+    point[0] > self.pos[0] and point[0] < self.pos[0] + self.size[0] and
+    point[1] > self.pos[1] and point[1] < self.pos[1] + self.size[1]
+end
+
+local draw.Instance = @record{
+  offset: [2]float32,
+  scale: [2]float32,
+  source_offset: [2]float32,
+  source_scale: [2]float32,
+}
+
+local draw.TextureBindings = @record{
+  bindings: t.Bindings,
+  instance_buffer: t.Buffer,
+  size: [2]float32,
+  texture: t.Texture,
+}
+
+local draw.Blitter = @record{
+  index_buffer: t.Buffer,
+  instances: vector(draw.Instance),
+  vertex_buffer: t.Buffer,
+  view_size: [2]float32,
+}
+
+local draw.Blit = @record{
+  source_rect: draw.Rect,
+  view_pos: [2]float32,
+  view_scale: [2]float32,
+}
+
+local draw.BlitInfo = @record{
+  texture: draw.TextureBindings,
+  blits: span(draw.Blit),
+}
+
+function draw.Blitter:blit(info: draw.BlitInfo)
+  -- Check
+  if #info.blits > self.instances:capacity() then
+    t.print("blit too big")
+    return
+  end
+  -- Instances
+  self.instances:clear()
+  for _, blit in ipairs(info.blits) do
+    local rect = blit.source_rect
+    local view_scale_x = rect.size[0] / self.view_size[0]
+    local view_scale_y = rect.size[1] / self.view_size[1]
+    if blit.view_scale[0] ~= 0 then
+      view_scale_x = view_scale_x * blit.view_scale[0]
+    end
+    if blit.view_scale[1] ~= 0 then
+      view_scale_y = view_scale_y * blit.view_scale[1]
+    end
+    self.instances:push({
+      offset = {
+        (2 * blit.view_pos[0]) / self.view_size[0] - 1,
+        (2 * blit.view_pos[1]) / self.view_size[1] - 1,
+      },
+      scale = {2 * view_scale_x, 2 * view_scale_y},
+      source_offset = {
+        (rect.pos[0] + 0.5 * rect.size[0]) / info.texture.size[0],
+        (rect.pos[1] + 0.5 * rect.size[1]) / info.texture.size[1],
+      },
+      source_scale = {
+        rect.size[0] / info.texture.size[0],
+        rect.size[1] / info.texture.size[1],
+      },
+    })
+  end
+  local instances: span(draw.Instance) = self.instances
+  t.buffer_update(
+    info.texture.instance_buffer,
+    u.as_bytes(instances),
+    0
+  )
+  -- Draw
+  t.buffers_apply({
+    index_buffer = self.index_buffer,
+    vertex_buffers = {self.vertex_buffer, info.texture.instance_buffer},
+  })
+  t.bindings_apply(info.texture.bindings)
+  t.draw(0, 6, #info.blits)
+end
+
+function draw.print_frames(name: string, frames: span(draw.Rect))
+  t.print(name)
+  for i, frame in ipairs(frames) do
+    t.print(s.format(
+      "frame %i: %d %d %d %d",
+      i,
+      frame.pos[0], frame.pos[1],
+      frame.size[0], frame.size[1]
+    ))
+  end
+end
+
+return draw

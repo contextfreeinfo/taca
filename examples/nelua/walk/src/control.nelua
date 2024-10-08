@@ -1,0 +1,121 @@
+local pub = @record{}
+
+local d = require "./draw.nelua"
+local g = require "./game.nelua"
+local m = require "math"
+local r = require "./resources.nelua"
+local s = require "string"
+local t = require "taca"
+
+function pub.update_control(game: *g.Game)
+  local move = 0
+  game.player_animate = false
+  if game.player_control.left ~= game.player_control.right then
+    move = 3
+    if game.player_control.left then
+      move = -move
+    end
+    game.player_pos[0] = game.player_pos[0] + move
+    game.player_animate = true
+  end
+  if game.player_control.jump then
+    game.player_vel_y = -10
+  else
+    game.player_vel_y = game.player_vel_y + 1
+  end
+  game.player_grounded = false
+  local player_half_x = 9
+  local player_half_y = 16
+  local foot_x = game.player_pos[0]
+  local foot_left = foot_x - player_half_x
+  local foot_right = foot_x + player_half_x
+  local foot_y = game.player_pos[1] + player_half_y - 0.5
+  local under_y = foot_y + 1
+  -- t.print(s.format("foot: %f or %f, %f (%f %f)", foot_left, foot_right, under_y, game.player_pos[0], game.player_pos[1]))
+  if move < 0 and foot_left < 0 then
+    game.player_pos[0] = player_half_x
+  end
+  if move > 0 and foot_right > r.viewport_size[0] then
+    game.player_pos[0] = r.viewport_size[0] - player_half_x
+  end
+  for _, blit in ipairs(game.tile_map) do
+    local tile_size = blit.source_rect.size
+    local tile_half_x = blit.source_rect.size[0] * 0.5
+    local tile_half_y = blit.source_rect.size[1] * 0.5
+    local tile_rect: d.Rect = {
+      pos = {blit.view_pos[0] - tile_half_x, blit.view_pos[1] - tile_half_y},
+      size = blit.source_rect.size,
+    }
+    local hit_side = false
+    -- Collide left.
+    if move < 0 and (
+      tile_rect:contains({foot_x, foot_y}) or
+      tile_rect:contains({foot_left, foot_y})
+    ) then
+      hit_side = true
+      game.player_pos[0] = tile_rect.pos[0] + tile_rect.size[0] + player_half_x
+    end
+    -- Collide right.
+    if move > 0 and (
+      tile_rect:contains({foot_x, foot_y}) or
+      tile_rect:contains({foot_right, foot_y})
+    ) then
+      hit_side = true
+      game.player_pos[0] = tile_rect.pos[0] - player_half_x
+    end
+    -- Collide down.
+    if game.player_vel_y >= 0 and (
+      tile_rect:contains({foot_x, under_y}) or not hit_side and (
+        tile_rect:contains({foot_left, under_y}) or
+        tile_rect:contains({foot_right, under_y})
+      )
+    ) then
+      -- t.print(".")
+      game.player_pos[1] =
+        m.floor(under_y / tile_size[1]) * tile_size[1] - player_half_y
+      if not game.player_control.jump then
+        game.player_vel_y = 0
+        game.player_grounded = true
+      end
+      -- t.print(s.format(
+      --   "hit: %f %f %f %f, %f, %f",
+      --   tile_rect.pos[0], tile_rect.pos[1], tile_rect.size[0], tile_rect.size[1],
+      --   game.player_pos[1], game.player_vel_y
+      -- ))
+    end
+  end
+  for gem_index, _ in ipairs(game.gem_map) do
+    local gem_pos = game.gem_map[gem_index].view_pos
+    local dist_squared =
+      (gem_pos[0] - game.player_pos[0]) ^ 2 +
+      (gem_pos[1] - game.player_pos[1]) ^ 2
+    if dist_squared < 100 then
+      -- Just move it off screen for now as a hack.
+      game.gem_map[gem_index].view_pos[1] = 10000
+    end
+  end
+  game.player_pos[1] = game.player_pos[1] + game.player_vel_y
+  game.player_control.jump = false
+end
+
+function pub.update_key(game: *g.Game)
+  local event = t.key_event()
+  switch event.key do
+  case t.Key.ArrowUp, t.Key.Space then
+    if event.pressed and game.player_grounded then
+      game.player_control.jump = true
+    end
+  case t.Key.ArrowLeft then
+    game.player_control.left = event.pressed
+    if event.pressed then
+      game.player_dir = -1
+    end
+  case t.Key.ArrowRight then
+    game.player_control.right = event.pressed
+    if event.pressed then
+      game.player_dir = 1
+    end
+  end
+end
+
+return pub
