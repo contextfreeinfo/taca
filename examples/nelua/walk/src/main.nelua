@@ -81,6 +81,9 @@ local function start()
     ),
   }
   game.blitter.instances:reserve(max_instances)
+  -- for _, blit in ipairs(game.tile_map) do
+  --   t.print(s.format("tile: %f %f %f %f", blit.source_rect.pos[0], blit.source_rect.pos[1], blit.source_rect.size[0], blit.source_rect.size[1]))
+  -- end
 end
 
 local function finish_init()

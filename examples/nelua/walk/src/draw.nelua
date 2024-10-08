@@ -1,13 +1,20 @@
 local draw = @record{}
 
+local m = require "math"
 local s = require "string"
 local t = require "taca"
 local u = require "./util.nelua"
 
 local draw.Rect = @record{
-  pos: [2]int32,
-  size: [2]int32,
+  pos: [2]float32,
+  size: [2]float32,
 }
+
+function draw.Rect:contains(point: [2]float32): boolean
+  return
+    point[0] > self.pos[0] and point[0] < self.pos[0] + self.size[0] and
+    point[1] > self.pos[1] and point[1] < self.pos[1] + self.size[1]
+end
 
 local draw.Instance = @record{
   offset: [2]float32,

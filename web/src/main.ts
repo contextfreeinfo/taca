@@ -800,7 +800,7 @@ class App {
     let size = -1;
     let tacaIndex = 0;
     let tacaSize = 0;
-    console.log(`uniforms: ${count}`);
+    // console.log(`uniforms: ${count}`);
     for (let i = 0; i < count; i += 1) {
       const name = gl.getActiveUniformBlockName(program, i);
       // console.log(`uniform: ${name}`);

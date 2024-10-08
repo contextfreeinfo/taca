@@ -1,6 +1,10 @@
 local pub = @record{}
 
+local d = require "./draw.nelua"
 local g = require "./game.nelua"
+local m = require "math"
+local r = require "./resources.nelua"
+local s = require "string"
 local t = require "taca"
 
 function pub.update_control(game: *g.Game)
@@ -13,6 +17,55 @@ function pub.update_control(game: *g.Game)
     game.player_pos[0] = game.player_pos[0] + move
     game.player_animate = true
   end
+  game.player_vel_y = game.player_vel_y + 1
+  local player_half_x = 9
+  local player_half_y = 16
+  local foot_left = game.player_pos[0] - player_half_x
+  local foot_right = game.player_pos[0] + player_half_x
+  local foot_y = game.player_pos[1] + player_half_y - 0.5
+  local under_y = game.player_pos[1] + player_half_y + 1
+  -- t.print(s.format("foot: %f or %f, %f (%f %f)", foot_left, foot_right, foot_y, game.player_pos[0], game.player_pos[1]))
+  for _, blit in ipairs(game.tile_map) do
+    local tile_size = blit.source_rect.size
+    local tile_half_x = blit.source_rect.size[0] * 0.5
+    local tile_half_y = blit.source_rect.size[1] * 0.5
+    local view_rect: d.Rect = {
+      pos = {blit.view_pos[0] - tile_half_x, blit.view_pos[1] - tile_half_y},
+      size = blit.source_rect.size,
+    }
+    -- Collide left.
+    if move < 0 and (
+      foot_left < 0 or view_rect:contains({foot_left, foot_y})
+    ) then
+      game.player_pos[0] =
+        m.floor(game.player_pos[0] / tile_size[0]) * tile_size[0] +
+        player_half_x
+    end
+    -- Collide right.
+    if move > 0 and (
+      foot_right > r.viewport_size[0] or
+      view_rect:contains({foot_right, foot_y})
+    ) then
+      -- t.print(s.format("hit: %f %f %f %f", view_rect.pos[0], view_rect.pos[1], blit.source_rect.size[0], blit.source_rect.size[1]))
+      game.player_pos[0] =
+        m.ceil(game.player_pos[0] / tile_size[0]) * tile_size[0] - player_half_x
+    end
+    -- Collide down.
+    if game.player_vel_y >= 0 and (
+      view_rect:contains({foot_left, under_y}) or
+      view_rect:contains({foot_right, under_y})
+    ) then
+      -- t.print(".")
+      game.player_pos[1] =
+        m.ceil(game.player_pos[1] / tile_size[1]) * tile_size[1] - player_half_y
+      if game.player_control.jump then
+        game.player_vel_y = -10
+      else
+        game.player_vel_y = 0
+      end
+    end
+  end
+  game.player_pos[1] = game.player_pos[1] + game.player_vel_y
 end
 
 function pub.update_key(game: *g.Game)
