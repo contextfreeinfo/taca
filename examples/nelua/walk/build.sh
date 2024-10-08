@@ -1,6 +1,7 @@
 PUB_DIR=../../../web/public/apps/nelua
 export LUA_PATH=$PWD/src/?.lua
 
+mkdir -p out && \
 naga src/shader.wgsl out/shader.spv && \
 nelua --cc="$WASI_SDK/bin/clang" --add-path src -o out/walk.wasm --release \
     src/main.nelua && \
