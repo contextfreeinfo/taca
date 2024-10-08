@@ -6,6 +6,7 @@ A runtime for multimedia wasm apps that runs native and in browsers.
 
 - [Asteroid field 3D game](https://contextfreeinfo.github.io/taca/demo/?app=apps/c3/fly.taca)
   ([C3 source](examples/c3/fly/src/main.c3))
+- [Pixel art platformer demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([Nelua source](examples/nelua/walk/src/main.nelua))
 - [Mouse pointer spotlight on RGB triangle](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi2.taca)
   ([Zig source](examples/zig/hi/src/hi2.zig))
 
