@@ -94,13 +94,10 @@ function frame.update(game: *g.Game)
     },
   })
   game.blitter:blit({texture = game.tiles, blits = game.tile_map})
-  game.blitter:blit({
-    texture = game.gem,
-    blits = {{
-      source_rect = r.gem.shine[m.floor(game.gem_frame)],
-      view_pos = r.gem.pos,
-    }},
-  })
+  for gem_index, _ in ipairs(game.gem_map) do
+    game.gem_map[gem_index].source_rect = r.gem.shine[m.floor(game.gem_frame)]
+  end
+  game.blitter:blit({texture = game.gem, blits = game.gem_map})
   game.blitter:blit({
     texture = game.player,
     blits = {{

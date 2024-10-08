@@ -19,6 +19,7 @@ local pub.Game = @record{
   blitter: d.Blitter,
   gem: d.TextureBindings,
   gem_frame: float32,
+  gem_map: vector(d.Blit),
   init_finished: boolean,
   middle: d.TextureBindings,
   player: d.TextureBindings,

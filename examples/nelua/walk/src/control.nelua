@@ -84,6 +84,16 @@ function pub.update_control(game: *g.Game)
       -- ))
     end
   end
+  for gem_index, _ in ipairs(game.gem_map) do
+    local gem_pos = game.gem_map[gem_index].view_pos
+    local dist_squared =
+      (gem_pos[0] - game.player_pos[0]) ^ 2 +
+      (gem_pos[1] - game.player_pos[1]) ^ 2
+    if dist_squared < 100 then
+      -- Just move it off screen for now as a hack.
+      game.gem_map[gem_index].view_pos[1] = 10000
+    end
+  end
   game.player_pos[1] = game.player_pos[1] + game.player_vel_y
   game.player_control.jump = false
 end

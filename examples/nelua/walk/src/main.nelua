@@ -60,6 +60,7 @@ local function start()
       instance_buffer = make_instance_buffer(100),
       texture = t.image_decode(r.gem.image),
     },
+    gem_map = {{source_rect = r.gem.shine[0], view_pos = r.gem.pos}},
     middle = {
       instance_buffer = make_instance_buffer(10),
       texture = t.image_decode(r.middle),
