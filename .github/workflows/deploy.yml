@@ -17,6 +17,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Build demo C3 app
         run: cd examples/c3/fly && bash build.sh
+      - name: Build demo Nelua app
+        run: cd examples/nelua/walk && bash build.sh
       - name: Build demo Zig app
         run: cd examples/zig/hi && bash build.sh
       - name: Build taca.js and demo page

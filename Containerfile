@@ -5,9 +5,11 @@ FROM ubuntu:22.04
 ARG BINARYEN_VERSION=118
 ARG C3_VERSION=0.6.2
 ARG NAGA_VERSION=22.0.0
+ARG NELUA_VERSION=ff7a42c275239933f6e615b2ad2e6a8d507afe7b
 ARG NODE_VERSION=20.16.0
 ARG RUST_VERSION=1.80.0
 ARG VULKAN_SDK_VERSION=1.3.290.0
+ARG WASI_SDK_VERSION=24.0
 ARG WASM_PACK_VERSION=0.13.0
 ARG ZIG_VERSION=0.13.0
 
@@ -17,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates \
     curl \
+    git \
     libxml2 \
     lz4 \
     && apt-get clean \
@@ -30,6 +33,15 @@ RUN curl -LO https://github.com/c3lang/c3c/releases/download/v${C3_VERSION}/c3-l
     && mv c3 /opt/c3
 ENV PATH="/opt/c3:${PATH}"
 
+# nelua
+RUN git clone https://github.com/edubart/nelua-lang.git \
+    && cd nelua-lang \
+    && git checkout ${NELUA_VERSION} \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf nelua-lang
+
 # node
 RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
     | tar -xJ --strip-components=1 -C /usr/local
@@ -38,10 +50,18 @@ RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-li
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain ${RUST_VERSION}
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# wasi-sdk
+RUN curl -LO https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux.tar.gz \
+    && tar -xf wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux.tar.gz \
+    && mv wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux /opt/wasi-sdk \
+    && rm wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux.tar.gz
+ENV WASI_SDK="/opt/wasi-sdk"
+
 # zig
 RUN curl -LO https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz \
     && tar -xf zig-linux-x86_64-${ZIG_VERSION}.tar.xz \
-    && mv zig-linux-x86_64-${ZIG_VERSION} /opt/zig
+    && mv zig-linux-x86_64-${ZIG_VERSION} /opt/zig \
+    && rm zig-linux-x86_64-${ZIG_VERSION}.tar.xz
 ENV PATH="/opt/zig:${PATH}"
 
 # Wasm & Shader Tools
