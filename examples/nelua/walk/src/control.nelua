@@ -25,7 +25,7 @@ function pub.update_control(game: *g.Game)
   end
   game.player_grounded = false
   local player_half_x = 9
-  local player_half_y = 16
+  local player_half_y = 14
   local foot_x = game.player_pos[0]
   local foot_left = foot_x - player_half_x
   local foot_right = foot_x + player_half_x

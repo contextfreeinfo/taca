@@ -34,7 +34,7 @@ tile_map_data = PackedByteArray("AAAAAAoAAAADAAEAAAABAAoAAAADAAEAAAACAAoAAAADAAE
 tile_set = ExtResource("1_pu7yx")
 
 [node name="Player" type="AnimatedSprite2D" parent="."]
-position = Vector2(17, 144)
+position = Vector2(17, 146)
 sprite_frames = ExtResource("4_7rpep")
 animation = &"run"
 frame_progress = 0.932707
