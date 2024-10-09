@@ -10,7 +10,7 @@ use wasmer::{Value, ValueType};
 use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::{
     application::ApplicationHandler,
-    dpi::{PhysicalPosition, PhysicalSize},
+    dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size},
     event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{self, NamedKey},
@@ -43,11 +43,19 @@ pub enum EventKind {
 
 const REPORT_DELAY: Duration = Duration::from_secs(10);
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DisplayOptions {
+    pub size: Option<(f64, f64)>,
+}
+
 impl Display {
-    pub fn new(event_loop: &EventLoop<UserEvent>) -> Self {
+    pub fn new(event_loop: &EventLoop<UserEvent>, options: DisplayOptions) -> Self {
         Self {
             app: AppPtr(null_mut()),
-            graphics: MaybeGraphics::Builder(GraphicsBuilder::new(event_loop.create_proxy())),
+            graphics: MaybeGraphics::Builder(GraphicsBuilder::new(
+                event_loop.create_proxy(),
+                options,
+            )),
             pointer_pos: None,
             pointer_press: 0,
             time_end: Instant::now(),
@@ -218,12 +226,14 @@ pub struct Graphics {
 
 pub struct GraphicsBuilder {
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
+    options: DisplayOptions,
 }
 
 impl GraphicsBuilder {
-    fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Self {
+    fn new(event_loop_proxy: EventLoopProxy<UserEvent>, options: DisplayOptions) -> Self {
         Self {
             event_loop_proxy: Some(event_loop_proxy),
+            options,
         }
     }
 
@@ -232,7 +242,7 @@ impl GraphicsBuilder {
             // event_loop_proxy is already spent - we already constructed Graphics
             return;
         };
-        let gfx = pollster::block_on(create_graphics(event_loop));
+        let gfx = pollster::block_on(create_graphics(event_loop, self.options));
         assert!(event_loop_proxy
             .send_event(UserEvent::Graphics(gfx))
             .is_ok());
@@ -280,8 +290,14 @@ pub fn create_depth_texture(
     }
 }
 
-fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphics> + 'static {
-    let window_attrs = Window::default_attributes();
+fn create_graphics(
+    event_loop: &ActiveEventLoop,
+    options: DisplayOptions,
+) -> impl Future<Output = Graphics> + 'static {
+    let mut window_attrs = Window::default_attributes();
+    if let Some((width, height)) = options.size {
+        window_attrs = window_attrs.with_inner_size(Size::Logical(LogicalSize { width, height }));
+    }
     let window = Arc::new(event_loop.create_window(window_attrs).unwrap());
     let instance = wgpu::Instance::default();
     let surface = instance.create_surface(window.clone()).unwrap();

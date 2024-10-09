@@ -4,20 +4,9 @@ A runtime for multimedia wasm apps that runs native and in browsers.
 
 ## Live Demos
 
-- [Asteroid field 3D game](https://contextfreeinfo.github.io/taca/demo/?app=apps/c3/fly.taca)
-  ([C3 source](examples/c3/fly/src/main.c3))
-- [Pixel art platformer demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([Nelua source](examples/nelua/walk/src/main.nelua))
-- [Mouse pointer spotlight on RGB triangle](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi2.taca)
-  ([Zig source](examples/zig/hi/src/hi2.zig))
-
-## Demo Screenshot
-
-^^^ SEE ACTUAL DEMO LINK JUST ABOVE. ^^^
-
-Screenshot, which is close to half the size of the entire runtime and demo app
-combined, when everything is gzipped:
-
-![Taca demo app screenshot with colorful RGB triangle and white spotlight](docs/screenshot.png)
+| | | |
+|-|-|-|
+|[![Asteroid 3D game](docs/c3-fly.webp)<br>Asteroid 3D game](https://contextfreeinfo.github.io/taca/demo/?app=apps/c3/fly.taca) ([C3 source](examples/c3/fly/src/))|[![Pixel art platformer demo](docs/nelua-walk.webp)<br>Platformer demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([Nelua source](examples/nelua/walk/src/main.nelua))|[![Triangle demo](docs/zig-hi2.webp)<br>Triangle demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi2.taca) ([Zig source](examples/zig/hi/src/hi2.zig))|
 
 ## Dev Notes
 
@@ -43,9 +32,10 @@ Or use Docker if you need to.
 Even if you don't use a container, the Containerfile gives info on dependencies
 for building things.
 
-### Demo app
+### Demo apps
 
-Just one demo so far, made with Zig and support tools:
+See [the workflow file](.github/workflows/deploy.yml) for examples of how to
+build the demo apps, but they approximately build as follows:
 
 ```sh
 cd examples/zig/hi
@@ -53,6 +43,9 @@ cd examples/zig/hi
 ```
 
 That puts the built taca app under the top-level web dir for easy access there.
+
+Each demo has different dependencies. See [the containerfile](Containerfile) for
+information on how to acquire dependencies.
 
 ### Native runtime
 
@@ -68,9 +61,6 @@ Or build more optimized:
 cargo run --bin taca --release -- run web/public/apps/zig/hi.taca
 ```
 
-The native runtime is pure Rust, but the only demo app so far is in Zig and
-more. Maybe it would be nice to make a demo app in Rust sometime to make a
-simpler example with few dependencies.
 
 ### Web runtime
 
