@@ -33,6 +33,19 @@ local pub.Step = @enum(uint32){
   Instance,
 }
 
+local pub.TextAlignX = @enum(uint32){
+    Left = 0,
+    Center,
+    Right,
+}
+
+local pub.TextAlignY = @enum(uint32){
+    Baseline = 0,
+    Top,
+    Middle,
+    Bottom,
+}
+
 -- Records
 
 local pub.AttributeInfo = @record{
@@ -158,6 +171,14 @@ end
 
 function pub.shader_new(bytes: span(byte)): pub.Shader
   <cimport, cattribute 'import_name("taca_shader_new")'>
+end
+
+function pub.text_align(x: pub.TextAlignX, y: pub.TextAlignY): void
+  <cimport, cattribute 'import_name("taca_text_align")'>
+end
+
+function pub.text_draw(text: string, x: float32, y: float32): void
+  <cimport, cattribute 'import_name("taca_text_draw")'>
 end
 
 function pub.texture_info(texture: pub.Texture): pub.TextureInfo
