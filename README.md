@@ -8,7 +8,7 @@ WebAssembly allows a variety of source languages to be used.
 
 |C3|Nelua|Zig|
 |:-:|:-:|:-:|
-|[![Asteroid 3D game](docs/c3-fly.webp)<br>Asteroid 3D game](https://contextfreeinfo.github.io/taca/demo/?app=apps/c3/fly.taca) ([source](examples/c3/fly/src/))|[![Pixel art platformer demo](docs/nelua-walk.webp)<br>Platformer demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([source](examples/nelua/walk/src/main.nelua))|[![Triangle demo](docs/zig-hi2.webp)<br>Triangle demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi2.taca) ([source](examples/zig/hi/src/hi2.zig))|
+|[![Asteroid 3D game](docs/c3-fly.webp)<br>Asteroid 3D game](https://contextfreeinfo.github.io/taca/demo/?app=apps/c3/fly.taca) ([source](examples/c3/fly/src/))|[![Pixel art platformer demo](docs/nelua-walk.webp)<br>Platformer demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([source](examples/nelua/walk/src/))|[![Triangle demo](docs/zig-hi2.webp)<br>Triangle demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi2.taca) ([source](examples/zig/hi/src/))|
 
 Any of these languages could have been used for any of these demos.
 
