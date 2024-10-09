@@ -1,3 +1,5 @@
+local pub = @record{}
+
 require "support"
 
 ## local fs = require "nelua.utils.fs"
@@ -9,8 +11,6 @@ require "support"
 
 local d = require "./draw.nelua"
 
-local resources = @record{}
-
 ## local tiles_scene = gd.resource_load(src .. "/tiles/tiles.tscn")
 ## local function pos_of(name) return tiles_scene[name].body.position.args end
 
@@ -20,7 +20,7 @@ local GemInfo = @record{
   shine: vector(d.Rect),
   speed: float32,
 }
-local resources.GemInfo = GemInfo
+local pub.GemInfo = GemInfo
 
 local PlayerInfo = @record{
   image: span(byte),
@@ -28,34 +28,34 @@ local PlayerInfo = @record{
   speed: float32,
   start: [2]float32,
 }
-local resources.PlayerInfo = PlayerInfo
+local pub.PlayerInfo = PlayerInfo
 
-local resources.back: span(byte) = #[read_all(src .. "/tiles/back.png")]#
-local resources.back_offset: [2]float32 = {
+local pub.back: span(byte) = #[read_all(src .. "/tiles/back.png")]#
+local pub.back_offset: [2]float32 = {
   #[pos_of("Back")[1]]#,
   #[pos_of("Back")[2]]#,
 }
 
 ## local gem_resource = gd.resource_load(src .. "/tiles/gem.tres")
 ## local gem_shine = macros.animation_find(gem_resource, "shine")
-local resources.gem = GemInfo{
+local pub.gem = GemInfo{
   image = #[read_all(src .. "/tiles/gem.png")]#,
   pos = {#[pos_of("Gem")[1]]#, #[pos_of("Gem")[2]]#},
   shine = #[macros.animation_build(gem_resource, gem_shine)]#,
   speed = #[gem_shine.speed]#,
 }
 
-local resources.level = #[read_all(src .. "/tiles/tiles.tscn")]#
+local pub.level = #[read_all(src .. "/tiles/tiles.tscn")]#
 
-local resources.middle: span(byte) = #[read_all(src .. "/tiles/middle.png")]#
-local resources.middle_offset: [2]float32 = {
+local pub.middle: span(byte) = #[read_all(src .. "/tiles/middle.png")]#
+local pub.middle_offset: [2]float32 = {
   #[pos_of("Middle")[1]]#,
   #[pos_of("Middle")[2]]#,
 }
 
 ## local player_resource = gd.resource_load(src .. "/tiles/player.tres")
 ## local player_run = macros.animation_find(player_resource, "run")
-local resources.player = PlayerInfo{
+local pub.player = PlayerInfo{
   image = #[read_all(src .. "/tiles/player.png")]#,
   run = #[macros.animation_build(player_resource, player_run)]#,
   speed = #[player_run.speed]#,
@@ -63,16 +63,16 @@ local resources.player = PlayerInfo{
 }
 
 ## local display = gd.resource_load(src .. "/tiles/project.godot").display.body
-local resources.viewport_size: [2]float32 = {
+local pub.viewport_size: [2]float32 = {
   #[display["window/size/viewport_width"]]#,
   #[display["window/size/viewport_height"]]#,
 }
 
-local resources.shader: span(byte) = #[read_all "out/shader.spv"]#
+local pub.shader: span(byte) = #[read_all "out/shader.spv"]#
 
-local resources.tiles: span(byte) = #[read_all(src .. "/tiles/tileset.png")]#
-local resources.tile_map: span(byte) = #[gd.base64_decode(
+local pub.tiles: span(byte) = #[read_all(src .. "/tiles/tileset.png")]#
+local pub.tile_map: span(byte) = #[gd.base64_decode(
   tiles_scene["TileMapLayer"]["body"]["tile_map_data"]["args"][1]
 )]#
 
-return resources
+return pub

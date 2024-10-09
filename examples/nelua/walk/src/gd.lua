@@ -1,6 +1,6 @@
 -- This script should work in ordinary Lua.
 
-local gd = {}
+local pub = {}
 
 local parse_value
 local header_pattern = "^%[(.+)%]$"
@@ -166,10 +166,10 @@ local function print_table(t, indent)
     end
   end
 end
-gd.print_table = print_table
+pub.print_table = print_table
 
 -- Variation on http://lua-users.org/wiki/BaseSixtyFour
-function gd.base64_decode(data)
+function pub.base64_decode(data)
   local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
   return (data:gsub('.', function(x)
     if (x == '=') then return '' end
@@ -184,7 +184,7 @@ function gd.base64_decode(data)
   end))
 end
 
-function gd.resource_load(file_path)
+function pub.resource_load(file_path)
   local file <close> = io.open(file_path, "r")
   if not file then
     error("Can't open: " .. file_path)
@@ -213,4 +213,4 @@ function gd.resource_load(file_path)
   return resource
 end
 
-return gd
+return pub

@@ -19,12 +19,12 @@ gc:init(nilptr)
 
 -- Actual exported things
 
-local support = @record{}
+local pub = @record{}
 
-local support.GcStep = @record{}
+local pub.GcStep = @record{}
 
-function support.GcStep:__close()
+function pub.GcStep:__close()
   gc:step()
 end
 
-return support
+return pub

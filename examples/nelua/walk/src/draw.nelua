@@ -1,54 +1,54 @@
-local draw = @record{}
+local pub = @record{}
 
 local m = require "math"
 local s = require "string"
 local t = require "taca"
 local u = require "./util.nelua"
 
-local draw.Rect = @record{
+local pub.Rect = @record{
   pos: [2]float32,
   size: [2]float32,
 }
 
-function draw.Rect:contains(point: [2]float32): boolean
+function pub.Rect:contains(point: [2]float32): boolean
   return
     point[0] > self.pos[0] and point[0] < self.pos[0] + self.size[0] and
     point[1] > self.pos[1] and point[1] < self.pos[1] + self.size[1]
 end
 
-local draw.Instance = @record{
+local pub.Instance = @record{
   offset: [2]float32,
   scale: [2]float32,
   source_offset: [2]float32,
   source_scale: [2]float32,
 }
 
-local draw.TextureBindings = @record{
+local pub.TextureBindings = @record{
   bindings: t.Bindings,
   instance_buffer: t.Buffer,
   size: [2]float32,
   texture: t.Texture,
 }
 
-local draw.Blitter = @record{
+local pub.Blitter = @record{
   index_buffer: t.Buffer,
-  instances: vector(draw.Instance),
+  instances: vector(pub.Instance),
   vertex_buffer: t.Buffer,
   view_size: [2]float32,
 }
 
-local draw.Blit = @record{
-  source_rect: draw.Rect,
+local pub.Blit = @record{
+  source_rect: pub.Rect,
   view_pos: [2]float32,
   view_scale: [2]float32,
 }
 
-local draw.BlitInfo = @record{
-  texture: draw.TextureBindings,
-  blits: span(draw.Blit),
+local pub.BlitInfo = @record{
+  texture: pub.TextureBindings,
+  blits: span(pub.Blit),
 }
 
-function draw.Blitter:blit(info: draw.BlitInfo)
+function pub.Blitter:blit(info: pub.BlitInfo)
   -- Check
   if #info.blits > self.instances:capacity() then
     t.print("blit too big")
@@ -82,7 +82,7 @@ function draw.Blitter:blit(info: draw.BlitInfo)
       },
     })
   end
-  local instances: span(draw.Instance) = self.instances
+  local instances: span(pub.Instance) = self.instances
   t.buffer_update(
     info.texture.instance_buffer,
     u.as_bytes(instances),
@@ -97,7 +97,7 @@ function draw.Blitter:blit(info: draw.BlitInfo)
   t.draw(0, 6, #info.blits)
 end
 
-function draw.print_frames(name: string, frames: span(draw.Rect))
+function pub.print_frames(name: string, frames: span(pub.Rect))
   t.print(name)
   for i, frame in ipairs(frames) do
     t.print(s.format(
@@ -109,4 +109,4 @@ function draw.print_frames(name: string, frames: span(draw.Rect))
   end
 end
 
-return draw
+return pub

@@ -1,4 +1,4 @@
-local frame = @record{}
+local pub = @record{}
 
 local c = require "./control.nelua"
 local d = require "./draw.nelua"
@@ -8,7 +8,7 @@ local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
 
-function frame.update(game: *g.Game)
+function pub.update(game: *g.Game)
   -- Window
   local window = t.window_state();
   local viewport_aspect = r.viewport_size[0] / r.viewport_size[1]
@@ -108,4 +108,4 @@ function frame.update(game: *g.Game)
   })
 end
 
-return frame
+return pub
