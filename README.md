@@ -12,6 +12,15 @@ WebAssembly allows a variety of source languages to be used.
 
 Any of these languages could have been used for any of these demos.
 
+## Goals
+
+- Provide core capabilities rather than high level abstractions
+- Still make the core API friendly to use
+- Choose features that enable lightweight implementation in browser
+- Native player runs unmodified apps in lighter weight runtime than browser
+- Eventually compete with browsers for app distribution
+- High security, including no network access, by default
+
 ## Dev Notes
 
 ### Containers
