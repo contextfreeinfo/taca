@@ -1,4 +1,4 @@
-local frame = @record{}
+local pub = @record{}
 
 local c = require "./control.nelua"
 local d = require "./draw.nelua"
@@ -8,7 +8,7 @@ local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
 
-function frame.update(game: *g.Game)
+function pub.update(game: *g.Game)
   -- Window
   local window = t.window_state();
   local viewport_aspect = r.viewport_size[0] / r.viewport_size[1]
@@ -18,19 +18,21 @@ function frame.update(game: *g.Game)
   -- Control
   c.update_control(game)
   -- Uniform and clip
+  local clip: d.Rect
   if aspect > 1 then
     -- Fill height.
     local size_x = window.size[0] / aspect
     local x = (window.size[0] - size_x) * 0.5
-    t.clip(x, 0, size_x, window.size[1])
+    clip = {{x, 0}, {size_x, window.size[1]}}
     game.uniforms.aspect = {1 / aspect, 1}
   else
     -- Fill width.
     local size_y = window.size[1] * aspect
     local y = (window.size[1] - size_y) * 0.5
-    t.clip(0, y, window.size[0], size_y)
+    clip = {{0, y}, {window.size[0], size_y}}
     game.uniforms.aspect = {1, aspect}
   end
+  t.clip(clip.pos[0], clip.pos[1], clip.size[0], clip.size[1])
   t.buffer_update(
     game.uniforms_buffer,
     {data = (@pointer(byte))(&game.uniforms), size = #g.Uniforms},
@@ -106,6 +108,15 @@ function frame.update(game: *g.Game)
       view_scale = {game.player_dir, 1},
     }},
   })
+  -- Help
+  if not game.started then
+    t.text_align(t.TextAlignX.Left, t.TextAlignY.Bottom)
+    t.text_draw(
+      "Use arrows to move",
+      clip.pos[0] + clip.size[0] * 0.1,
+      clip.pos[1] + clip.size[1] * 0.9
+    )
+  end
 end
 
-return frame
+return pub

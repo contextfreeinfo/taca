@@ -1,10 +1,10 @@
-local util = @record{}
+local pub = @record{}
 
 local s = require "string"
 local t = require "taca"
 
-function util.as_bytes(items: auto): span(byte)
+function pub.as_bytes(items: auto): span(byte)
   return {data = (@pointer([0]byte))(items.data), size = items:sizebytes()}
 end
 
-return util
+return pub

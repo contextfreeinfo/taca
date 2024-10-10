@@ -25,7 +25,7 @@ function pub.update_control(game: *g.Game)
   end
   game.player_grounded = false
   local player_half_x = 9
-  local player_half_y = 16
+  local player_half_y = 14
   local foot_x = game.player_pos[0]
   local foot_left = foot_x - player_half_x
   local foot_right = foot_x + player_half_x
@@ -102,15 +102,18 @@ function pub.update_key(game: *g.Game)
   local event = t.key_event()
   switch event.key do
   case t.Key.ArrowUp, t.Key.Space then
+    game.started = true
     if event.pressed and game.player_grounded then
       game.player_control.jump = true
     end
   case t.Key.ArrowLeft then
+    game.started = true
     game.player_control.left = event.pressed
     if event.pressed then
       game.player_dir = -1
     end
   case t.Key.ArrowRight then
+    game.started = true
     game.player_control.right = event.pressed
     if event.pressed then
       game.player_dir = 1

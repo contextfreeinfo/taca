@@ -1,24 +1,24 @@
-local taca = @record{}
+local pub = @record{}
 
 -- Opaques
 
 -- TODO Change to numbers so we know they aren't unique across types?
-local taca.Bindings = @pointer
-local taca.Buffer = @pointer
-local taca.Pipeline = @pointer
-local taca.Sampler = @pointer
-local taca.Shader = @pointer
-local taca.Texture = @pointer
+local pub.Bindings = @pointer
+local pub.Buffer = @pointer
+local pub.Pipeline = @pointer
+local pub.Sampler = @pointer
+local pub.Shader = @pointer
+local pub.Texture = @pointer
 
 -- Enums
 
-local taca.EventKind = @enum(uint32){
+local pub.EventKind = @enum(uint32){
   Frame = 0,
   Key,
   TasksDone,
 }
 
-local taca.Key = @enum(uint32){
+local pub.Key = @enum(uint32){
   None = 0,
   ArrowUp,
   ArrowDown,
@@ -28,66 +28,79 @@ local taca.Key = @enum(uint32){
   Escape,
 }
 
-local taca.Step = @enum(uint32){
+local pub.Step = @enum(uint32){
   Vertex = 0,
   Instance,
 }
 
+local pub.TextAlignX = @enum(uint32){
+    Left = 0,
+    Center,
+    Right,
+}
+
+local pub.TextAlignY = @enum(uint32){
+    Baseline = 0,
+    Top,
+    Middle,
+    Bottom,
+}
+
 -- Records
 
-local taca.AttributeInfo = @record{
+local pub.AttributeInfo = @record{
   shader_location: usize,
   value_offset: usize,
 }
 
-local taca.BindingsInfo = @record{
-  pipeline: taca.Pipeline,
+local pub.BindingsInfo = @record{
+  pipeline: pub.Pipeline,
   group_index: usize,
-  buffers: span(taca.Buffer),
-  samplers: span(taca.Sampler),
-  textures: span(taca.Texture),
+  buffers: span(pub.Buffer),
+  samplers: span(pub.Sampler),
+  textures: span(pub.Texture),
 }
 
-local taca.BufferKind = @enum(uint32) {
+local pub.BufferKind = @enum(uint32) {
   Vertex = 0,
   Index,
   Uniform,
 }
 
-local taca.Buffers = @record{
-  vertex_buffers: span(taca.Buffer),
-  index_buffer: taca.Buffer,
+local pub.Buffers = @record{
+  vertex_buffers: span(pub.Buffer),
+  index_buffer: pub.Buffer,
 }
 
-local taca.KeyEvent = @record{
-  key: taca.Key,
+local pub.KeyEvent = @record{
+  key: pub.Key,
   pressed: boolean,
 }
 
-local taca.BufferInfo = @record{
+local pub.BufferInfo = @record{
   first_attribute: usize,
-  step: taca.Step,
+  step: pub.Step,
   stride: usize,
 }
 
-local taca.PipelineShaderInfo = @record{
+local pub.PipelineShaderInfo = @record{
   entry: string,
-  shader: taca.Shader,
+  shader: pub.Shader,
 }
 
-local taca.PipelineInfo = @record{
+local pub.PipelineInfo = @record{
     depth_test: boolean,
-    fragment: taca.PipelineShaderInfo,
-    vertex: taca.PipelineShaderInfo,
-    vertex_attributes: span(taca.AttributeInfo),
-    vertex_buffers: span(taca.BufferInfo),
+    fragment: pub.PipelineShaderInfo,
+    vertex: pub.PipelineShaderInfo,
+    vertex_attributes: span(pub.AttributeInfo),
+    vertex_buffers: span(pub.BufferInfo),
 }
 
-local taca.TextureInfo = @record{
+local pub.TextureInfo = @record{
     size: [2]float32,
 }
 
-local taca.WindowState = @record{
+local pub.WindowState = @record{
     pointer: [2]float32,
     press: uint32,
     size: [2]float32,
@@ -95,31 +108,31 @@ local taca.WindowState = @record{
 
 -- Functions
 
-function taca.bindings_apply(bindings: taca.Bindings): void
+function pub.bindings_apply(bindings: pub.Bindings): void
   <cimport, cattribute 'import_name("taca_bindings_apply")'>
 end
 
-function taca.bindings_new(info: taca.BindingsInfo): taca.Bindings
+function pub.bindings_new(info: pub.BindingsInfo): pub.Bindings
   <cimport, cattribute 'import_name("taca_bindings_new")'>
 end
 
-function taca.buffer_new(kind: taca.BufferKind, bytes: span(byte)): taca.Buffer
+function pub.buffer_new(kind: pub.BufferKind, bytes: span(byte)): pub.Buffer
   <cimport, cattribute 'import_name("taca_buffer_new")'>
 end
 
-function taca.buffer_update(
-  buffer: taca.Buffer,
+function pub.buffer_update(
+  buffer: pub.Buffer,
   bytes: span(byte),
   buffer_offset: usize
 ): void
   <cimport, cattribute 'import_name("taca_buffer_update")'>
 end
 
-function taca.buffers_apply(buffers: taca.Buffers): void
+function pub.buffers_apply(buffers: pub.Buffers): void
   <cimport, cattribute 'import_name("taca_buffers_apply")'>
 end
 
-function taca.clip(
+function pub.clip(
   x: float32,
   y: float32,
   size_x: float32,
@@ -128,7 +141,7 @@ function taca.clip(
   <cimport, cattribute 'import_name("taca_clip")'>
 end
 
-function taca.draw(
+function pub.draw(
   index_begin: uint32,
   index_count: uint32,
   instance_count: uint32
@@ -136,36 +149,44 @@ function taca.draw(
   <cimport, cattribute 'import_name("taca_draw")'>
 end
 
-function taca.image_decode(bytes: span(byte)): taca.Texture
+function pub.image_decode(bytes: span(byte)): pub.Texture
   <cimport, cattribute 'import_name("taca_image_decode")'>
 end
 
-function taca.key_event(): taca.KeyEvent
+function pub.key_event(): pub.KeyEvent
   <cimport, cattribute 'import_name("taca_key_event")'>
 end
 
-function taca.pipeline_apply(pipeline: taca.Pipeline): void
+function pub.pipeline_apply(pipeline: pub.Pipeline): void
   <cimport, cattribute 'import_name("taca_pipeline_apply")'>
 end
 
-function taca.pipeline_new(info: taca.PipelineInfo): taca.Pipeline
+function pub.pipeline_new(info: pub.PipelineInfo): pub.Pipeline
   <cimport, cattribute 'import_name("taca_pipeline_new")'>
 end
 
-function taca.print(text: string): void
+function pub.print(text: string): void
   <cimport, cattribute 'import_name("taca_print")'>
 end
 
-function taca.shader_new(bytes: span(byte)): taca.Shader
+function pub.shader_new(bytes: span(byte)): pub.Shader
   <cimport, cattribute 'import_name("taca_shader_new")'>
 end
 
-function taca.texture_info(texture: taca.Texture): taca.TextureInfo
+function pub.text_align(x: pub.TextAlignX, y: pub.TextAlignY): void
+  <cimport, cattribute 'import_name("taca_text_align")'>
+end
+
+function pub.text_draw(text: string, x: float32, y: float32): void
+  <cimport, cattribute 'import_name("taca_text_draw")'>
+end
+
+function pub.texture_info(texture: pub.Texture): pub.TextureInfo
   <cimport, cattribute 'import_name("taca_texture_info")'>
 end
 
-function taca.window_state(): taca.WindowState
+function pub.window_state(): pub.WindowState
   <cimport, cattribute 'import_name("taca_window_state")'>
 end
 
-return taca;
+return pub;

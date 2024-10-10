@@ -30,6 +30,7 @@ local pub.Game = @record{
   player_grounded: boolean,
   player_pos: [2]float32,
   player_vel_y: float32,
+  started: boolean,
   tile_map: vector(d.Blit),
   tiles: d.TextureBindings,
   uniforms: pub.Uniforms,

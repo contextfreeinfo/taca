@@ -1,6 +1,6 @@
 -- This script is specifically for Nelua macro usage.
 
-local macros = {}
+local pub = {}
 
 local n = require "nelua.aster"
 
@@ -20,7 +20,7 @@ local function map(array, fun)
   return new_array
 end
 
-function macros.animation_build(resource, animation)
+function pub.animation_build(resource, animation)
   return n.InitList(map(animation.frames, function(frame)
     local region = resource[frame.texture.args[1]].body.region.args
     return n.InitList{
@@ -30,11 +30,11 @@ function macros.animation_build(resource, animation)
   end))
 end
 
-function macros.animation_find(resource, name)
+function pub.animation_find(resource, name)
   local animations = resource.resource.body.animations
   return find(animations, function(anim)
     return anim.name == name
   end)
 end
 
-return macros
+return pub
