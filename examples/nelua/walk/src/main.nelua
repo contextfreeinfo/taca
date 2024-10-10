@@ -28,10 +28,6 @@ local function start()
       {first_attribute = 1, step = t.Step.Instance},
     },
   })
-  local box_instance = t.buffer_new(
-    t.BufferKind.Vertex,
-    {data = nilptr, size = max_instances * #d.Instance}
-  )
   local function make_instance_buffer(max_instances: usize)
     return t.buffer_new(
       t.BufferKind.Vertex,
