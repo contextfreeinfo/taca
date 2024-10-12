@@ -7,6 +7,16 @@ local r = require "./resources.nelua"
 local s = require "string"
 local t = require "taca"
 
+local function calc_view_rect(blit: d.Blit): d.Rect
+  local tile_size = blit.source_rect.size
+  local tile_half_x = blit.source_rect.size[0] * 0.5
+  local tile_half_y = blit.source_rect.size[1] * 0.5
+  return {
+    pos = {blit.view_pos[0] - tile_half_x, blit.view_pos[1] - tile_half_y},
+    size = blit.source_rect.size,
+  }
+end
+
 function pub.update_control(game: *g.Game)
   local move = 0
   game.player_animate = false
@@ -38,41 +48,31 @@ function pub.update_control(game: *g.Game)
   if move > 0 and foot_right > r.viewport_size[0] then
     game.player_pos[0] = r.viewport_size[0] - player_half_x
   end
+  -- Horizontal
   for _, blit in ipairs(game.tile_map) do
-    local tile_size = blit.source_rect.size
-    local tile_half_x = blit.source_rect.size[0] * 0.5
-    local tile_half_y = blit.source_rect.size[1] * 0.5
-    local tile_rect: d.Rect = {
-      pos = {blit.view_pos[0] - tile_half_x, blit.view_pos[1] - tile_half_y},
-      size = blit.source_rect.size,
-    }
-    local hit_side = false
+    local tile_rect = calc_view_rect(blit)
     -- Collide left.
-    if move < 0 and (
-      tile_rect:contains({foot_x, foot_y}) or
-      tile_rect:contains({foot_left, foot_y})
-    ) then
-      hit_side = true
+    if move < 0 and tile_rect:contains({foot_left, foot_y}) then
       game.player_pos[0] = tile_rect.pos[0] + tile_rect.size[0] + player_half_x
     end
     -- Collide right.
-    if move > 0 and (
-      tile_rect:contains({foot_x, foot_y}) or
-      tile_rect:contains({foot_right, foot_y})
-    ) then
-      hit_side = true
+    if move > 0 and tile_rect:contains({foot_right, foot_y}) then
       game.player_pos[0] = tile_rect.pos[0] - player_half_x
     end
+  end
+  -- Vertical
+  foot_x = game.player_pos[0]
+  foot_left = foot_x - player_half_x + 0.5
+  foot_right = foot_x + player_half_x - 0.5
+  for _, blit in ipairs(game.tile_map) do
+    local tile_rect = calc_view_rect(blit)
     -- Collide down.
     if game.player_vel_y >= 0 and (
-      tile_rect:contains({foot_x, under_y}) or not hit_side and (
-        tile_rect:contains({foot_left, under_y}) or
-        tile_rect:contains({foot_right, under_y})
-      )
+      tile_rect:contains({foot_left, under_y}) or
+      tile_rect:contains({foot_right, under_y})
     ) then
       -- t.print(".")
-      game.player_pos[1] =
-        m.floor(under_y / tile_size[1]) * tile_size[1] - player_half_y
+      game.player_pos[1] = tile_rect.pos[1] - player_half_y
       if not game.player_control.jump then
         game.player_vel_y = 0
         game.player_grounded = true
