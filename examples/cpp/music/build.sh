@@ -1,7 +1,7 @@
 PUB_DIR=../../../web/public/apps/cpp
 
 mkdir -p out &&
-"$WASI_SDK/bin/clang" -s --std=c++23 -Wall -Wextra -Werror \
+"$WASI_SDK/bin/clang" -Os -s --std=c++23 -Wall -Wextra -Werror \
      -o out/music.wasm src/main.cpp && \
 lz4 -f9 out/music.wasm out/music.taca && \
 mkdir -p $PUB_DIR && \
