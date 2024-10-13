@@ -1,6 +1,8 @@
 PUB_DIR=../../../web/public/apps/cpp
 
 mkdir -p out &&
+wit-bindgen c --out-dir out --no-helpers --no-object-file --rename-world taca \
+     src/taca.wit && \
 "$WASI_SDK/bin/clang" -Os -s --std=c++23 -Wall -Wextra -Werror \
      -o out/music.wasm src/main.cpp && \
 lz4 -f9 out/music.wasm out/music.taca && \
