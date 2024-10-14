@@ -1,6 +1,12 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
+
+typedef struct {
+    const uint8_t* data;
+    size_t size;
+} taca_bytes_view;
 
 typedef struct {
     const char* data;
@@ -11,8 +17,13 @@ typedef struct {
 extern "C" {
 #endif
 
-// __attribute__((__import_module__("taca"), __import_name__("print")))
-__attribute__((__import_name__("taca_print")))
+typedef size_t taca_Sound;
+
+__attribute__((import_name("taca_sound_decode")))
+taca_Sound taca_sound_decode(taca_bytes_view bytes);
+
+// __attribute__((import_module("taca"), import_name("print")))
+__attribute__((import_name("taca_print")))
 void taca_print(taca_string_view text);
 
 #ifdef __cplusplus
