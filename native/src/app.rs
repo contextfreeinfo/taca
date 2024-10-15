@@ -63,6 +63,7 @@ impl App {
                 "taca_pipeline_new" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_new),
                 "taca_print" => Function::new_typed_with_env(&mut store, &env, taca_print),
                 "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
+                "taca_sound_decode" => Function::new_typed_with_env(&mut store, &env, taca_sound_decode),
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
                 "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
                 "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
@@ -433,6 +434,24 @@ fn taca_shader_new(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
     let shader = shader_create(system, &bytes);
     system.shaders.push(shader);
     system.shaders.len() as u32
+}
+
+fn taca_sound_decode(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
+    // let (system, store) = env.data_and_store_mut();
+    // let view = system.memory.as_ref().unwrap().view(&store);
+    // let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    // let bytes = read_span(&view, bytes);
+    // system.textures.push(Texture { data: None });
+    // let handle = system.textures.len();
+    // system.tasks_active += 1;
+    // system
+    //     .worker
+    //     .as_ref()
+    //     .unwrap()
+    //     .send(WorkItem::ImageDecode { handle, bytes })
+    //     .unwrap();
+    // handle.try_into().unwrap()
+    0
 }
 
 fn taca_text_align(mut env: FunctionEnvMut<System>, x: u32, y: u32) {

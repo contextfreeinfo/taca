@@ -639,6 +639,26 @@ class App {
   resizeNeeded = false;
 
   shaders: Shader[] = [];
+
+  soundDecode(bytes: number) {
+    // let { gl, textures } = this;
+    // let pointer = 0;
+    // const texture = imageDecode(
+    //   gl,
+    //   this.readBytes(bytes),
+    //   () => this.taskFinish(),
+    //   (reason) => {
+    //     this.taskFinish();
+    //     fail(reason);
+    //   }
+    // );
+    // this.tasksActive += 1;
+    // textures.push(texture);
+    // pointer = textures.length;
+    // return pointer;
+    return 0;
+  }
+
   tacaBuffer: WebGLBuffer | null = null;
 
   private tacaBufferEnsure() {
@@ -979,6 +999,9 @@ function makeAppEnv(app: App) {
     taca_shader_new(bytes: number) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
+    },
+    taca_sound_decode(bytes: number) {
+      return app.soundDecode(bytes);
     },
     taca_text_align(x: number, y: number) {
       app.textAlign(x, y);

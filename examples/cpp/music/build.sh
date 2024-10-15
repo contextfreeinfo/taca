@@ -1,8 +1,8 @@
 PUB_DIR=../../../web/public/apps/cpp
 
 mkdir -p out &&
-xxd -i src/musicbox.mp3 > out/musicbox-mp3.c && \
-"$WASI_SDK/bin/clang" --std=c++23 -Os -s -Wall -Wextra -Werror -Iout \
+xxd -i src/musicbox.mp3 > out/musicbox-data.c && \
+"$WASI_SDK/bin/clang" --std=c++23 -Os -s -Wall -Wextra -Werror -Isrc -Iout \
      -o out/music.wasm src/main.cpp && \
 lz4 -f9 out/music.wasm out/music.taca && \
 mkdir -p $PUB_DIR && \
