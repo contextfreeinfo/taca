@@ -22,10 +22,10 @@ use crate::{
     gpu::{
         bindings_apply, bindings_new, bound_ensure, buffer_update, buffered_ensure, buffers_apply,
         create_buffer, create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure,
-        pipeline_apply, pipelined_ensure, shader_create, uniforms_apply, Bindings, BindingsInfo,
-        Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo,
-        MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
-        Texture, TextureInfoExtern,
+        pipeline_apply, pipelined_ensure, shader_create, sound_decode, uniforms_apply, Bindings,
+        BindingsInfo, Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers,
+        ExternPipelineInfo, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame,
+        Shader, Sound, Span, Texture, TextureInfoExtern,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -110,6 +110,20 @@ impl App {
                 }
                 self.task_finish();
             }
+            UserEvent::SoundDecoded { handle, sound } => {
+                match sound {
+                    Ok(sound) => {
+                        let system = self.env.as_mut(&mut self.store);
+                        // dbg!(sound.duration());
+                        system.sounds[handle - 1].data = Some(sound);
+                    }
+                    Err(err) => {
+                        // TODO Report errors to app?
+                        dbg!(err);
+                    }
+                }
+                self.task_finish();
+            }
         }
     }
 
@@ -151,6 +165,9 @@ impl App {
                 match message {
                     WorkItem::ImageDecode { handle, bytes } => {
                         image_decode(handle, bytes, &event_loop_proxy);
+                    }
+                    WorkItem::SoundDecode { handle, bytes } => {
+                        sound_decode(handle, bytes, &event_loop_proxy);
                     }
                 }
             }
@@ -200,6 +217,7 @@ pub struct System {
     pub pipelines: Vec<Pipeline>,
     pub samplers: Vec<wgpu::Sampler>,
     pub shaders: Vec<Shader>,
+    pub sounds: Vec<Sound>,
     pub tasks_active: usize,
     pub text: Option<Arc<Mutex<TextEngine>>>,
     pub textures: Vec<Texture>,
@@ -219,6 +237,7 @@ impl System {
             pipelines: vec![],
             samplers: vec![],
             shaders: vec![],
+            sounds: vec![],
             tasks_active: 0,
             text: None,
             textures: vec![],
@@ -230,6 +249,7 @@ impl System {
 #[derive(Debug)]
 pub enum WorkItem {
     ImageDecode { handle: usize, bytes: Vec<u8> },
+    SoundDecode { handle: usize, bytes: Vec<u8> },
 }
 
 fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
@@ -437,21 +457,20 @@ fn taca_shader_new(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
 }
 
 fn taca_sound_decode(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
-    // let (system, store) = env.data_and_store_mut();
-    // let view = system.memory.as_ref().unwrap().view(&store);
-    // let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
-    // let bytes = read_span(&view, bytes);
-    // system.textures.push(Texture { data: None });
-    // let handle = system.textures.len();
-    // system.tasks_active += 1;
-    // system
-    //     .worker
-    //     .as_ref()
-    //     .unwrap()
-    //     .send(WorkItem::ImageDecode { handle, bytes })
-    //     .unwrap();
-    // handle.try_into().unwrap()
-    0
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let bytes = read_span(&view, bytes);
+    system.sounds.push(Sound { data: None });
+    let handle = system.sounds.len();
+    system.tasks_active += 1;
+    system
+        .worker
+        .as_ref()
+        .unwrap()
+        .send(WorkItem::SoundDecode { handle, bytes })
+        .unwrap();
+    handle.try_into().unwrap()
 }
 
 fn taca_text_align(mut env: FunctionEnvMut<System>, x: u32, y: u32) {

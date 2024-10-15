@@ -1,4 +1,5 @@
 use image::{DynamicImage, ImageResult};
+use kira::sound::static_sound::StaticSoundData;
 use std::{
     future::Future,
     ptr::null_mut,
@@ -209,6 +210,10 @@ pub enum UserEvent {
     ImageDecoded {
         handle: usize,
         image: ImageResult<DynamicImage>,
+    },
+    SoundDecoded {
+        handle: usize,
+        sound: Result<StaticSoundData, kira::sound::FromFileError>,
     },
 }
 

@@ -2,6 +2,7 @@ use std::{io::Cursor, num::NonZeroU64};
 
 use bytemuck::PodCastError;
 use image::{DynamicImage, ImageError, ImageReader};
+use kira::sound::static_sound::StaticSoundData;
 use naga::{
     front::spv,
     valid::{Capabilities, ValidationFlags, Validator},
@@ -148,27 +149,9 @@ pub struct Span {
     pub len: u32,
 }
 
-#[derive(Clone, Copy, Debug, ValueType)]
-#[repr(C)]
-pub struct VertexAttribute {
-    pub shader_location: u32,
-    pub value_offset: u32,
-}
-
-#[derive(Clone, Copy, Debug, ValueType)]
-#[repr(C)]
-pub struct VertexBufferInfo {
-    first_attribute: u32,
-    step: u32,
-    stride: u32,
-}
-
-/// Like wgpu::VertexBufferLayout except with a Vec of attributes.
-#[derive(Clone, Debug)]
-pub struct VertexBufferLayout {
-    array_stride: wgpu::BufferAddress,
-    step_mode: wgpu::VertexStepMode,
-    attributes: Vec<wgpu::VertexAttribute>,
+#[derive(Debug)]
+pub struct Sound {
+    pub data: Option<StaticSoundData>,
 }
 
 #[derive(Debug)]
@@ -190,6 +173,29 @@ pub struct TextureInfoExtern {
     // TODO What else?
     // TODO Depth also? Padding effect?
     pub size: [f32; 2],
+}
+
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct VertexAttribute {
+    pub shader_location: u32,
+    pub value_offset: u32,
+}
+
+#[derive(Clone, Copy, Debug, ValueType)]
+#[repr(C)]
+pub struct VertexBufferInfo {
+    first_attribute: u32,
+    step: u32,
+    stride: u32,
+}
+
+/// Like wgpu::VertexBufferLayout except with a Vec of attributes.
+#[derive(Clone, Debug)]
+pub struct VertexBufferLayout {
+    array_stride: wgpu::BufferAddress,
+    step_mode: wgpu::VertexStepMode,
+    attributes: Vec<wgpu::VertexAttribute>,
 }
 
 pub fn bindings_apply(system: &mut System, bindings: u32) {
@@ -837,6 +843,19 @@ pub fn shader_create(system: &mut System, bytes: &[u8]) -> Shader {
         // info,
         module,
     }
+}
+
+// TODO Separate file for sound handling?
+pub fn sound_decode(
+    handle: usize,
+    bytes: Vec<u8>,
+    event_loop_proxy: &winit::event_loop::EventLoopProxy<UserEvent>,
+) {
+    let cursor = Cursor::new(bytes);
+    let sound = StaticSoundData::from_cursor(cursor);
+    event_loop_proxy
+        .send_event(UserEvent::SoundDecoded { handle, sound })
+        .unwrap();
 }
 
 fn step_mode_translate(step: u32) -> wgpu::VertexStepMode {
