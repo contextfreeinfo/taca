@@ -1019,6 +1019,11 @@ function makeAppEnv(app: App) {
     taca_sound_decode(bytes: number) {
       return app.soundDecode(bytes);
     },
+    taca_sound_play(info: number) {
+      // TODO taca_sound_play
+      console.log(`taca_sound_play(${info})`);
+      return 0;
+    },
     taca_text_align(x: number, y: number) {
       app.textAlign(x, y);
     },

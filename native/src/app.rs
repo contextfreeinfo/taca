@@ -64,6 +64,7 @@ impl App {
                 "taca_print" => Function::new_typed_with_env(&mut store, &env, taca_print),
                 "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
                 "taca_sound_decode" => Function::new_typed_with_env(&mut store, &env, taca_sound_decode),
+                "taca_sound_play" => Function::new_typed_with_env(&mut store, &env, taca_sound_play),
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
                 "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
                 "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
@@ -471,6 +472,14 @@ fn taca_sound_decode(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
         .send(WorkItem::SoundDecode { handle, bytes })
         .unwrap();
     handle.try_into().unwrap()
+}
+
+fn taca_sound_play(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    // TODO taca_sound_play
+    dbg!("taca_sound_play", info);
+    0
 }
 
 fn taca_text_align(mut env: FunctionEnvMut<System>, x: u32, y: u32) {

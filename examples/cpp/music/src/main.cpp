@@ -1,16 +1,17 @@
 #include "app.hpp"
+#include "control.hpp"
 #include "musicbox-data.hpp"
 #include <taca.hpp>
 
 namespace music {
 
+// Init fields to zero.
 App app = {};
 
 void start() {
+    taca::title_update("Music Box (Taca Demo)");
     taca::print("Hi from C++!");
-    app = {
-        .ding = taca::sound_decode(musicbox_data),
-    };
+    app.ding = taca::sound_decode(musicbox_data);
 }
 
 // clang-format off
@@ -19,6 +20,9 @@ __attribute__((export_name("update")))
 void update(taca::EventKind event) {
     switch (event) {
         case taca::EventKind::Frame: {
+            app.window_state = taca::window_state();
+            update_control(&app);
+            app.was_pressed = app.window_state.press;
             break;
         }
         case taca::EventKind::Key: {
@@ -26,6 +30,7 @@ void update(taca::EventKind event) {
         }
         case taca::EventKind::TasksDone: {
             taca::print("sounds loaded");
+            app.ready = true;
             break;
         }
     }
