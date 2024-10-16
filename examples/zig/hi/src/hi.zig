@@ -2,11 +2,11 @@ const taca = @import("taca.zig");
 const ctx = taca.RenderingContext;
 const window = taca.Window;
 
-const title = "Hi from Zig!";
+const message = "Hi from Zig!";
 
 export fn start() void {
-    window.setTitle(title);
-    window.print(title);
+    window.setTitle("Triangle (Taca Demo)");
+    window.print(message);
     const y = @sqrt(3.0) / 4.0;
     _ = ctx.newBuffer(.{
         .slice = taca.BufferSlice.new(&[_]Vertex{
@@ -36,8 +36,8 @@ export fn update(event: taca.EventKind) void {
     // Triangle
     ctx.draw(0, 3, 1);
     // Text
-    const end = (stage.?.count / 10) % (title.len + 1);
-    ctx.drawText(title[0..end], state.pointer[0], state.pointer[1]);
+    const end = (stage.?.count / 10) % (message.len + 1);
+    ctx.drawText(message[0..end], state.pointer[0], state.pointer[1]);
     // Next
     stage.?.count +%= 1;
 }

@@ -185,6 +185,10 @@ function pub.texture_info(texture: pub.Texture): pub.TextureInfo
   <cimport, cattribute 'import_name("taca_texture_info")'>
 end
 
+function pub.title_update(texture: string): void
+  <cimport, cattribute 'import_name("taca_title_update")'>
+end
+
 function pub.window_state(): pub.WindowState
   <cimport, cattribute 'import_name("taca_window_state")'>
 end
