@@ -58,6 +58,9 @@ class App {
       this.keyEventHandle(event, false);
     });
     const handleMouse = (event: MouseEvent) => {
+      if (event.buttons) {
+        audioEnsureResumed(this.audioContext);
+      }
       const rect = canvas.getBoundingClientRect();
       this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
       this.pointerPress = event.buttons;
@@ -67,6 +70,7 @@ class App {
     canvas.addEventListener("mousemove", handleMouse);
     const handleTouch = (event: TouchEvent) => {
       event.preventDefault();
+      audioEnsureResumed(this.audioContext);
       // TODO Multitouch?
       const touch = event.touches[0];
       const rect = canvas.getBoundingClientRect();
@@ -137,6 +141,8 @@ class App {
     };
     return result;
   }
+
+  audioContext = new AudioContext();
 
   bindGroups = [] as {
     pipeline: number;
@@ -639,24 +645,27 @@ class App {
   resizeNeeded = false;
 
   shaders: Shader[] = [];
+  sounds: Sound[] = [];
 
   soundDecode(bytes: number) {
-    // let { gl, textures } = this;
-    // let pointer = 0;
-    // const texture = imageDecode(
-    //   gl,
-    //   this.readBytes(bytes),
-    //   () => this.taskFinish(),
-    //   (reason) => {
-    //     this.taskFinish();
-    //     fail(reason);
-    //   }
-    // );
-    // this.tasksActive += 1;
-    // textures.push(texture);
-    // pointer = textures.length;
-    // return pointer;
-    return 0;
+    const { audioContext, sounds } = this;
+    const sound = { buffer: null } as Sound;
+    sounds.push(sound);
+    const pointer = sounds.length;
+    audioContext.decodeAudioData(
+      this.readBytes(bytes).slice().buffer,
+      (buffer) => {
+        sound.buffer = buffer;
+        console.log(buffer.duration);
+        this.taskFinish();
+      },
+      (err) => {
+        this.taskFinish();
+        fail(err.message);
+      }
+    );
+    this.tasksActive += 1;
+    return pointer;
   }
 
   tacaBuffer: WebGLBuffer | null = null;
@@ -876,6 +885,13 @@ interface AttrInfo {
   type: number;
 }
 
+async function audioEnsureResumed(audioContext: AudioContext) {
+  if (audioContext.state == "suspended") {
+    await audioContext.resume();
+    console.log(`AudioContext state: ${audioContext.state}`);
+  }
+}
+
 interface Buffers {
   // TODO images/textures
   index: Buffer;
@@ -1062,6 +1078,10 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
 interface ShaderInfo {
   entry: string;
   shader: number;
+}
+
+interface Sound {
+  buffer: AudioBuffer | null;
 }
 
 const textDecoder = new TextDecoder();
