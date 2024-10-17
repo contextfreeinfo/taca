@@ -669,6 +669,17 @@ class App {
     return pointer;
   }
 
+  soundPlay(info: number) {
+    const infoView = this.memoryViewMake(info, 1 * 4);
+    const sound = getU32(infoView, 0);
+    const { audioContext, sounds } = this;
+    const source = audioContext.createBufferSource();
+    source.buffer = sounds[sound - 1].buffer;
+    source.connect(audioContext.destination);
+    source.start();
+    return 0;
+  }
+
   tacaBuffer: WebGLBuffer | null = null;
 
   private tacaBufferEnsure() {
@@ -1021,9 +1032,7 @@ function makeAppEnv(app: App) {
       return app.soundDecode(bytes);
     },
     taca_sound_play(info: number) {
-      // TODO taca_sound_play
-      console.log(`taca_sound_play(${info})`);
-      return 0;
+      return app.soundPlay(info);
     },
     taca_text_align(x: number, y: number) {
       app.textAlign(x, y);
