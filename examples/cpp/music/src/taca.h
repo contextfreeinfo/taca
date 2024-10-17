@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Enums
+
 // Note that size in C requires C23.
 typedef enum /* : uint32_t */ {
     taca_EventKind_Frame,
@@ -10,8 +12,22 @@ typedef enum /* : uint32_t */ {
     taca_EventKind_TasksDone,
 } taca_EventKind;
 
+typedef enum {
+    taca_Key_None,
+    taca_Key_ArrowUp,
+    taca_Key_ArrowDown,
+    taca_Key_ArrowLeft,
+    taca_Key_ArrowRight,
+    taca_Key_Space,
+    taca_Key_Escape,
+} taca_Key;
+
+// Handles
+
 typedef size_t taca_Sound;
 typedef size_t taca_SoundPlay;
+
+// Supports
 
 typedef struct {
     const uint8_t* data;
@@ -28,6 +44,13 @@ typedef struct {
     float y;
 } taca_Vec2;
 
+// Primaries
+
+typedef struct {
+    taca_Key key;
+    bool pressed;
+} taca_KeyEvent;
+
 typedef struct {
     // TODO Playback rate or time or other things.
     taca_Sound sound;
@@ -39,11 +62,16 @@ typedef struct {
     taca_Vec2 size;
 } taca_WindowState;
 
+// Functions
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 // clang-format off
+
+__attribute__((import_name("taca_key_event")))
+taca_KeyEvent taca_key_event(void);
 
 // __attribute__((import_module("taca"), import_name("print")))
 __attribute__((import_name("taca_print")))

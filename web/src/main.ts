@@ -432,6 +432,7 @@ class App {
   keyEventBytes = new Uint8Array(this.keyEvent.buffer);
 
   keyEventHandle(event: KeyboardEvent, pressed: boolean) {
+    audioEnsureResumed(this.audioContext);
     if (event.repeat) return;
     let { exports, keyEvent } = this;
     setU32(keyEvent, 0, keys[event.key] ?? 0);

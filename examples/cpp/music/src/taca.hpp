@@ -13,10 +13,31 @@ enum struct EventKind : std::uint32_t {
     TasksDone = taca_EventKind_TasksDone,
 };
 
+enum struct Key : std::uint32_t {
+    None,
+    ArrowUp,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    Space,
+    Escape,
+};
+
+struct KeyEvent {
+    Key key;
+    bool pressed;
+};
+
 using Sound = taca_Sound;
 using SoundPlay = taca_SoundPlay;
 using SoundPlayInfo = taca_SoundPlayInfo;
 using WindowState = taca_WindowState;
+using Vec2 = taca_Vec2;
+
+KeyEvent key_event() {
+    auto event = taca_key_event();
+    return {.key = static_cast<Key>(event.key), .pressed = event.pressed};
+}
 
 void print(std::string_view text) {
     taca_print({text.data(), text.size()});

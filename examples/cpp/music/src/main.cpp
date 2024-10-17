@@ -18,21 +18,27 @@ void start() {
 __attribute__((export_name("update")))
 // clang-format on
 void update(taca::EventKind event) {
+    if (!app.ready) {
+        if (event == taca::EventKind::TasksDone) {
+            taca::print("sounds loaded");
+            app.ready = true;
+        }
+        return;
+    }
     switch (event) {
         case taca::EventKind::Frame: {
             app.window_state = taca::window_state();
-            update_control(&app);
-            app.was_pressed = app.window_state.press;
+            update_control(app);
             break;
         }
         case taca::EventKind::Key: {
+            auto event = taca::key_event();
+            if (event.pressed) {
+                play_ding(app);
+            }
             break;
         }
-        case taca::EventKind::TasksDone: {
-            taca::print("sounds loaded");
-            app.ready = true;
-            break;
-        }
+        default:
     }
 }
 

@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build-only && npm run pack-dev",
-    "build-only": "wasm-pack build --target web && tsc && vite build && npm run pack-dev",
+    "build-js": "tsc && vite build",
+    "build-only": "wasm-pack build --target web && npm run build-js",
     "build-split": "npm run build-split-only && npm run pack-dev",
-    "build-split-only": "wasm-pack build --target web && tsc && vite build --mode split",
+    "build-split-js": "tsc && vite build --mode split",
+    "build-split-only": "wasm-pack build --target web && npm run build-split-js",
     "pack-dev": "wasm-pack build --target web --dev",
     "preview": "vite preview"
   },

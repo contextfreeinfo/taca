@@ -149,9 +149,17 @@ pub struct Span {
     pub len: u32,
 }
 
+// TODO Move Sound stuff elsewhere?
 #[derive(Debug)]
 pub struct Sound {
     pub data: Option<StaticSoundData>,
+}
+
+#[derive(Clone, Copy, Debug, Default, ValueType)]
+#[repr(C)]
+pub struct SoundPlayInfoExtern {
+    // TODO Playback rate or time or other things.
+    pub sound: u32,
 }
 
 #[derive(Debug)]

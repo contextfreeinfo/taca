@@ -10,6 +10,7 @@ use std::{
     thread,
 };
 
+use kira::manager::{AudioManager, AudioManagerSettings};
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
@@ -25,7 +26,7 @@ use crate::{
         pipeline_apply, pipelined_ensure, shader_create, sound_decode, uniforms_apply, Bindings,
         BindingsInfo, Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers,
         ExternPipelineInfo, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame,
-        Shader, Sound, Span, Texture, TextureInfoExtern,
+        Shader, Sound, SoundPlayInfoExtern, Span, Texture, TextureInfoExtern,
     },
     key::KeyEvent,
     text::{to_text_align_x, to_text_align_y, TextEngine},
@@ -208,6 +209,7 @@ impl App {
 }
 
 pub struct System {
+    pub audio_manager: Option<AudioManager>,
     pub bindings: Vec<Bindings>,
     pub bindings_updated: Vec<usize>, // TODO Track by buffer per queue instead?
     pub buffers: Vec<Buffer>,
@@ -227,7 +229,18 @@ pub struct System {
 
 impl System {
     fn new(display: Display) -> System {
+        let audio_manager = AudioManager::<kira::manager::backend::DefaultBackend>::new(
+            AudioManagerSettings::default(),
+        );
+        let audio_manager = match audio_manager {
+            Ok(audio_manager) => Some(audio_manager),
+            Err(err) => {
+                dbg!(err);
+                None
+            }
+        };
         System {
+            audio_manager: audio_manager,
             bindings: vec![],
             bindings_updated: vec![],
             buffers: vec![],
@@ -477,8 +490,29 @@ fn taca_sound_decode(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
 fn taca_sound_play(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
-    // TODO taca_sound_play
-    dbg!("taca_sound_play", info);
+    let info = WasmPtr::<SoundPlayInfoExtern>::new(info)
+        .read(&view)
+        .unwrap();
+    // dbg!(info);
+    let Some(audio_manager) = &mut system.audio_manager else {
+        // eprintln!("no audio manager");
+        return 0;
+    };
+    let Some(data) = system
+        .sounds
+        .get(info.sound as usize - 1)
+        .and_then(|it| it.data.clone())
+    else {
+        // eprintln!("no sound");
+        return 0;
+    };
+    let _play = match audio_manager.play(data) {
+        Ok(play) => play,
+        Err(err) => {
+            dbg!(err);
+            return 0;
+        }
+    };
     0
 }
 
