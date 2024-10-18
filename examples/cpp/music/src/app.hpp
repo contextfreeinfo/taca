@@ -1,20 +1,22 @@
 #pragma once
 
 #include <taca.hpp>
-#include <cstddef>
-#include <bitset>
 #include <vector>
 
 namespace music {
 
-constexpr std::size_t max_notes = 24;
+struct Note {
+    float semitones;
+};
 
 struct Tick {
-    std::bitset<max_notes> notes;
+    std::vector<Note> notes;
 };
 
 struct Song {
-    float tempo;
+    float beats_per_second;
+    float ticks_per_beat;
+    std::vector<std::size_t> measures;
     std::vector<Tick> ticks;
 };
 
