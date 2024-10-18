@@ -428,15 +428,29 @@ class App {
 
   frameTimeBegin: number = Date.now();
 
-  keyEvent = new DataView(new Uint32Array(2).buffer);
+  keyEvent = new DataView(new Uint32Array(3).buffer);
   keyEventBytes = new Uint8Array(this.keyEvent.buffer);
 
   keyEventHandle(event: KeyboardEvent, pressed: boolean) {
+    switch (event.code) {
+      // TODO What other cases?
+      case "KeyR":
+        if (event.ctrlKey) {
+          return;
+        }
+        break;
+      case "F11":
+      case "F12":
+        return;
+    }
+    event.preventDefault();
     audioEnsureResumed(this.audioContext);
     if (event.repeat) return;
     let { exports, keyEvent } = this;
-    setU32(keyEvent, 0, keys[event.key] ?? 0);
-    setU32(keyEvent, 4, pressed ? 1 : 0);
+    // TODO Report event.code also.
+    setU32(keyEvent, 0, pressed ? 1 : 0);
+    setU32(keyEvent, 4, keys[event.key] ?? 0);
+    setU32(keyEvent, 8, 0);
     if (exports.update) {
       exports.update!(eventTypes.key);
     }

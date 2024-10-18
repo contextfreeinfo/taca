@@ -73,8 +73,9 @@ local pub.Buffers = @record{
 }
 
 local pub.KeyEvent = @record{
-  key: pub.Key,
   pressed: boolean,
+  key: pub.Key,
+  text: [4]byte,
 }
 
 local pub.BufferInfo = @record{

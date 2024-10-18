@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -47,8 +48,9 @@ typedef struct {
 // Primaries
 
 typedef struct {
-    taca_Key key;
     bool pressed;
+    taca_Key key;
+    uint8_t text[4];
 } taca_KeyEvent;
 
 typedef struct {

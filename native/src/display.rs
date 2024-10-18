@@ -118,8 +118,10 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
             WindowEvent::KeyboardInput {
                 event:
                     winit::event::KeyEvent {
+                        // TODO Report physical_key also.
                         physical_key: _,
                         logical_key,
+                        // TODO How does this relate to web capabilities?
                         text: _,
                         location: _,
                         state,
@@ -138,13 +140,22 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                             gfx.window.set_fullscreen(fullscreen);
                         }
                     }
+                    NamedKey::F12 => {
+                        // Reserved for diagnostic console.
+                        // TODO But F12 is go to definition in VSCode ...
+                        // TODO Instead do Cmd+Option+I / Ctrl+Shift+I?
+                    }
                     _ if !repeat => {
                         let app = unsafe { &mut *self.app.0 };
                         let key: Key = key.into();
                         let key = key as i32;
                         let pressed = state.is_pressed();
                         let system = app.env.as_mut(&mut app.store);
-                        system.key_event = KeyEvent { key, pressed };
+                        system.key_event = KeyEvent {
+                            pressed,
+                            key,
+                            text: [0; 4],
+                        };
                         if let Some(update) = &app.update {
                             update
                                 .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])

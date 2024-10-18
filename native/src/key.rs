@@ -4,8 +4,9 @@ use winit::keyboard::NamedKey;
 #[derive(Clone, Copy, Debug, Default, ValueType)]
 #[repr(C)]
 pub struct KeyEvent {
-    pub key: i32,
     pub pressed: bool,
+    pub key: i32,
+    pub text: [u8; 4],
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "taca.h"
+#include <array>
 #include <cstdint>
 #include <span>
 #include <string_view>
@@ -24,8 +25,9 @@ enum struct Key : std::uint32_t {
 };
 
 struct KeyEvent {
-    Key key;
     bool pressed;
+    Key key;
+    std::array<std::uint8_t, 4> text;
 };
 
 using Sound = taca_Sound;
@@ -36,7 +38,7 @@ using Vec2 = taca_Vec2;
 
 KeyEvent key_event() {
     auto event = taca_key_event();
-    return {.key = static_cast<Key>(event.key), .pressed = event.pressed};
+    return {.pressed = event.pressed, .key = static_cast<Key>(event.key)};
 }
 
 void print(std::string_view text) {
