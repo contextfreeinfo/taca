@@ -24,17 +24,27 @@ enum struct Key : std::uint32_t {
     Escape,
 };
 
+enum struct SoundRateKind : std::uint32_t {
+    Semitones,
+    Factor,
+};
+
+using Sound = taca_Sound;
+using SoundPlay = taca_SoundPlay;
+using WindowState = taca_WindowState;
+using Vec2 = taca_Vec2;
+
 struct KeyEvent {
     bool pressed;
     Key key;
     std::array<std::uint8_t, 4> text;
 };
 
-using Sound = taca_Sound;
-using SoundPlay = taca_SoundPlay;
-using SoundPlayInfo = taca_SoundPlayInfo;
-using WindowState = taca_WindowState;
-using Vec2 = taca_Vec2;
+struct SoundPlayInfo {
+    Sound sound;
+    float rate;
+    SoundRateKind rate_kind;
+};
 
 KeyEvent key_event() {
     auto event = taca_key_event();
@@ -50,7 +60,12 @@ Sound sound_decode(std::span<std::uint8_t> text) {
 }
 
 SoundPlay sound_play(const SoundPlayInfo& info) {
-    return taca_sound_play(&info);
+    auto out = taca_SoundPlayInfo{
+        .sound = info.sound,
+        .rate = info.rate,
+        .rate_kind = static_cast<taca_SoundRateKind>(info.rate_kind),
+    };
+    return taca_sound_play(&out);
 }
 
 void title_update(std::string_view text) {

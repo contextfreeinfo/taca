@@ -23,6 +23,11 @@ typedef enum {
     taca_Key_Escape,
 } taca_Key;
 
+typedef enum {
+    taca_SoundRateKind_Semitones,
+    taca_SoundRateKind_Factor,
+} taca_SoundRateKind;
+
 // Handles
 
 typedef size_t taca_Sound;
@@ -54,8 +59,9 @@ typedef struct {
 } taca_KeyEvent;
 
 typedef struct {
-    // TODO Playback rate or time or other things.
     taca_Sound sound;
+    float rate;
+    taca_SoundRateKind rate_kind;
 } taca_SoundPlayInfo;
 
 typedef struct {

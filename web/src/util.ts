@@ -2,6 +2,10 @@ export function dataViewOf(array: Uint8Array) {
   return new DataView(array.buffer, array.byteOffset, array.byteLength);
 }
 
+export function getF32(view: DataView, byteOffset: number) {
+  return view.getFloat32(byteOffset, true);
+}
+
 export function getU32(view: DataView, byteOffset: number) {
   return view.getUint32(byteOffset, true);
 }

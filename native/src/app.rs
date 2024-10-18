@@ -10,7 +10,10 @@ use std::{
     thread,
 };
 
-use kira::manager::{AudioManager, AudioManagerSettings};
+use kira::{
+    manager::{AudioManager, AudioManagerSettings},
+    sound::PlaybackRate,
+};
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
@@ -26,9 +29,10 @@ use crate::{
         pipeline_apply, pipelined_ensure, shader_create, sound_decode, uniforms_apply, Bindings,
         BindingsInfo, Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers,
         ExternPipelineInfo, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame,
-        Shader, Sound, SoundPlayInfoExtern, Span, Texture, TextureInfoExtern,
+        Shader, Span, Texture, TextureInfoExtern,
     },
     key::KeyEvent,
+    sound::{Sound, SoundPlayInfoExtern},
     text::{to_text_align_x, to_text_align_y, TextEngine},
     wasi,
 };
@@ -498,13 +502,18 @@ fn taca_sound_play(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
         // eprintln!("no audio manager");
         return 0;
     };
-    let Some(data) = system
+    let Some(mut data) = system
         .sounds
         .get(info.sound as usize - 1)
         .and_then(|it| it.data.clone())
     else {
         // eprintln!("no sound");
         return 0;
+    };
+    match info.rate_kind {
+        0 => data.settings.playback_rate = PlaybackRate::Semitones(info.rate as f64).into(),
+        1 => data.settings.playback_rate = PlaybackRate::Factor(info.rate as f64).into(),
+        _ => {}
     };
     let _play = match audio_manager.play(data) {
         Ok(play) => play,

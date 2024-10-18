@@ -15,7 +15,7 @@ import {
 } from "./drawing";
 import { BindGroupLayout, findBindGroups } from "./gpu";
 import { keys } from "./key";
-import { dataViewOf, fail, getU32, setF32, setU32 } from "./util";
+import { dataViewOf, fail, getF32, getU32, setF32, setU32 } from "./util";
 import { makeWasiEnv } from "./wasi";
 
 export interface AppConfig {
@@ -684,12 +684,21 @@ class App {
   }
 
   soundPlay(info: number) {
-    const infoView = this.memoryViewMake(info, 1 * 4);
+    const infoView = this.memoryViewMake(info, 3 * 4);
     const sound = getU32(infoView, 0);
     const { audioContext, sounds } = this;
     const source = audioContext.createBufferSource();
     source.buffer = sounds[sound - 1].buffer;
     source.connect(audioContext.destination);
+    const rate = getF32(infoView, 4);
+    switch (getU32(infoView, 8)) {
+      case 0:
+        source.detune.value = 100 * rate;
+        break;
+      case 1:
+        source.playbackRate.value = rate;
+        break;
+    }
     source.start();
     return 0;
   }
