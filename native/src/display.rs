@@ -14,7 +14,7 @@ use winit::{
     dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size},
     event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
-    keyboard::{self, NamedKey},
+    keyboard::{KeyCode, PhysicalKey},
     window::{Fullscreen, Window, WindowId},
 };
 
@@ -119,8 +119,8 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                 event:
                     winit::event::KeyEvent {
                         // TODO Report physical_key also.
-                        physical_key: _,
-                        logical_key,
+                        physical_key,
+                        logical_key: _,
                         // TODO How does this relate to web capabilities?
                         text: _,
                         location: _,
@@ -129,9 +129,9 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         ..
                     },
                 ..
-            } => match logical_key {
-                keyboard::Key::Named(key) => match key {
-                    NamedKey::F11 => {
+            } => match physical_key {
+                PhysicalKey::Code(key) => match key {
+                    KeyCode::F11 => {
                         if state.is_pressed() && !repeat {
                             let fullscreen = match gfx.window.fullscreen() {
                                 Some(_) => None,
@@ -140,7 +140,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                             gfx.window.set_fullscreen(fullscreen);
                         }
                     }
-                    NamedKey::F12 => {
+                    KeyCode::F12 => {
                         // Reserved for diagnostic console.
                         // TODO But F12 is go to definition in VSCode ...
                         // TODO Instead do Cmd+Option+I / Ctrl+Shift+I?
@@ -164,9 +164,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                     }
                     _ => {}
                 },
-                keyboard::Key::Character(_) => {}
-                keyboard::Key::Unidentified(_) => {}
-                keyboard::Key::Dead(_) => {}
+                PhysicalKey::Unidentified(_) => {}
             },
             WindowEvent::CursorMoved { position, .. } => {
                 self.pointer_pos = Some(position);

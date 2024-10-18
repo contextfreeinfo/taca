@@ -1,5 +1,5 @@
 use wasmer::ValueType;
-use winit::keyboard::NamedKey;
+use winit::keyboard::KeyCode;
 
 #[derive(Clone, Copy, Debug, Default, ValueType)]
 #[repr(C)]
@@ -21,15 +21,15 @@ pub enum Key {
     Escape = 6,
 }
 
-impl From<NamedKey> for Key {
-    fn from(value: NamedKey) -> Self {
+impl From<KeyCode> for Key {
+    fn from(value: KeyCode) -> Self {
         match value {
-            NamedKey::ArrowDown => Key::ArrowDown,
-            NamedKey::ArrowLeft => Key::ArrowLeft,
-            NamedKey::ArrowRight => Key::ArrowRight,
-            NamedKey::ArrowUp => Key::ArrowUp,
-            NamedKey::Escape => Key::Escape,
-            NamedKey::Space => Key::Space,
+            KeyCode::ArrowDown => Key::ArrowDown,
+            KeyCode::ArrowLeft => Key::ArrowLeft,
+            KeyCode::ArrowRight => Key::ArrowRight,
+            KeyCode::ArrowUp => Key::ArrowUp,
+            KeyCode::Escape => Key::Escape,
+            KeyCode::Space => Key::Space,
             _ => Key::None,
         }
     }

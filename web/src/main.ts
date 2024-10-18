@@ -449,7 +449,7 @@ class App {
     let { exports, keyEvent } = this;
     // TODO Report event.code also.
     setU32(keyEvent, 0, pressed ? 1 : 0);
-    setU32(keyEvent, 4, keys[event.key] ?? 0);
+    setU32(keyEvent, 4, keys[event.code] ?? 0);
     setU32(keyEvent, 8, 0);
     if (exports.update) {
       exports.update!(eventTypes.key);
