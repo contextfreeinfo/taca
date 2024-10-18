@@ -1,13 +1,19 @@
-PUB_DIR=../../../web/public/apps/nelua
 export LUA_PATH=$PWD/src/?.lua
+
+pub() {
+    for dir in dist public; do
+        pub_dir=../../../web/$dir/apps/$2
+        mkdir -p $pub_dir && \
+        cp $1 $pub_dir/
+    done
+}
 
 mkdir -p out && \
 naga src/shader.wgsl out/shader.spv && \
 nelua --cc="$WASI_SDK/bin/clang" --add-path src -o out/walk.wasm --release \
     src/main.nelua && \
 lz4 -f9 out/walk.wasm out/walk.taca && \
-mkdir -p $PUB_DIR && \
-cp out/walk.taca $PUB_DIR/
+pub out/walk.taca nelua
 
 # Inspection
 # wasm2wat --generate-names out/walk.wasm -o out/walk.wat && \

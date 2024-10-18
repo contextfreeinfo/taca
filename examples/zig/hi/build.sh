@@ -4,11 +4,17 @@ build-shader() {
 }
 
 finish-wasm() {
-    PUB_DIR=../../../web/public/apps/zig
     wasm-opt -Os zig-out/bin/$1.wasm -o zig-out/bin/$1.opt.wasm && \
-    lz4 -f9 zig-out/bin/$1.opt.wasm zig-out/bin/$1.opt.wasm.lz4 && \
-    mkdir -p $PUB_DIR && \
-    cp zig-out/bin/$1.opt.wasm.lz4 $PUB_DIR/$1.taca
+    lz4 -f9 zig-out/bin/$1.opt.wasm zig-out/bin/$1.taca && \
+    pub zig-out/bin/$1.taca zig
+}
+
+pub() {
+    for dir in dist public; do
+        pub_dir=../../../web/$dir/apps/$2
+        mkdir -p $pub_dir && \
+        cp $1 $pub_dir/
+    done
 }
 
 build-shader shader && build-shader shader2 && \

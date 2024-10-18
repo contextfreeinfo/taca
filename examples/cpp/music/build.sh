@@ -1,4 +1,10 @@
-PUB_DIR=../../../web/public/apps/cpp
+pub() {
+    for dir in dist public; do
+        pub_dir=../../../web/$dir/apps/$2
+        mkdir -p $pub_dir && \
+        cp $1 $pub_dir/
+    done
+}
 
 mkdir -p out &&
 xxd -i src/musicbox.mp3 > out/musicbox-data.c && \
@@ -6,8 +12,7 @@ xxd -i src/musicbox.mp3 > out/musicbox-data.c && \
      -Wno-missing-field-initializers \
      -o out/music.wasm src/main.cpp && \
 lz4 -f9 out/music.wasm out/music.taca && \
-mkdir -p $PUB_DIR && \
-cp out/music.taca $PUB_DIR/
+pub out/music.taca cpp
 
 # && \
 # wasm2wat --generate-names out/music.wasm -o out/music.wat
