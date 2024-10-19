@@ -671,7 +671,7 @@ class App {
       this.readBytes(bytes).slice().buffer,
       (buffer) => {
         sound.buffer = buffer;
-        console.log(buffer.duration);
+        // console.log(buffer.duration);
         this.taskFinish();
       },
       (err) => {

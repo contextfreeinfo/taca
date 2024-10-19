@@ -8,8 +8,8 @@ namespace music {
 #include "musicbox-data.c"
 
 std::span<std::uint8_t> musicbox_data = {
-    src_musicbox_mp3,
-    src_musicbox_mp3_len,
+    src_musicbox_ogg,
+    src_musicbox_ogg_len,
 };
 
 } // namespace music
