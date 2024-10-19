@@ -29,6 +29,7 @@ enum struct SoundRateKind : std::uint32_t {
     Factor,
 };
 
+using Shader = taca_Shader;
 using Sound = taca_Sound;
 using SoundPlay = taca_SoundPlay;
 using WindowState = taca_WindowState;
@@ -55,8 +56,12 @@ void print(std::string_view text) {
     taca_print({text.data(), text.size()});
 }
 
-Sound sound_decode(std::span<std::uint8_t> text) {
-    return taca_sound_decode({text.data(), text.size()});
+Shader shader_new(std::span<std::uint8_t> bytes) {
+    return taca_shader_new({bytes.data(), bytes.size()});
+}
+
+Sound sound_decode(std::span<std::uint8_t> bytes) {
+    return taca_sound_decode({bytes.data(), bytes.size()});
 }
 
 SoundPlay sound_play(const SoundPlayInfo& info) {

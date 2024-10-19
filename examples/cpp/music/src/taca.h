@@ -30,6 +30,7 @@ typedef enum {
 
 // Handles
 
+typedef size_t taca_Shader;
 typedef size_t taca_Sound;
 typedef size_t taca_SoundPlay;
 
@@ -84,6 +85,9 @@ taca_KeyEvent taca_key_event(void);
 // __attribute__((import_module("taca"), import_name("print")))
 __attribute__((import_name("taca_print")))
 void taca_print(taca_StringView text);
+
+__attribute__((import_name("taca_shader_new")))
+taca_Shader taca_shader_new(taca_BytesView bytes);
 
 __attribute__((import_name("taca_sound_decode")))
 taca_Sound taca_sound_decode(taca_BytesView bytes);

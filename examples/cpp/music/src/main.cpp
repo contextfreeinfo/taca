@@ -1,6 +1,6 @@
 #include "app.hpp"
 #include "control.hpp"
-#include "musicbox-data.hpp"
+#include "resources.hpp"
 #include <taca.hpp>
 
 namespace music {
@@ -11,6 +11,8 @@ App app = {};
 void start() {
     taca::title_update("Music Box (Taca Demo)");
     taca::print("Hi from C++!");
+    // out_shader_frag_spv
+    taca::shader_new(shader_frag_data);
     app.ding = taca::sound_decode(musicbox_data);
 }
 
