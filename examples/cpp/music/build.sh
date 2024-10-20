@@ -6,10 +6,17 @@ pub() {
     done
 }
 
+shader-build() {
+    naga src/$1.glsl out/$1.spv && \
+    xxd -i out/$1.spv > out/$1.c
+    # The fragment shader seems to bigger after opt for some reason.
+    # spirv-opt -Os out/$1.spv -o out/$1.opt.spv && \
+    # xxd -i out/$1.opt.spv > out/$1.c
+}
+
 mkdir -p out && \
-naga src/shader.frag.glsl out/shader.frag.spv && \
-spirv-opt -Os out/shader.frag.spv -o out/shader.frag.opt.spv && \
-xxd -i out/shader.frag.opt.spv > out/shader-frag.c && \
+shader-build shader.frag && \
+shader-build shader.vert && \
 xxd -i src/musicbox.ogg > out/musicbox-data.c && \
 "$WASI_SDK/bin/clang++" --std=c++23 -Os -s -Wall -Wextra -Werror -Isrc -Iout \
      -Wno-missing-field-initializers \

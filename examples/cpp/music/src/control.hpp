@@ -5,7 +5,7 @@
 
 namespace music {
 
-void play_ding(const App& app, float semitones) {
+auto play_ding(const App& app, float semitones) -> void {
     taca::sound_play({
         .sound = app.ding,
         .rate = semitones,
@@ -13,7 +13,7 @@ void play_ding(const App& app, float semitones) {
     });
 }
 
-void update_control(App& app) {
+auto update_control(App& app) -> void {
     // TODO Press event instead of this hacking.
     if (app.window_state.press && !app.was_pressed) {
         auto scale =

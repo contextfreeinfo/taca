@@ -33,12 +33,14 @@ vec4 gammaRamp(vec4 c) {
 float r(float n) {
     return fract(cos(n * 89.42) * 343.42);
 }
+
 vec2 r(vec2 n) {
     return vec2(
         r(n.x * 23.62 - 300.0 + n.y * 34.35),
         r(n.x * 45.13 + 256.0 + n.y * 38.89)
     );
 }
+
 float worley(vec2 n, float s) {
     float dis = 2.0;
     for (int x = -1; x <= 1; x++) {
@@ -72,32 +74,24 @@ float perlin_noise(vec3 p) {
     p += OFFSET;
     vec3 pi = floor(p);
     vec3 pf = p - pi;
-
     vec3 w = pf * pf * (3.0 - 2.0 * pf);
-
-    return mix(
-        mix(mix(dot(pf - vec3(0, 0, 0), hash33(pi + vec3(0, 0, 0))),
-                dot(pf - vec3(1, 0, 0), hash33(pi + vec3(1, 0, 0))),
-                w.x),
-            mix(dot(pf - vec3(0, 0, 1), hash33(pi + vec3(0, 0, 1))),
-                dot(pf - vec3(1, 0, 1), hash33(pi + vec3(1, 0, 1))),
-                w.x),
-            w.z),
-        mix(mix(dot(pf - vec3(0, 1, 0), hash33(pi + vec3(0, 1, 0))),
-                dot(pf - vec3(1, 1, 0), hash33(pi + vec3(1, 1, 0))),
-                w.x),
-            mix(dot(pf - vec3(0, 1, 1), hash33(pi + vec3(0, 1, 1))),
-                dot(pf - vec3(1, 1, 1), hash33(pi + vec3(1, 1, 1))),
-                w.x),
-            w.z),
-        w.y
-    );
+    float mix000 = dot(pf - vec3(0, 0, 0), hash33(pi + vec3(0, 0, 0)));
+    float mix100 = dot(pf - vec3(1, 0, 0), hash33(pi + vec3(1, 0, 0)));
+    float mix001 = dot(pf - vec3(0, 0, 1), hash33(pi + vec3(0, 0, 1)));
+    float mix101 = dot(pf - vec3(1, 0, 1), hash33(pi + vec3(1, 0, 1)));
+    float mix1 = mix(mix(mix000, mix100, w.x), mix(mix001, mix101, w.x), w.z);
+    float mix010 = dot(pf - vec3(0, 1, 0), hash33(pi + vec3(0, 1, 0)));
+    float mix110 = dot(pf - vec3(1, 1, 0), hash33(pi + vec3(1, 1, 0)));
+    float mix011 = dot(pf - vec3(0, 1, 1), hash33(pi + vec3(0, 1, 1)));
+    float mix111 = dot(pf - vec3(1, 1, 1), hash33(pi + vec3(1, 1, 1)));
+    float mix2 = mix(mix(mix010, mix110, w.x), mix(mix011, mix111, w.x), w.z);
+    return mix(mix1, mix2, w.y);
 }
 
 float mixNoise(vec3 uv) {
-    float dis = (1.0 + perlin_noise(vec3(uv.x, uv.y, uv.z) * 8.0)) *
-        (1.0 + (worley(uv.xy, 32.0)));
-
+    float dis =
+        (1.0 + perlin_noise(vec3(uv.x, uv.y, uv.z) * 8.0)) *
+        (1.0 + worley(uv.xy, 32.0));
     return dis / 4.0;
 }
 
@@ -109,7 +103,6 @@ void main() {
     // vec2 p = fragCoord.xy / iResolution.xy;
     vec2 p = gl_FragCoord.xy;
     float dis = mixNoise(vec3(vec2(p.x * 100.0, p.y), 0));
-
     vec3 col = vec3(dis * BRUSH + (1.0 - BRUSH)) * COL;
     float smudges =
         perlin_noise(vec3(p * 20.0 + perlin_noise(vec3(p * 30.0, 0)), 0)) *

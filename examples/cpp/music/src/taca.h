@@ -28,23 +28,28 @@ typedef enum {
     taca_SoundRateKind_Factor,
 } taca_SoundRateKind;
 
+typedef enum {
+    taca_Step_Vertex,
+    taca_Step_Instance,
+} taca_Step;
+
 // Handles
 
+typedef size_t taca_Pipeline;
 typedef size_t taca_Shader;
 typedef size_t taca_Sound;
 typedef size_t taca_SoundPlay;
 
 // Supports
 
-typedef struct {
-    const uint8_t* data;
-    size_t size;
-} taca_BytesView;
+#define taca_span_define(name, item_type) \
+typedef struct { \
+    const item_type* data; \
+    size_t size; \
+} name
 
-typedef struct {
-    const char* data;
-    size_t size;
-} taca_StringView;
+taca_span_define(taca_BytesView, uint8_t);
+taca_span_define(taca_StringView, char);
 
 typedef struct {
     float x;
@@ -54,10 +59,38 @@ typedef struct {
 // Primaries
 
 typedef struct {
+    size_t shader_location;
+    size_t value_offset;
+} taca_AttributeInfo;
+
+taca_span_define(taca_AttributeInfos, char);
+
+typedef struct {
+    size_t first_attribute;
+    taca_Step step;
+    size_t stride;
+} taca_BufferInfo;
+
+taca_span_define(taca_BufferInfos, char);
+
+typedef struct {
     bool pressed;
     taca_Key key;
     uint8_t text[4];
 } taca_KeyEvent;
+
+typedef struct {
+    taca_StringView entry;
+    taca_Shader shader;
+} taca_PipelineShaderInfo;
+
+typedef struct {
+    bool depth_test;
+    taca_PipelineShaderInfo fragment;
+    taca_PipelineShaderInfo vertex;
+    taca_AttributeInfos vertex_attributes;
+    taca_BufferInfos vertex_buffers;
+} taca_PipelineInfo;
 
 typedef struct {
     taca_Sound sound;
@@ -81,6 +114,9 @@ extern "C" {
 
 __attribute__((import_name("taca_key_event")))
 taca_KeyEvent taca_key_event(void);
+
+__attribute__((import_name("taca_pipeline_new")))
+taca_Pipeline taca_pipeline_new(const taca_PipelineInfo* info);
 
 // __attribute__((import_module("taca"), import_name("print")))
 __attribute__((import_name("taca_print")))

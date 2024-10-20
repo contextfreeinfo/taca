@@ -7,16 +7,22 @@ namespace music {
 
 // Inside the namespace on purpose.
 #include "musicbox-data.c"
-#include "shader-frag.c"
+#include "shader.frag.c"
+#include "shader.vert.c"
 
-std::span<std::uint8_t> musicbox_data = {
+auto musicbox_data = std::span<std::uint8_t>{
     src_musicbox_ogg,
     src_musicbox_ogg_len,
 };
 
-std::span<std::uint8_t> shader_frag_data = {
-    out_shader_frag_opt_spv,
-    out_shader_frag_opt_spv_len,
+auto shader_frag_data = std::span<std::uint8_t>{
+    out_shader_frag_spv,
+    out_shader_frag_spv_len,
+};
+
+auto shader_vert_data = std::span<std::uint8_t>{
+    out_shader_vert_spv,
+    out_shader_vert_spv_len,
 };
 
 } // namespace music

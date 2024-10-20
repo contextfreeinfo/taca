@@ -14,9 +14,7 @@ struct Tick {
 };
 
 struct Song {
-    float beats_per_second;
-    float ticks_per_beat;
-    std::vector<std::size_t> measures;
+    float ticks_per_second;
     std::vector<Tick> ticks;
 };
 

@@ -29,16 +29,42 @@ enum struct SoundRateKind : std::uint32_t {
     Factor,
 };
 
+enum struct Step : std::uint32_t {
+    Vertex,
+    Instance,
+};
+
+using AttributeInfo = taca_AttributeInfo;
+using Pipeline = taca_Pipeline;
 using Shader = taca_Shader;
 using Sound = taca_Sound;
 using SoundPlay = taca_SoundPlay;
 using WindowState = taca_WindowState;
 using Vec2 = taca_Vec2;
 
+struct BufferInfo {
+    std::size_t first_attribute;
+    Step step;
+    std::size_t stride;
+};
+
 struct KeyEvent {
     bool pressed;
     Key key;
     std::array<std::uint8_t, 4> text;
+};
+
+struct PipelineShaderInfo {
+    std::string_view entry;
+    Shader shader;
+};
+
+struct PipelineInfo {
+    bool depth_test;
+    PipelineShaderInfo fragment;
+    PipelineShaderInfo vertex;
+    std::span<AttributeInfo> vertex_attributes;
+    std::span<BufferInfo> vertex_buffers;
 };
 
 struct SoundPlayInfo {
@@ -47,37 +73,38 @@ struct SoundPlayInfo {
     SoundRateKind rate_kind;
 };
 
-KeyEvent key_event() {
+auto key_event() -> KeyEvent {
     auto event = taca_key_event();
-    return {.pressed = event.pressed, .key = static_cast<Key>(event.key)};
+    return reinterpret_cast<KeyEvent&>(event);
 }
 
-void print(std::string_view text) {
+auto pipeline_new(PipelineInfo info) -> Pipeline {
+    auto out = reinterpret_cast<const taca_PipelineInfo&>(info);
+    return taca_pipeline_new(&out);
+}
+
+auto print(std::string_view text) -> void {
     taca_print({text.data(), text.size()});
 }
 
-Shader shader_new(std::span<std::uint8_t> bytes) {
+auto shader_new(std::span<std::uint8_t> bytes) -> Shader {
     return taca_shader_new({bytes.data(), bytes.size()});
 }
 
-Sound sound_decode(std::span<std::uint8_t> bytes) {
+auto sound_decode(std::span<std::uint8_t> bytes) -> Sound {
     return taca_sound_decode({bytes.data(), bytes.size()});
 }
 
-SoundPlay sound_play(const SoundPlayInfo& info) {
-    auto out = taca_SoundPlayInfo{
-        .sound = info.sound,
-        .rate = info.rate,
-        .rate_kind = static_cast<taca_SoundRateKind>(info.rate_kind),
-    };
+auto sound_play(const SoundPlayInfo& info) -> SoundPlay {
+    auto out = reinterpret_cast<const taca_SoundPlayInfo&>(info);
     return taca_sound_play(&out);
 }
 
-void title_update(std::string_view text) {
+auto title_update(std::string_view text) -> void {
     taca_title_update({text.data(), text.size()});
 }
 
-WindowState window_state() {
+auto window_state() -> WindowState {
     return taca_window_state();
 }
 
