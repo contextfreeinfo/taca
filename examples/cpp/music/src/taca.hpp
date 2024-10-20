@@ -8,6 +8,11 @@
 
 namespace taca {
 
+enum struct BufferKind : std::uint32_t {
+    Vertex,
+    Index,
+};
+
 enum struct EventKind : std::uint32_t {
     Frame = taca_EventKind_Frame,
     Key = taca_EventKind_Key,
@@ -35,12 +40,15 @@ enum struct Step : std::uint32_t {
 };
 
 using AttributeInfo = taca_AttributeInfo;
+using Buffer = taca_Buffer;
 using Pipeline = taca_Pipeline;
 using Shader = taca_Shader;
 using Sound = taca_Sound;
 using SoundPlay = taca_SoundPlay;
 using WindowState = taca_WindowState;
 using Vec2 = taca_Vec2;
+
+using ByteSpan = std::span<const std::byte>;
 
 struct BufferInfo {
     std::size_t first_attribute;
@@ -51,7 +59,7 @@ struct BufferInfo {
 struct KeyEvent {
     bool pressed;
     Key key;
-    std::array<std::uint8_t, 4> text;
+    std::array<std::byte, 4> text;
 };
 
 struct PipelineShaderInfo {
@@ -73,6 +81,21 @@ struct SoundPlayInfo {
     SoundRateKind rate_kind;
 };
 
+auto buffer_new(BufferKind kind, ByteSpan bytes) -> Buffer {
+    return taca_buffer_new(
+        static_cast<taca_BufferKind>(kind),
+        reinterpret_cast<taca_ByteSpan&>(bytes)
+    );
+}
+
+auto draw(
+    std::uint32_t item_begin,
+    std::uint32_t item_count,
+    std::uint32_t instance_count
+) -> void {
+    taca_draw(item_begin, item_count, instance_count);
+}
+
 auto key_event() -> KeyEvent {
     auto event = taca_key_event();
     return reinterpret_cast<KeyEvent&>(event);
@@ -87,12 +110,12 @@ auto print(std::string_view text) -> void {
     taca_print({text.data(), text.size()});
 }
 
-auto shader_new(std::span<std::uint8_t> bytes) -> Shader {
-    return taca_shader_new({bytes.data(), bytes.size()});
+auto shader_new(ByteSpan bytes) -> Shader {
+    return taca_shader_new(reinterpret_cast<taca_ByteSpan&>(bytes));
 }
 
-auto sound_decode(std::span<std::uint8_t> bytes) -> Sound {
-    return taca_sound_decode({bytes.data(), bytes.size()});
+auto sound_decode(ByteSpan bytes) -> Sound {
+    return taca_sound_decode(reinterpret_cast<taca_ByteSpan&>(bytes));
 }
 
 auto sound_play(const SoundPlayInfo& info) -> SoundPlay {

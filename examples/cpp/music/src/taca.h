@@ -6,6 +6,11 @@
 
 // Enums
 
+typedef enum {
+    taca_BufferKind_Vertex,
+    taca_BufferKind_Index,
+} taca_BufferKind;
+
 // Note that size in C requires C23.
 typedef enum /* : uint32_t */ {
     taca_EventKind_Frame,
@@ -35,6 +40,7 @@ typedef enum {
 
 // Handles
 
+typedef size_t taca_Buffer;
 typedef size_t taca_Pipeline;
 typedef size_t taca_Shader;
 typedef size_t taca_Sound;
@@ -42,13 +48,17 @@ typedef size_t taca_SoundPlay;
 
 // Supports
 
-#define taca_span_define(name, item_type) \
-typedef struct { \
-    const item_type* data; \
-    size_t size; \
-} name
+typedef unsigned char taca_byte;
 
-taca_span_define(taca_BytesView, uint8_t);
+// clang-format off
+#define taca_span_define(name, item_type) \
+    typedef struct { \
+        const item_type* data; \
+        size_t size; \
+    } name
+// clang-format on
+
+taca_span_define(taca_ByteSpan, taca_byte);
 taca_span_define(taca_StringView, char);
 
 typedef struct {
@@ -112,6 +122,16 @@ extern "C" {
 
 // clang-format off
 
+__attribute__((import_name("taca_buffer_new")))
+taca_Buffer taca_buffer_new(taca_BufferKind kind, taca_ByteSpan bytes);
+
+__attribute__((import_name("taca_draw")))
+void taca_draw(
+    uint32_t item_begin,
+    uint32_t item_count,
+    uint32_t instance_count
+);
+
 __attribute__((import_name("taca_key_event")))
 taca_KeyEvent taca_key_event(void);
 
@@ -123,10 +143,10 @@ __attribute__((import_name("taca_print")))
 void taca_print(taca_StringView text);
 
 __attribute__((import_name("taca_shader_new")))
-taca_Shader taca_shader_new(taca_BytesView bytes);
+taca_Shader taca_shader_new(taca_ByteSpan bytes);
 
 __attribute__((import_name("taca_sound_decode")))
-taca_Sound taca_sound_decode(taca_BytesView bytes);
+taca_Sound taca_sound_decode(taca_ByteSpan bytes);
 
 __attribute__((import_name("taca_sound_play")))
 // TODO Without explicit pointer, and if only one field, this gets passed as the field value.
