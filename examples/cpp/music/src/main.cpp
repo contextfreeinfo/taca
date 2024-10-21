@@ -27,7 +27,7 @@ auto start() -> void {
         std::as_bytes(std::span(rect_indices))
     );
     auto rect_vertices = std::to_array<std::array<float, 2>>(
-        {{-0.5, -0.5}, {-0.5, 0.5}, {0.5, -0.5}, {0.5, 0.5}}
+        {{-1, -1}, {-1, 1}, {1, -1}, {1, 1.0}}
     );
     taca::buffer_new(
         taca::BufferKind::Vertex,
@@ -52,7 +52,7 @@ auto update(taca::EventKind event) -> void {
         case taca::EventKind::Frame: {
             app.window_state = taca::window_state();
             update_control(app);
-            // taca::draw(0, 6, 1);
+            taca::draw(0, 6, 1);
             break;
         }
         case taca::EventKind::Key: {

@@ -343,7 +343,7 @@ pub fn bound_ensure(system: &mut System) {
     let Some(frame) = system.frame.as_mut() else {
         return;
     };
-    if frame.bound {
+    if frame.bound || system.pipelines[frame.pipeline - 1].bind_groups.is_empty() {
         return;
     }
     match () {
