@@ -58,7 +58,7 @@ auto update(taca::EventKind event) -> void {
         case taca::EventKind::Key: {
             auto event = taca::key_event();
             if (event.pressed) {
-                play_ding(app, 0);
+                // play_ding(app, 0);
             }
             break;
         }
