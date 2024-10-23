@@ -56,6 +56,11 @@ struct BufferInfo {
     std::size_t stride;
 };
 
+struct Buffers {
+    std::span<Buffer> vertex_buffers;
+    Buffer index_buffer;
+};
+
 struct KeyEvent {
     bool pressed;
     Key key;
@@ -81,10 +86,18 @@ struct SoundPlayInfo {
     SoundRateKind rate_kind;
 };
 
+auto buffers_apply(Buffers buffers) -> void {
+    taca_buffers_apply({
+        .vertex_buffers =
+            {buffers.vertex_buffers.data(), buffers.vertex_buffers.size()},
+        .index_buffer = buffers.index_buffer,
+    });
+}
+
 auto buffer_new(BufferKind kind, ByteSpan bytes) -> Buffer {
     return taca_buffer_new(
         static_cast<taca_BufferKind>(kind),
-        reinterpret_cast<taca_ByteSpan&>(bytes)
+        {reinterpret_cast<const taca_byte*>(bytes.data()), bytes.size()}
     );
 }
 
@@ -116,6 +129,10 @@ auto shader_new(ByteSpan bytes) -> Shader {
 
 auto sound_decode(ByteSpan bytes) -> Sound {
     return taca_sound_decode(reinterpret_cast<taca_ByteSpan&>(bytes));
+}
+
+auto span_sized(std::size_t size) -> std::span<const std::byte> {
+    return {static_cast<const std::byte*>(nullptr), size};
 }
 
 auto sound_play(const SoundPlayInfo& info) -> SoundPlay {

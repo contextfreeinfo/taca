@@ -6,9 +6,11 @@
 precision mediump float;
 
 // tint of metal
-#define COL vec3(1, 0.85, 0.8)
+#define COL vec3(1, 0.85, 0.7)
 // intensity of smudges
 #define SMUDGES 0.06
+
+layout (location = 0) in float fragLight;
 
 layout (location = 0) out vec4 fragColor;
 
@@ -35,10 +37,6 @@ float noise(vec2 p) {
     return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
 
-float mag(vec3 v) {
-    return sqrt((v * v).x + (v * v).y + (v * v).z);
-}
-
 void main() {
     vec2 p = gl_FragCoord.xy;
     float smudges = 0.0;
@@ -46,7 +44,9 @@ void main() {
     smudges += 0.8 * noise(vec2(p.x * 0.1, p.y) * 1e-2 + smudges);
     smudges *= SMUDGES;
     vec3 col = COL;
-    col = gammaRamp(vec3(mix(col, vec3(1.0 - mag(col)), smudges)));
+    col = vec3(mix(col, vec3(1.0 - length(col)), smudges));
     col *= 0.8;
+    // col *= fragLight;
+    col = gammaRamp(col);
     fragColor = vec4(col, 1.0);
 }

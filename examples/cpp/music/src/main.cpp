@@ -15,23 +15,34 @@ auto start() -> void {
     // Pipeline
     auto fragment = taca::shader_new(shader_frag_data);
     auto vertex = taca::shader_new(shader_vert_data);
+    auto vertex_buffers = std::to_array<taca::BufferInfo>({
+        {},
+        {.first_attribute = 1, .step = taca::Step::Instance},
+    });
     taca::pipeline_new({
         .depth_test = true,
         .fragment = {.entry = "main", .shader = fragment},
         .vertex = {.entry = "main", .shader = vertex},
+        .vertex_buffers = std::span(vertex_buffers),
     });
     // Buffers
     auto rect_indices = std::to_array<std::uint16_t>({0, 1, 2, 1, 3, 2});
-    taca::buffer_new(
+    app.draw_info.index_buffer = taca::buffer_new(
         taca::BufferKind::Index,
         std::as_bytes(std::span(rect_indices))
     );
     auto rect_vertices = std::to_array<std::array<float, 2>>(
         {{-1, -1}, {-1, 1}, {1, -1}, {1, 1.0}}
     );
-    taca::buffer_new(
+    app.draw_info.vertex_buffer = taca::buffer_new(
         taca::BufferKind::Vertex,
         std::as_bytes(std::span(rect_vertices))
+    );
+    app.draw_info.instance_buffer = taca::buffer_new(
+        taca::BufferKind::Vertex,
+        taca::span_sized(
+            (max_notes * max_ticks + notes_begin) * sizeof(DrawInstance)
+        )
     );
     // Sound
     app.ding = taca::sound_decode(musicbox_data);
@@ -52,6 +63,13 @@ auto update(taca::EventKind event) -> void {
         case taca::EventKind::Frame: {
             app.window_state = taca::window_state();
             update_control(app);
+            auto vertex_buffers = std::to_array(
+                {app.draw_info.vertex_buffer, app.draw_info.instance_buffer}
+            );
+            taca::buffers_apply({
+                .vertex_buffers = std::span(vertex_buffers),
+                .index_buffer = app.draw_info.index_buffer,
+            });
             taca::draw(0, 6, 1);
             break;
         }

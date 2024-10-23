@@ -73,7 +73,7 @@ typedef struct {
     size_t value_offset;
 } taca_AttributeInfo;
 
-taca_span_define(taca_AttributeInfos, char);
+taca_span_define(taca_AttributeInfoSpan, taca_AttributeInfo);
 
 typedef struct {
     size_t first_attribute;
@@ -81,7 +81,13 @@ typedef struct {
     size_t stride;
 } taca_BufferInfo;
 
-taca_span_define(taca_BufferInfos, char);
+taca_span_define(taca_BufferInfoSpan, taca_BufferInfo);
+taca_span_define(taca_BufferSpan, taca_Buffer);
+
+typedef struct {
+    taca_BufferSpan vertex_buffers;
+    taca_Buffer index_buffer;
+} taca_Buffers;
 
 typedef struct {
     bool pressed;
@@ -98,8 +104,8 @@ typedef struct {
     bool depth_test;
     taca_PipelineShaderInfo fragment;
     taca_PipelineShaderInfo vertex;
-    taca_AttributeInfos vertex_attributes;
-    taca_BufferInfos vertex_buffers;
+    taca_AttributeInfoSpan vertex_attributes;
+    taca_BufferInfoSpan vertex_buffers;
 } taca_PipelineInfo;
 
 typedef struct {
@@ -124,6 +130,9 @@ extern "C" {
 
 __attribute__((import_name("taca_buffer_new")))
 taca_Buffer taca_buffer_new(taca_BufferKind kind, taca_ByteSpan bytes);
+
+__attribute__((import_name("taca_buffers_apply")))
+void taca_buffers_apply(taca_Buffers buffers);
 
 __attribute__((import_name("taca_draw")))
 void taca_draw(
