@@ -4,7 +4,7 @@ precision mediump float;
 
 layout (location = 0) in vec2 pos;
 layout (location = 1) in vec2 offset;
-layout (location = 2) in float scale;
+layout (location = 2) in vec2 scale;
 layout (location = 3) in float light;
 
 layout (location = 0) out float fragLight;

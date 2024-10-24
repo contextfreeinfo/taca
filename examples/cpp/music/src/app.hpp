@@ -13,7 +13,7 @@ constexpr std::size_t max_ticks = 1 << 10;
 
 struct DrawInstance {
     std::array<float, 2> offset;
-    float scale;
+    std::array<float, 2> scale;
     float light;
 };
 

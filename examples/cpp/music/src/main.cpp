@@ -13,6 +13,9 @@ App app = {};
 auto start() -> void {
     taca::title_update("Music Box (Taca Demo)");
     taca::print("Hi from C++!");
+    // Sound
+    // This is a D6 or maybe D7.
+    app.ding = taca::sound_decode(musicbox_data);
     // Pipeline
     auto fragment = taca::shader_new(shader_frag_data);
     auto vertex = taca::shader_new(shader_vert_data);
@@ -45,8 +48,6 @@ auto start() -> void {
             (max_notes * max_ticks + notes_begin) * sizeof(DrawInstance)
         )
     );
-    // Sound
-    app.ding = taca::sound_decode(musicbox_data);
 }
 
 // clang-format off
