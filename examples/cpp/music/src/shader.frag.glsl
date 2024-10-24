@@ -15,26 +15,24 @@ layout (location = 0) in float fragLight;
 layout (location = 0) out vec4 fragColor;
 
 vec3 gammaRamp(vec3 c) {
-    c.x = pow(c.x, 2.2);
-    c.y = pow(c.y, 2.2);
-    c.z = pow(c.z, 2.2);
-    return c;
+    return pow(c, vec3(2.2));
 }
+
+// See also:
+// https://thebookofshaders.com/11/
 
 float hash(vec2 p) {
     return fract(sin(mod(dot(p, vec2(127.1, 311.7)), 3.14)) * 43758.5453123);
 }
 
 float noise(vec2 p) {
-    // p += 10;
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    float a = hash(i);
-    float b = hash(i + vec2(1, 0));
-    float c = hash(i + vec2(0, 1));
-    float d = hash(i + vec2(1, 1));
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    vec2 whole = floor(p);
+    float a = hash(whole);
+    float b = hash(whole + vec2(1, 0));
+    float c = hash(whole + vec2(0, 1));
+    float d = hash(whole + vec2(1, 1));
+    vec2 u = smoothstep(0, 1, fract(p));
+    return mix(a, b, u.x) + (c - a) * u.y * (1 - u.x) + (d - b) * u.x * u.y;
 }
 
 void main() {
@@ -45,8 +43,8 @@ void main() {
     smudges *= SMUDGES;
     vec3 col = COL;
     col = vec3(mix(col, vec3(1.0 - length(col)), smudges));
-    col *= 0.8;
-    // col *= fragLight;
     col = gammaRamp(col);
+    // Pops more after gamma.
+    col *= fragLight;
     fragColor = vec4(col, 1.0);
 }

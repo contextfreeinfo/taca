@@ -86,19 +86,40 @@ struct SoundPlayInfo {
     SoundRateKind rate_kind;
 };
 
+// Helpers
+
+auto span_sized(std::size_t size) -> std::span<const std::byte> {
+    // This is abusive from a C++ perspective. Only use for Taca needs.
+    return {static_cast<const std::byte*>(nullptr), size};
+}
+
+auto to_taca(ByteSpan bytes) -> taca_ByteSpan {
+    // I'm not sure C++ guarantees field order on std::span, so this is for
+    // being explicit.
+    return {reinterpret_cast<const taca_byte*>(bytes.data()), bytes.size()};
+}
+
+auto to_taca(std::string_view text) -> taca_StringView {
+    return {text.data(), text.size()};
+}
+
+// Main api
+
+auto buffer_new(BufferKind kind, ByteSpan bytes) -> Buffer {
+    return taca_buffer_new(static_cast<taca_BufferKind>(kind), to_taca(bytes));
+}
+
+auto buffer_update(Buffer buffer, ByteSpan bytes, std::size_t buffer_offset)
+    -> void {
+    taca_buffer_update(buffer, to_taca(bytes), buffer_offset);
+}
+
 auto buffers_apply(Buffers buffers) -> void {
     taca_buffers_apply({
         .vertex_buffers =
             {buffers.vertex_buffers.data(), buffers.vertex_buffers.size()},
         .index_buffer = buffers.index_buffer,
     });
-}
-
-auto buffer_new(BufferKind kind, ByteSpan bytes) -> Buffer {
-    return taca_buffer_new(
-        static_cast<taca_BufferKind>(kind),
-        {reinterpret_cast<const taca_byte*>(bytes.data()), bytes.size()}
-    );
 }
 
 auto draw(
@@ -115,24 +136,42 @@ auto key_event() -> KeyEvent {
 }
 
 auto pipeline_new(PipelineInfo info) -> Pipeline {
-    auto out = reinterpret_cast<const taca_PipelineInfo&>(info);
+    // All this for fear that std::span field order might be unpromised.
+    auto out = taca_PipelineInfo{
+        .depth_test = info.depth_test,
+        .fragment =
+            {
+                .entry = to_taca(info.fragment.entry),
+                .shader = info.fragment.shader,
+            },
+        .vertex =
+            {
+                .entry = to_taca(info.vertex.entry),
+                .shader = info.vertex.shader,
+            },
+        .vertex_attributes =
+            {info.vertex_attributes.data(), info.vertex_attributes.size()},
+        .vertex_buffers =
+            {
+                .data = reinterpret_cast<const taca_BufferInfo*>(
+                    info.vertex_buffers.data()
+                ),
+                .size = info.vertex_buffers.size(),
+            },
+    };
     return taca_pipeline_new(&out);
 }
 
 auto print(std::string_view text) -> void {
-    taca_print({text.data(), text.size()});
+    taca_print(to_taca(text));
 }
 
 auto shader_new(ByteSpan bytes) -> Shader {
-    return taca_shader_new(reinterpret_cast<taca_ByteSpan&>(bytes));
+    return taca_shader_new(to_taca(bytes));
 }
 
 auto sound_decode(ByteSpan bytes) -> Sound {
-    return taca_sound_decode(reinterpret_cast<taca_ByteSpan&>(bytes));
-}
-
-auto span_sized(std::size_t size) -> std::span<const std::byte> {
-    return {static_cast<const std::byte*>(nullptr), size};
+    return taca_sound_decode(to_taca(bytes));
 }
 
 auto sound_play(const SoundPlayInfo& info) -> SoundPlay {
@@ -141,7 +180,7 @@ auto sound_play(const SoundPlayInfo& info) -> SoundPlay {
 }
 
 auto title_update(std::string_view text) -> void {
-    taca_title_update({text.data(), text.size()});
+    taca_title_update(to_taca(text));
 }
 
 auto window_state() -> WindowState {

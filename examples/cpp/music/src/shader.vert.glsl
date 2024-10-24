@@ -10,7 +10,6 @@ layout (location = 3) in float light;
 layout (location = 0) out float fragLight;
 
 void main() {
-    // gl_Position = vec4(scale * pos + offset, 0.0, 1.0);
-    gl_Position = vec4(pos, 0.0, 1.0);
+    gl_Position = vec4(scale * pos + offset, 0.0, 1.0);
     fragLight = light;
 }

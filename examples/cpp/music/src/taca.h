@@ -131,6 +131,13 @@ extern "C" {
 __attribute__((import_name("taca_buffer_new")))
 taca_Buffer taca_buffer_new(taca_BufferKind kind, taca_ByteSpan bytes);
 
+__attribute__((import_name("taca_buffer_update")))
+void taca_buffer_update(
+    taca_Buffer buffer,
+    taca_ByteSpan bytes,
+    size_t buffer_offset
+);
+
 __attribute__((import_name("taca_buffers_apply")))
 void taca_buffers_apply(taca_Buffers buffers);
 

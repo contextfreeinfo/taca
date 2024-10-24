@@ -1,5 +1,6 @@
 #include "app.hpp"
 #include "control.hpp"
+#include "draw.hpp"
 #include "resources.hpp"
 // #include <stdfloat> // apparently not available yet
 #include <taca.hpp>
@@ -63,14 +64,7 @@ auto update(taca::EventKind event) -> void {
         case taca::EventKind::Frame: {
             app.window_state = taca::window_state();
             update_control(app);
-            auto vertex_buffers = std::to_array(
-                {app.draw_info.vertex_buffer, app.draw_info.instance_buffer}
-            );
-            taca::buffers_apply({
-                .vertex_buffers = std::span(vertex_buffers),
-                .index_buffer = app.draw_info.index_buffer,
-            });
-            taca::draw(0, 6, 1);
+            draw(app);
             break;
         }
         case taca::EventKind::Key: {
