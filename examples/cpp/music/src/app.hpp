@@ -5,11 +5,11 @@
 
 namespace music {
 
-constexpr std::size_t background_begin = 0;
-constexpr std::size_t highlight_begin = 1;
-constexpr std::size_t notes_begin = 3;
-constexpr std::size_t max_notes = 24;
-constexpr std::size_t max_ticks = 1 << 10;
+// Rects include notes, highlight bands, background, what else?
+// Max extra might should be just 3?
+constexpr std::size_t max_extra_rects = 10;
+constexpr std::size_t max_pitches = 25;
+constexpr std::size_t max_ticks = 32;
 
 struct DrawInstance {
     std::array<float, 2> offset;

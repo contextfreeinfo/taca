@@ -45,7 +45,7 @@ auto start() -> void {
     app.draw_info.instance_buffer = taca::buffer_new(
         taca::BufferKind::Vertex,
         taca::span_sized(
-            (max_notes * max_ticks + notes_begin) * sizeof(DrawInstance)
+            (max_pitches * max_ticks + max_extra_rects) * sizeof(DrawInstance)
         )
     );
 }
