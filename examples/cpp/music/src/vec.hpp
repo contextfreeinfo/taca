@@ -28,12 +28,52 @@ auto operator+(std::array<T, dim> a, std::array<T, dim> b)
     return result;
 }
 
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator+(S a, std::array<T, dim> b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a + b[i];
+    }
+    return result;
+}
+
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator+(std::array<T, dim> a, S b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a[i] + b;
+    }
+    return result;
+}
+
 template <Numeric T, std::size_t dim>
 auto operator-(std::array<T, dim> a, std::array<T, dim> b)
     -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a[i] - b[i];
+    }
+    return result;
+}
+
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator-(S a, std::array<T, dim> b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a - b[i];
+    }
+    return result;
+}
+
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator-(std::array<T, dim> a, S b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a[i] - b;
     }
     return result;
 }
@@ -48,12 +88,52 @@ auto operator*(std::array<T, dim> a, std::array<T, dim> b)
     return result;
 }
 
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator*(S a, std::array<T, dim> b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a * b[i];
+    }
+    return result;
+}
+
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator*(std::array<T, dim> a, S b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a[i] * b;
+    }
+    return result;
+}
+
 template <Numeric T, std::size_t dim>
 auto operator/(std::array<T, dim> a, std::array<T, dim> b)
     -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a[i] / b[i];
+    }
+    return result;
+}
+
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator/(S a, std::array<T, dim> b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a / b[i];
+    }
+    return result;
+}
+
+template <Numeric T, std::size_t dim, std::convertible_to<T> S>
+auto operator/(std::array<T, dim> a, S b)
+    -> std::array<T, dim> {
+    auto result = std::array<T, dim>{};
+    for (std::size_t i = 0; i < dim; i += 1) {
+        result[i] = a[i] / b;
     }
     return result;
 }
