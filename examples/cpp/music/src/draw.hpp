@@ -59,6 +59,9 @@ auto draw(App& app) -> void {
         .index_buffer = app.draw_info.index_buffer,
     });
     taca::draw(0, 6, instance_values.size());
+    // Text
+    taca::text_align(taca::TextAlignX::Left, taca::TextAlignY::Top);
+    taca::text_draw("Music Box", 3, 3);
 }
 
 } // namespace music

@@ -8,9 +8,11 @@
 
 namespace taca {
 
+// Enums, redone as enum struct
+
 enum struct BufferKind : std::uint32_t {
-    Vertex,
-    Index,
+    Vertex = taca_BufferKind_Vertex,
+    Index = taca_BufferKind_Index,
 };
 
 enum struct EventKind : std::uint32_t {
@@ -20,24 +22,39 @@ enum struct EventKind : std::uint32_t {
 };
 
 enum struct Key : std::uint32_t {
-    None,
-    ArrowUp,
-    ArrowDown,
-    ArrowLeft,
-    ArrowRight,
-    Space,
-    Escape,
+    None = taca_Key_None,
+    ArrowUp = taca_Key_ArrowUp,
+    ArrowDown = taca_Key_ArrowDown,
+    ArrowLeft = taca_Key_ArrowLeft,
+    ArrowRight = taca_Key_ArrowRight,
+    Space = taca_Key_Space,
+    Escape = taca_Key_Escape,
 };
 
 enum struct SoundRateKind : std::uint32_t {
-    Semitones,
-    Factor,
+    Semitones = taca_SoundRateKind_Semitones,
+    Factor = taca_SoundRateKind_Factor,
 };
 
 enum struct Step : std::uint32_t {
-    Vertex,
-    Instance,
+    Vertex = taca_Step_Vertex,
+    Instance = taca_Step_Instance,
 };
+
+enum struct TextAlignX {
+    Left = taca_TextAlignX_Left,
+    Center = taca_TextAlignX_Center,
+    Right = taca_TextAlignX_Right,
+};
+
+enum struct TextAlignY {
+    Baseline = taca_TextAlignY_Baseline,
+    Top = taca_TextAlignY_Top,
+    Middle = taca_TextAlignY_Middle,
+    Bottom = taca_TextAlignY_Bottom,
+};
+
+// Aliases
 
 using AttributeInfo = taca_AttributeInfo;
 using Buffer = taca_Buffer;
@@ -49,6 +66,8 @@ using WindowState = taca_WindowState;
 using Vec2 = taca_Vec2;
 
 using ByteSpan = std::span<const std::byte>;
+
+// Structs with redone insides
 
 struct BufferInfo {
     std::size_t first_attribute;
@@ -177,6 +196,17 @@ auto sound_decode(ByteSpan bytes) -> Sound {
 auto sound_play(const SoundPlayInfo& info) -> SoundPlay {
     auto out = reinterpret_cast<const taca_SoundPlayInfo&>(info);
     return taca_sound_play(&out);
+}
+
+auto text_align(TextAlignX x, TextAlignY y) -> void {
+    taca_text_align(
+        static_cast<taca_TextAlignX>(x),
+        static_cast<taca_TextAlignY>(y)
+    );
+}
+
+auto text_draw(std::string_view bytes, float x, float y) -> void {
+    taca_text_draw(to_taca(bytes), x, y);
 }
 
 auto title_update(std::string_view text) -> void {

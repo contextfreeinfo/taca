@@ -38,6 +38,19 @@ typedef enum {
     taca_Step_Instance,
 } taca_Step;
 
+typedef enum {
+    taca_TextAlignX_Left,
+    taca_TextAlignX_Center,
+    taca_TextAlignX_Right,
+} taca_TextAlignX;
+
+typedef enum {
+    taca_TextAlignY_Baseline,
+    taca_TextAlignY_Top,
+    taca_TextAlignY_Middle,
+    taca_TextAlignY_Bottom,
+} taca_TextAlignY;
+
 // Handles
 
 typedef size_t taca_Buffer;
@@ -167,6 +180,12 @@ taca_Sound taca_sound_decode(taca_ByteSpan bytes);
 __attribute__((import_name("taca_sound_play")))
 // TODO Without explicit pointer, and if only one field, this gets passed as the field value.
 taca_SoundPlay taca_sound_play(const taca_SoundPlayInfo* info);
+
+__attribute__((import_name("taca_text_align")))
+void taca_text_align(taca_TextAlignX x, taca_TextAlignY y);
+
+__attribute__((import_name("taca_text_draw")))
+void taca_text_draw(taca_StringView bytes, float x, float y);
 
 __attribute__((import_name("taca_title_update")))
 void taca_title_update(taca_StringView text);
