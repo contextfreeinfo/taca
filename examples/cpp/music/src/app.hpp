@@ -16,6 +16,12 @@ constexpr std::size_t max_extra_rects = 10;
 constexpr std::size_t max_pitches = 25;
 constexpr std::size_t max_ticks = 32;
 
+enum struct DrawMode {
+    Start,
+    Add,
+    Remove,
+};
+
 struct DrawInstance {
     std::array<float, 2> offset;
     std::array<float, 2> scale;
@@ -46,6 +52,7 @@ struct Song {
 struct App {
     taca::Sound ding;
     DrawInfo draw_info;
+    DrawMode draw_mode;
     bool ready;
     Song song;
     bool was_pressed;

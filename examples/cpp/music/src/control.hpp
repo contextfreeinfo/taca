@@ -32,20 +32,37 @@ auto update_click(App& app) -> void {
             // Less brave would be to use ints or to use some epsilon.
             return note.semitones == semitones;
         });
-    if (existing == notes.end()) {
-        // Missing so add.
-        notes.push_back({.semitones = semitones});
-        play_ding(app, semitones);
+    auto add = app.draw_mode == DrawMode::Start
+        ? existing == notes.end()
+        : app.draw_mode == DrawMode::Add;
+    if (add) {
+        app.draw_mode = DrawMode::Add;
+        if (existing == notes.end()) {
+            // Missing so add.
+            notes.push_back({.semitones = semitones});
+            play_ding(app, semitones);
+        }
     } else {
-        // Found so remove.
-        notes.erase(existing);
+        app.draw_mode = DrawMode::Remove;
+        if (existing != notes.end()) {
+            // Found so remove.
+            notes.erase(existing);
+        }
     }
 }
 
 auto update_control(App& app) -> void {
-    // TODO Press event instead of this hacking.
-    if (app.window_state.press && !app.was_pressed) {
-        update_click(app);
+    if (app.window_state.press) {
+        if (app.draw_mode == DrawMode::Start) {
+            // TODO Press event instead of this hacking.
+            if (!app.was_pressed) {
+                update_click(app);
+            }
+        } else {
+            update_click(app);
+        }
+    } else {
+        app.draw_mode = DrawMode::Start;
     }
     app.was_pressed = app.window_state.press;
 }
