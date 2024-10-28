@@ -19,7 +19,8 @@ shader-build shader.frag && \
 shader-build shader.vert && \
 xxd -i src/musicbox.ogg > out/musicbox-data.c && \
 "$WASI_SDK/bin/clang++" --std=c++23 -Os -s -Wall -Wextra -Werror -Isrc -Iout \
-     -Wno-missing-field-initializers -Wno-unused-variable -fno-exceptions \
+     -Wno-missing-field-initializers -Wno-unused-variable \
+     -Wno-unused-parameter -fno-exceptions \
      -o out/music.wasm src/main.cpp && \
 lz4 -f9 out/music.wasm out/music.taca && \
 pub out/music.taca cpp

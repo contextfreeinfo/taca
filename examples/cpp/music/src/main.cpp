@@ -56,7 +56,7 @@ __attribute__((export_name("update")))
 auto update(taca::EventKind event) -> void {
     if (!app.ready) {
         if (event == taca::EventKind::TasksDone) {
-            taca::print("sounds loaded");
+            // taca::print("sounds loaded");
             app.ready = true;
         }
         return;
@@ -71,7 +71,7 @@ auto update(taca::EventKind event) -> void {
         case taca::EventKind::Key: {
             auto event = taca::key_event();
             if (event.pressed) {
-                // play_ding(app, 0);
+                update_key(app, event);
             }
             break;
         }

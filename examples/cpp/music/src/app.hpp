@@ -23,8 +23,8 @@ enum struct DrawMode {
 };
 
 struct DrawInstance {
-    std::array<float, 2> offset;
-    std::array<float, 2> scale;
+    vec::Vec2f offset;
+    vec::Vec2f scale;
     float light;
 };
 
@@ -33,6 +33,12 @@ struct DrawInfo {
     taca::Buffer vertex_buffer;
     taca::Buffer instance_buffer;
     std::vector<DrawInstance> instance_values;
+};
+
+struct PlayInfo {
+    std::size_t frames_until_tick;
+    bool playing;
+    std::size_t tick;
 };
 
 struct Note {
@@ -53,6 +59,7 @@ struct App {
     taca::Sound ding;
     DrawInfo draw_info;
     DrawMode draw_mode;
+    PlayInfo play_info;
     bool ready;
     Song song;
     bool was_pressed;

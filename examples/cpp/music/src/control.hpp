@@ -51,7 +51,7 @@ auto update_click(App& app) -> void {
     }
 }
 
-auto update_control(App& app) -> void {
+auto update_press(App& app) -> void {
     if (app.window_state.press) {
         if (app.draw_mode == DrawMode::Start) {
             // TODO Press event instead of this hacking.
@@ -65,6 +65,51 @@ auto update_control(App& app) -> void {
         app.draw_mode = DrawMode::Start;
     }
     app.was_pressed = app.window_state.press;
+}
+
+auto update_play(App& app) -> void {
+    auto& play_info = app.play_info;
+    if (play_info.playing) {
+        play_info.frames_until_tick -= 1;
+        if (!play_info.frames_until_tick) {
+            // print("Tick: %zu", play_info.tick);
+            // Half second per tick at the moment.
+            // TODO Use tempo control from song or app or something.
+            play_info.frames_until_tick = 10;
+            if (play_info.tick < app.song.ticks.size()) {
+                const auto& tick = app.song.ticks[play_info.tick];
+                for (const auto& note : tick.notes) {
+                    play_ding(app, note.semitones);
+                }
+            }
+            play_info.tick = (play_info.tick + 1) % max_ticks;
+        }
+    }
+}
+
+auto update_control(App& app) -> void {
+    update_play(app);
+    update_press(app);
+}
+
+auto update_key(App& app, taca::KeyEvent event) -> void {
+    auto& play_info = app.play_info;
+    switch (event.key) {
+        case taca::Key::Escape: {
+            play_info.tick = 0;
+            play_info.frames_until_tick = 1;
+            break;
+        }
+        case taca::Key::Space: {
+            play_info.playing = !play_info.playing;
+            if (!play_info.frames_until_tick) {
+                play_info.frames_until_tick = 1;
+            }
+            // print("Play? %d", play_info.playing);
+            break;
+        }
+        default:
+    }
 }
 
 } // namespace music

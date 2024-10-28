@@ -83,6 +83,9 @@ struct Buffers {
 struct KeyEvent {
     bool pressed;
     Key key;
+    // TODO Instead a single u32 code point?
+    // TODO Do we need to support multiple code points as a string?
+    // TODO Require passing in sized buffer for storage?
     std::array<std::byte, 4> text;
 };
 
