@@ -2,6 +2,7 @@
 
 #include "app.hpp"
 #include <taca.hpp>
+#include <vec.hpp>
 
 namespace music {
 
@@ -15,10 +16,18 @@ auto play_ding(const App& app, float semitones) -> void {
 
 auto update_click(App& app) -> void {
     auto bands = calc_bands(app);
+    // print(
+    //     "index: %d %d %d",
+    //     bands.cell_index[0].has_value(),
+    //     bands.cell_index[1].has_value(),
+    //     bands.active
+    // );
     if (!bands.active) {
         return;
     }
-    auto cell = bands.cell_index;
+    auto cell = vec::map<std::size_t>(bands.cell_index, [](auto index) {
+        return index.value_or(0);
+    });
     auto& ticks = app.song.ticks;
     if (ticks.size() < cell[0] + 1) {
         ticks.resize(cell[0] + 1);

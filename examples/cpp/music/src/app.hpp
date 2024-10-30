@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdio>
+#include <optional>
 #include <taca.hpp>
 #include <vec.hpp>
 #include <vector>
@@ -70,7 +72,7 @@ struct BandInfo {
     bool active;
     vec::Vec2f bands_offset;
     vec::Vec2f bands_scale;
-    std::array<size_t, 2> cell_index;
+    std::array<std::optional<std::size_t>, 2> cell_index;
     vec::Vec2f cell_offset;
     vec::Vec2f cell_scale;
     vec::Vec2f cell_start;
@@ -88,14 +90,22 @@ auto calc_bands(App& app) -> BandInfo {
         app.window_state.pointer.y,
     };
     // auto pointer = pointer_px / window_size_px;
-    auto margin = Vec2f{40, 40};
+    auto margin = Vec2f{0, 40};
     auto music_size = window_size - margin;
     auto music_pos_frac = (pointer - margin) / music_size;
-    auto active = (0 <= music_pos_frac[0] && music_pos_frac[0] <= 1) &&
-        (0 <= music_pos_frac[1] && music_pos_frac[1] <= 1);
-    auto grid_count = Vec2f{max_ticks, max_pitches};
-    auto cell = floor(music_pos_frac * grid_count);
-    auto grid_pos_frac = cell / grid_count + 0.5 / grid_count;
+    auto grid_count = Vec2f{max_ticks + 1, max_pitches + 1};
+    auto cell = floor(music_pos_frac * grid_count) - 1;
+    auto dim = static_cast<std::size_t>(0);
+    auto cell_index =
+        vec::map<std::optional<std::size_t>>(cell, [&dim, grid_count](auto x) {
+            return 0 <= x && x < grid_count[dim++]
+                ? std::make_optional<std::size_t>(x)
+                : std::nullopt;
+        });
+    auto active = std::all_of(cell_index.begin(), cell_index.end(), [](auto i) {
+        return i.has_value();
+    });
+    auto grid_pos_frac = (cell + 1) / grid_count + 0.5 / grid_count;
     auto grid_pos = grid_pos_frac * music_size + margin;
     auto table_margin = Vec2f{0, margin[1]};
     auto table_size = Vec2f{window_size[0], music_size[1]};
@@ -104,11 +114,10 @@ auto calc_bands(App& app) -> BandInfo {
         .active = active,
         .bands_offset = (2 * table_margin + table_size) / window_size - 1,
         .bands_scale = table_size / window_size,
-        .cell_index =
-            {static_cast<size_t>(cell[0]), static_cast<size_t>(cell[1])},
+        .cell_index = cell_index,
         .cell_offset = 2 * (grid_pos / window_size) - 1,
         .cell_scale = cell_scale,
-        .cell_start = 2 * margin / window_size - 1 + cell_scale,
+        .cell_start = 2 * margin / window_size - 1 + 3 * cell_scale,
     };
 }
 

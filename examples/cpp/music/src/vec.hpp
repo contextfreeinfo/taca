@@ -6,6 +6,17 @@
 
 namespace vec {
 
+template <typename R, typename T, std::size_t dim, typename F>
+    requires std::invocable<F, const T&> &&
+                 std::same_as<std::invoke_result_t<F, const T&>, R>
+auto map(const std::array<T, dim>& input, F fun) -> std::array<R, dim> {
+    std::array<R, dim> output;
+    for (std::size_t i = 0; i < dim; ++i) {
+        output[i] = fun(input[i]);
+    }
+    return output;
+}
+
 using Vec2f = std::array<float, 2>;
 
 template <typename T>
@@ -29,8 +40,7 @@ auto operator+(std::array<T, dim> a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator+(S a, std::array<T, dim> b)
-    -> std::array<T, dim> {
+auto operator+(S a, std::array<T, dim> b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a + b[i];
@@ -39,8 +49,7 @@ auto operator+(S a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator+(std::array<T, dim> a, S b)
-    -> std::array<T, dim> {
+auto operator+(std::array<T, dim> a, S b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a[i] + b;
@@ -59,8 +68,7 @@ auto operator-(std::array<T, dim> a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator-(S a, std::array<T, dim> b)
-    -> std::array<T, dim> {
+auto operator-(S a, std::array<T, dim> b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a - b[i];
@@ -69,8 +77,7 @@ auto operator-(S a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator-(std::array<T, dim> a, S b)
-    -> std::array<T, dim> {
+auto operator-(std::array<T, dim> a, S b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a[i] - b;
@@ -89,8 +96,7 @@ auto operator*(std::array<T, dim> a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator*(S a, std::array<T, dim> b)
-    -> std::array<T, dim> {
+auto operator*(S a, std::array<T, dim> b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a * b[i];
@@ -99,8 +105,7 @@ auto operator*(S a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator*(std::array<T, dim> a, S b)
-    -> std::array<T, dim> {
+auto operator*(std::array<T, dim> a, S b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a[i] * b;
@@ -119,8 +124,7 @@ auto operator/(std::array<T, dim> a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator/(S a, std::array<T, dim> b)
-    -> std::array<T, dim> {
+auto operator/(S a, std::array<T, dim> b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a / b[i];
@@ -129,8 +133,7 @@ auto operator/(S a, std::array<T, dim> b)
 }
 
 template <Numeric T, std::size_t dim, std::convertible_to<T> S>
-auto operator/(std::array<T, dim> a, S b)
-    -> std::array<T, dim> {
+auto operator/(std::array<T, dim> a, S b) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = a[i] / b;
@@ -139,8 +142,7 @@ auto operator/(std::array<T, dim> a, S b)
 }
 
 template <Numeric T, std::size_t dim>
-auto floor(std::array<T, dim> a)
-    -> std::array<T, dim> {
+auto floor(std::array<T, dim> a) -> std::array<T, dim> {
     auto result = std::array<T, dim>{};
     for (std::size_t i = 0; i < dim; i += 1) {
         result[i] = std::floor(a[i]);
