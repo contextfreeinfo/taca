@@ -15,7 +15,15 @@ import {
 } from "./drawing";
 import { BindGroupLayout, findBindGroups } from "./gpu";
 import { keys } from "./key";
-import { dataViewOf, fail, getF32, getU32, setF32, setU32 } from "./util";
+import {
+  dataViewOf,
+  fail,
+  getF32,
+  getU32,
+  getU8,
+  setF32,
+  setU32,
+} from "./util";
 import { makeWasiEnv } from "./wasi";
 
 export interface AppConfig {
@@ -591,7 +599,7 @@ class App {
       };
     };
     const pipelineInfo: PipelineInfo = {
-      depthTest: !!getU32(infoView, 0),
+      depthTest: !!getU8(infoView, 0),
       fragment: readShaderInfo(1 * 4),
       vertex: readShaderInfo(4 * 4),
       vertexAttrs: this.readAny(

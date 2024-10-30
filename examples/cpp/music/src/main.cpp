@@ -24,12 +24,13 @@ auto start() -> void {
         {.first_attribute = 1, .step = taca::Step::Instance},
     });
     taca::pipeline_new({
-        .depth_test = true,
         .fragment = {.entry = "main", .shader = fragment},
         .vertex = {.entry = "main", .shader = vertex},
         .vertex_buffers = std::span(vertex_buffers),
     });
     // Buffers
+    // Rectangle for most things.
+    // By chance, rectangle start indices also work for tri indices.
     auto rect_indices = std::to_array<std::uint16_t>({0, 1, 2, 1, 3, 2});
     app.draw_info.index_buffer = taca::buffer_new(
         taca::BufferKind::Index,
@@ -47,6 +48,17 @@ auto start() -> void {
         taca::span_sized(
             (max_pitches * max_ticks + max_extra_rects) * sizeof(DrawInstance)
         )
+    );
+    // Triangle for play & rewind.
+    auto tri_vertices =
+        std::to_array<std::array<float, 2>>({{-1, -1}, {1, 0}, {-1, 1}});
+    app.draw_info.vertex_tri_buffer = taca::buffer_new(
+        taca::BufferKind::Vertex,
+        std::as_bytes(std::span(tri_vertices))
+    );
+    app.draw_info.instance_tri_buffer = taca::buffer_new(
+        taca::BufferKind::Vertex,
+        taca::span_sized(max_tris * sizeof(DrawInstance))
     );
 }
 

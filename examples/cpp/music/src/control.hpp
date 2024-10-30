@@ -22,7 +22,7 @@ auto update_click(App& app) -> void {
     //     bands.cell_index[1].has_value(),
     //     bands.active
     // );
-    if (!bands.active) {
+    if (!(bands.cell_index[0].has_value() && bands.cell_index[1].has_value())) {
         return;
     }
     auto cell = vec::map<std::size_t>(bands.cell_index, [](auto index) {

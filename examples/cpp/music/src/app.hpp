@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <cstdio>
 #include <optional>
 #include <taca.hpp>
@@ -12,11 +11,14 @@ namespace music {
 // The top of our scale is C7, and our sample is D6.
 constexpr auto semitones_default = 11.0f;
 
-// Rects include notes, highlight bands, background, what else?
-// Max extra might should be just 3?
-constexpr std::size_t max_extra_rects = 10;
+// Rects include notes, highlight bands, background, markers, etc.
+// TODO Be more precise with extras?
+constexpr std::size_t max_extra_rects = 1000;
 constexpr std::size_t max_pitches = 25;
 constexpr std::size_t max_ticks = 32;
+
+// Just play and rewind triangles.
+constexpr std::size_t max_tris = 2;
 
 enum struct DrawMode {
     Start,
@@ -34,6 +36,8 @@ struct DrawInfo {
     taca::Buffer index_buffer;
     taca::Buffer vertex_buffer;
     taca::Buffer instance_buffer;
+    taca::Buffer vertex_tri_buffer;
+    taca::Buffer instance_tri_buffer;
     std::vector<DrawInstance> instance_values;
 };
 
@@ -69,13 +73,14 @@ struct App {
 };
 
 struct BandInfo {
-    bool active;
     vec::Vec2f bands_offset;
     vec::Vec2f bands_scale;
     std::array<std::optional<std::size_t>, 2> cell_index;
     vec::Vec2f cell_offset;
     vec::Vec2f cell_scale;
     vec::Vec2f cell_start;
+    vec::Vec2f margin;
+    vec::Vec2f window_size;
 };
 
 auto calc_bands(App& app) -> BandInfo {
@@ -90,34 +95,35 @@ auto calc_bands(App& app) -> BandInfo {
         app.window_state.pointer.y,
     };
     // auto pointer = pointer_px / window_size_px;
-    auto margin = Vec2f{0, 40};
+    auto grid_count = Vec2f{max_ticks, max_pitches} + 1;
+    auto margin_count = Vec2f{0, 2};
+    auto margin = window_size / (grid_count + margin_count) * margin_count;
     auto music_size = window_size - margin;
     auto music_pos_frac = (pointer - margin) / music_size;
-    auto grid_count = Vec2f{max_ticks + 1, max_pitches + 1};
     auto cell = floor(music_pos_frac * grid_count) - 1;
+    auto active = cell[0] >= -1 && cell[1] >= -1;
     auto dim = static_cast<std::size_t>(0);
-    auto cell_index =
-        vec::map<std::optional<std::size_t>>(cell, [&dim, grid_count](auto x) {
-            return 0 <= x && x < grid_count[dim++]
+    auto cell_index = vec::map<std::optional<std::size_t>>(
+        cell,
+        [&dim, active, grid_count](auto x) {
+            return 0 <= x && x < grid_count[dim++] && active
                 ? std::make_optional<std::size_t>(x)
                 : std::nullopt;
-        });
-    auto active = std::all_of(cell_index.begin(), cell_index.end(), [](auto i) {
-        return i.has_value();
-    });
+        }
+    );
     auto grid_pos_frac = (cell + 1) / grid_count + 0.5 / grid_count;
     auto grid_pos = grid_pos_frac * music_size + margin;
-    auto table_margin = Vec2f{0, margin[1]};
     auto table_size = Vec2f{window_size[0], music_size[1]};
     auto cell_scale = music_size / grid_count / window_size;
     return {
-        .active = active,
-        .bands_offset = (2 * table_margin + table_size) / window_size - 1,
+        .bands_offset = (2 * margin + table_size) / window_size - 1,
         .bands_scale = table_size / window_size,
         .cell_index = cell_index,
         .cell_offset = 2 * (grid_pos / window_size) - 1,
         .cell_scale = cell_scale,
         .cell_start = 2 * margin / window_size - 1 + 3 * cell_scale,
+        .margin = margin / window_size,
+        .window_size = window_size,
     };
 }
 

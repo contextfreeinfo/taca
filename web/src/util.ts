@@ -10,6 +10,10 @@ export function getU32(view: DataView, byteOffset: number) {
   return view.getUint32(byteOffset, true);
 }
 
+export function getU8(view: DataView, byteOffset: number) {
+  return view.getUint8(byteOffset);
+}
+
 export function fail(message?: string | null): never {
   throw Error(message ?? undefined);
 }
