@@ -29,12 +29,14 @@ auto draw(App& app) -> void {
         }
     }
     // Highlight bands.
-    if (bands.active) {
+    if (bands.cell_index[0].has_value()) {
         instance_values.push_back({
             .offset = {bands.cell_offset[0], bands.bands_offset[1]},
             .scale = {bands.cell_scale[0], bands.bands_scale[1]},
             .light = bands_light,
         });
+    }
+    if (bands.cell_index[1].has_value()) {
         instance_values.push_back({
             .offset = {bands.bands_offset[0], bands.cell_offset[1]},
             .scale = {bands.bands_scale[0], bands.cell_scale[1]},
