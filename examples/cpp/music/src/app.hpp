@@ -72,6 +72,7 @@ struct App {
     DrawMode draw_mode;
     PlayInfo play_info;
     bool ready;
+    std::size_t rewind_tick;
     Song song;
     bool was_pressed;
     taca::WindowState window_state;

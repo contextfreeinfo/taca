@@ -14,13 +14,13 @@ auto play_ding(const App& app, float semitones) -> void {
     });
 }
 
-auto rewind(PlayInfo& play_info) -> void {
-    play_info.tick = 0;
-    play_info.frames_until_tick = 0;
+auto rewind(App& app) -> void {
+    app.play_info.tick = app.rewind_tick;
+    app.play_info.frames_until_tick = 0;
 }
 
-auto toggle_play(PlayInfo& play_info) -> void {
-    play_info.playing = !play_info.playing;
+auto toggle_play(App& app) -> void {
+    app.play_info.playing = !app.play_info.playing;
 }
 
 auto update_click(App& app) -> void {
@@ -36,13 +36,14 @@ auto update_click(App& app) -> void {
         if (bands.cell_index[0].has_value()) {
             app.play_info.tick = *bands.cell_index[0];
             app.play_info.frames_until_tick = 0;
+            app.rewind_tick = app.play_info.tick;
         } else {
             auto pointer = bands.pointer;
             auto extent = bands.button_scale;
             if (inside(pointer, bands.button_play_offset, extent)) {
-                toggle_play(app.play_info);
+                toggle_play(app);
             } else if (inside(pointer, bands.button_back_offset, extent)) {
-                rewind(app.play_info);
+                rewind(app);
             }
         }
         return;
@@ -127,11 +128,11 @@ auto update_control(App& app) -> void {
 auto update_key(App& app, taca::KeyEvent event) -> void {
     switch (event.key) {
         case taca::Key::Escape: {
-            rewind(app.play_info);
+            rewind(app);
             break;
         }
         case taca::Key::Space: {
-            toggle_play(app.play_info);
+            toggle_play(app);
             break;
         }
         default:
