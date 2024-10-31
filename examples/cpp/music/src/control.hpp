@@ -23,6 +23,10 @@ auto update_click(App& app) -> void {
     //     bands.active
     // );
     if (!(bands.cell_index[0].has_value() && bands.cell_index[1].has_value())) {
+        if (bands.cell_index[0].has_value()) {
+            app.play_info.tick = *bands.cell_index[0];
+            app.play_info.frames_until_tick = 0;
+        }
         return;
     }
     auto cell = vec::map<std::size_t>(bands.cell_index, [](auto index) {
@@ -79,12 +83,13 @@ auto update_press(App& app) -> void {
 auto update_play(App& app) -> void {
     auto& play_info = app.play_info;
     if (play_info.playing) {
-        play_info.frames_until_tick -= 1;
-        if (!play_info.frames_until_tick) {
+        if (play_info.frames_until_tick) {
+            play_info.frames_until_tick -= 1;
+        } else {
             // print("Tick: %zu", play_info.tick);
             // Half second per tick at the moment.
             // TODO Use tempo control from song or app or something.
-            play_info.frames_until_tick = 10;
+            play_info.frames_until_tick = frames_per_tick - 1;
             if (play_info.tick < app.song.ticks.size()) {
                 const auto& tick = app.song.ticks[play_info.tick];
                 for (const auto& note : tick.notes) {
@@ -106,7 +111,7 @@ auto update_key(App& app, taca::KeyEvent event) -> void {
     switch (event.key) {
         case taca::Key::Escape: {
             play_info.tick = 0;
-            play_info.frames_until_tick = 1;
+            play_info.frames_until_tick = 0;
             break;
         }
         case taca::Key::Space: {

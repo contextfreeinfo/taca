@@ -7,10 +7,12 @@
 
 namespace music {
 
+constexpr auto background_light = 0.8f;
 constexpr auto band_light = 0.9f;
 constexpr auto button_scale_factor = 0.7f;
 constexpr auto marker_light = 0.4f;
 constexpr auto note_light = 1.2f;
+constexpr auto play_band_light = 0.95f;
 
 auto draw(App& app) -> void {
     using namespace vec;
@@ -31,7 +33,28 @@ auto draw(App& app) -> void {
     // Background.
     instance_values.push_back({
         .scale = {1, 1},
-        .light = 0.8,
+        .light = background_light,
+    });
+    // Play band.
+    const auto& play_info = app.play_info;
+    auto tick = static_cast<float>(play_info.tick);
+    auto subtick =
+        static_cast<float>(play_info.frames_until_tick) / frames_per_tick;
+    if (play_info.tick) {
+        // Past the first, so back up.
+        tick -= subtick;
+    } else if (subtick) {
+        // Past the end before wrapping back.
+        tick = max_ticks - subtick;
+    }
+    instance_values.push_back({
+        .offset =
+            {
+                2 * tick * bands.cell_scale[0] + bands.cell_start[0],
+                bands.bands_offset[1],
+            },
+        .scale = {bands.cell_scale[0], bands.bands_scale[1]},
+        .light = play_band_light,
     });
     // Highlight bands.
     if (bands.cell_index[0].has_value()) {

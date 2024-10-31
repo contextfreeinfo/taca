@@ -8,17 +8,22 @@
 
 namespace music {
 
-// The top of our scale is C7, and our sample is D6.
-constexpr auto semitones_default = 11.0f;
+// Which means 12 ticks/second or 720 ticks/minute.
+// If each is a 16th note, and a a quarter note is one beat, that's tempo 180.
+// And our 36 notes are 3 seconds.
+constexpr std::size_t frames_per_tick = 5;
 
 // Rects include notes, highlight bands, background, markers, etc.
 // TODO Be more precise with extras?
 constexpr std::size_t max_extra_rects = 1000;
 constexpr std::size_t max_pitches = 25;
-constexpr std::size_t max_ticks = 32;
+constexpr std::size_t max_ticks = 36;
 
 // Just play and rewind triangles.
 constexpr std::size_t max_tris = 2;
+
+// The top of our scale is C7, and our sample is D6.
+constexpr auto semitones_default = 11.0f;
 
 enum struct DrawMode {
     Start,
