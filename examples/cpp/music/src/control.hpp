@@ -14,7 +14,17 @@ auto play_ding(const App& app, float semitones) -> void {
     });
 }
 
+auto rewind(PlayInfo& play_info) -> void {
+    play_info.tick = 0;
+    play_info.frames_until_tick = 0;
+}
+
+auto toggle_play(PlayInfo& play_info) -> void {
+    play_info.playing = !play_info.playing;
+}
+
 auto update_click(App& app) -> void {
+    using namespace vec;
     auto bands = calc_bands(app);
     // print(
     //     "index: %d %d %d",
@@ -26,6 +36,14 @@ auto update_click(App& app) -> void {
         if (bands.cell_index[0].has_value()) {
             app.play_info.tick = *bands.cell_index[0];
             app.play_info.frames_until_tick = 0;
+        } else {
+            auto pointer = bands.pointer;
+            auto extent = bands.button_scale;
+            if (inside(pointer, bands.button_play_offset, extent)) {
+                toggle_play(app.play_info);
+            } else if (inside(pointer, bands.button_back_offset, extent)) {
+                rewind(app.play_info);
+            }
         }
         return;
     }
@@ -107,19 +125,13 @@ auto update_control(App& app) -> void {
 }
 
 auto update_key(App& app, taca::KeyEvent event) -> void {
-    auto& play_info = app.play_info;
     switch (event.key) {
         case taca::Key::Escape: {
-            play_info.tick = 0;
-            play_info.frames_until_tick = 0;
+            rewind(app.play_info);
             break;
         }
         case taca::Key::Space: {
-            play_info.playing = !play_info.playing;
-            if (!play_info.frames_until_tick) {
-                play_info.frames_until_tick = 1;
-            }
-            // print("Play? %d", play_info.playing);
+            toggle_play(app.play_info);
             break;
         }
         default:

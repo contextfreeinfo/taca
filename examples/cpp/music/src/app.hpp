@@ -80,11 +80,14 @@ struct App {
 struct BandInfo {
     vec::Vec2f bands_offset;
     vec::Vec2f bands_scale;
+    vec::Vec2f button_back_offset;
+    vec::Vec2f button_play_offset;
+    vec::Vec2f button_scale;
     std::array<std::optional<std::size_t>, 2> cell_index;
     vec::Vec2f cell_offset;
     vec::Vec2f cell_scale;
     vec::Vec2f cell_start;
-    vec::Vec2f margin;
+    vec::Vec2f pointer;
     vec::Vec2f window_size;
 };
 
@@ -119,15 +122,19 @@ auto calc_bands(App& app) -> BandInfo {
     auto grid_pos_frac = (cell + 1) / grid_count + 0.5 / grid_count;
     auto grid_pos = grid_pos_frac * music_size + margin;
     auto table_size = Vec2f{window_size[0], music_size[1]};
+    auto button_scale = margin[1] / window_size;
     auto cell_scale = music_size / grid_count / window_size;
     return {
         .bands_offset = (2 * margin + table_size) / window_size - 1,
         .bands_scale = table_size / window_size,
+        .button_back_offset = Vec2f{-1, -1} + button_scale * Vec2f{4, 1},
+        .button_play_offset = Vec2f{-1, -1} + button_scale * Vec2f{1.5, 1},
+        .button_scale = button_scale,
         .cell_index = cell_index,
         .cell_offset = 2 * (grid_pos / window_size) - 1,
         .cell_scale = cell_scale,
         .cell_start = 2 * margin / window_size - 1 + 3 * cell_scale,
-        .margin = margin / window_size,
+        .pointer = 2 * pointer / window_size - 1,
         .window_size = window_size,
     };
 }

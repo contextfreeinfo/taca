@@ -19,13 +19,9 @@ auto draw(App& app) -> void {
     auto& instance_values = app.draw_info.instance_values;
     auto bands = calc_bands(app);
     // Back button info in advance because split.
-    auto button_scale = Vec2f{
-        bands.margin[1] * bands.window_size[1] / bands.window_size[0],
-        bands.margin[1],
-    };
     auto back_instance = DrawInstance{
-        .offset = Vec2f{-1, -1} + button_scale * Vec2f{4, 1},
-        .scale = -button_scale_factor * button_scale,
+        .offset = bands.button_back_offset,
+        .scale = -button_scale_factor * bands.button_scale,
         .light = note_light,
     };
     // Rectangles.
@@ -111,8 +107,8 @@ auto draw(App& app) -> void {
     // Triangles.
     instance_values.clear();
     instance_values.push_back({
-        .offset = Vec2f{-1, -1} + button_scale * Vec2f{1.5, 1},
-        .scale = button_scale_factor * button_scale,
+        .offset = bands.button_play_offset,
+        .scale = button_scale_factor * bands.button_scale,
         .light = note_light,
     });
     instance_values.push_back(back_instance);
