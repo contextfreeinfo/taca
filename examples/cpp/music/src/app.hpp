@@ -92,6 +92,13 @@ struct BandInfo {
     vec::Vec2f window_size;
 };
 
+template <typename... Args>
+auto print(const char* format, Args... args) -> void {
+    char buffer[100];
+    std::snprintf(buffer, sizeof(buffer), format, args...);
+    taca::print(buffer);
+}
+
 auto calc_bands(App& app) -> BandInfo {
     using namespace vec;
     auto window_size = Vec2f{
@@ -140,10 +147,10 @@ auto calc_bands(App& app) -> BandInfo {
     };
 }
 
-template <typename... Args> void print(const char* format, Args... args) {
-    char buffer[100];
-    std::snprintf(buffer, sizeof(buffer), format, args...);
-    taca::print(buffer);
+auto copy_song(App& app, const Song& song) -> void {
+    app.song = song;
+    // print("song: %zu", app.song.ticks.size());
+    app.song.ticks.resize(max_ticks);
 }
 
 } // namespace music

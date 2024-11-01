@@ -2,6 +2,7 @@
 #include "control.hpp"
 #include "draw.hpp"
 #include "resources.hpp"
+#include "songs.hpp"
 // #include <stdfloat> // apparently not available yet
 #include <taca.hpp>
 
@@ -16,6 +17,7 @@ auto start() -> void {
     // Sound
     // This is a D6 or maybe D7.
     app.ding = taca::sound_decode(musicbox_data);
+    copy_song(app, songs::basic());
     // Pipeline
     auto fragment = taca::shader_new(shader_frag_data);
     auto vertex = taca::shader_new(shader_vert_data);

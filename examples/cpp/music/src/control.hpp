@@ -26,12 +26,6 @@ auto toggle_play(App& app) -> void {
 auto update_click(App& app) -> void {
     using namespace vec;
     auto bands = calc_bands(app);
-    // print(
-    //     "index: %d %d %d",
-    //     bands.cell_index[0].has_value(),
-    //     bands.cell_index[1].has_value(),
-    //     bands.active
-    // );
     if (!(bands.cell_index[0].has_value() && bands.cell_index[1].has_value())) {
         if (bands.cell_index[0].has_value()) {
             app.play_info.tick = *bands.cell_index[0];
