@@ -17,7 +17,6 @@ auto start() -> void {
     // Sound
     // This is a D6 or maybe D7.
     app.ding = taca::sound_decode(musicbox_data);
-    copy_song(app, songs::basic());
     // Pipeline
     auto fragment = taca::shader_new(shader_frag_data);
     auto vertex = taca::shader_new(shader_vert_data);
@@ -62,12 +61,20 @@ auto start() -> void {
         taca::BufferKind::Vertex,
         taca::span_sized(max_tris * sizeof(DrawInstance))
     );
+    // song_print(app.song);
 }
+
+bool first = true;
 
 // clang-format off
 __attribute__((export_name("update")))
 // clang-format on
 auto update(taca::EventKind event) -> void {
+    if (first) {
+        first = false;
+        app.song = songs::basic();
+        // song_print(app.song);
+    }
     if (!app.ready) {
         if (event == taca::EventKind::TasksDone) {
             // taca::print("sounds loaded");

@@ -147,10 +147,14 @@ auto calc_bands(App& app) -> BandInfo {
     };
 }
 
-auto copy_song(App& app, const Song& song) -> void {
-    app.song = song;
-    // print("song: %zu", app.song.ticks.size());
-    app.song.ticks.resize(max_ticks);
+auto song_print(const Song& song) -> void {
+    for (const auto& tick : song.ticks) {
+        print("%s", "---");
+        for (const auto& note : tick.notes) {
+            print("semitones: %f", note.semitones);
+        }
+    }
+    print("%s\n", "---");
 }
 
 } // namespace music
