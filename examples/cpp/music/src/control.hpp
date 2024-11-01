@@ -21,6 +21,7 @@ auto rewind(App& app) -> void {
 
 auto toggle_play(App& app) -> void {
     app.play_info.playing = !app.play_info.playing;
+    // song_print(app.song);
 }
 
 auto update_click(App& app) -> void {

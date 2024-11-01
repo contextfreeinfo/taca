@@ -8,15 +8,22 @@
 
 namespace music {
 
-// Init fields to zero.
-App app = {};
+// Global state, but don't init here in case of C++ post-main weirdness.
+App app;
 
+// clang-format off
+__attribute__((export_name("start")))
+// clang-format on
 auto start() -> void {
+    // Initialize here.
+    app = {};
     taca::title_update("Music Box (Taca Demo)");
     taca::print("Hi from C++!");
     // Sound
     // This is a D6 or maybe D7.
     app.ding = taca::sound_decode(musicbox_data);
+    app.song = songs::basic();
+    // song_print(app.song);
     // Pipeline
     auto fragment = taca::shader_new(shader_frag_data);
     auto vertex = taca::shader_new(shader_vert_data);
@@ -64,17 +71,10 @@ auto start() -> void {
     // song_print(app.song);
 }
 
-bool first = true;
-
 // clang-format off
 __attribute__((export_name("update")))
 // clang-format on
 auto update(taca::EventKind event) -> void {
-    if (first) {
-        first = false;
-        app.song = songs::basic();
-        // song_print(app.song);
-    }
     if (!app.ready) {
         if (event == taca::EventKind::TasksDone) {
             // taca::print("sounds loaded");
@@ -102,8 +102,9 @@ auto update(taca::EventKind event) -> void {
 
 } // namespace music
 
-// Even if I say -Wl,--no-entry, I still get a _start, and the overall size is
-// larger, so just use main. Maybe I'm just missing some option.
-auto main() -> int {
-    music::start();
-}
+// So far, I fail to work around needing this with flags, but some cleanup
+// happens after main, so best not to init anything inside it.
+// I've tried -Wl,--no-entry such as in wasm4:
+// https://github.com/aduros/wasm4/blob/979be845216ee9d613cb6555fb8b11c01bec39a0/cli/assets/templates/c/Makefile#L24
+// But I get crashes running the wasm. I haven't worked out details.
+auto main() -> int {}
