@@ -692,14 +692,17 @@ class App {
   }
 
   soundPlay(info: number) {
-    const infoView = this.memoryViewMake(info, 3 * 4);
-    const sound = getU32(infoView, 0);
+    const infoView = this.memoryViewMake(info, 6 * 4);
+    const sound = getU32(infoView, 0 * 4);
     const { audioContext, sounds } = this;
     const source = audioContext.createBufferSource();
     source.buffer = sounds[sound - 1].buffer;
-    source.connect(audioContext.destination);
-    const rate = getF32(infoView, 4);
-    switch (getU32(infoView, 8)) {
+    // Delay.
+    const delay = getF32(infoView, 1 * 4);
+    const startTime = delay > 0 ? audioContext.currentTime + delay : 0;
+    // Rate.
+    const rate = getF32(infoView, 2 * 4);
+    switch (getU32(infoView, 3 * 4)) {
       case 0:
         source.detune.value = 100 * rate;
         break;
@@ -707,7 +710,22 @@ class App {
         source.playbackRate.value = rate;
         break;
     }
-    source.start();
+    // Volume.
+    let volume = getF32(infoView, 4 * 4);
+    if (getU32(infoView, 5 * 4) == 0) {
+      // Decibels.
+      volume = Math.pow(10, volume / 20);
+    }
+    if (volume == 1) {
+      source.connect(audioContext.destination);
+    } else {
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = volume;
+      source.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+    }
+    // Play.
+    source.start(startTime);
     return 0;
   }
 

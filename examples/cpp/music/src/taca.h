@@ -34,6 +34,11 @@ typedef enum {
 } taca_SoundRateKind;
 
 typedef enum {
+    taca_SoundVolumeKind_Decibels,
+    taca_SoundVolumeKind_Factor,
+} taca_SoundVolumeKind;
+
+typedef enum {
     taca_Step_Vertex,
     taca_Step_Instance,
 } taca_Step;
@@ -123,8 +128,11 @@ typedef struct {
 
 typedef struct {
     taca_Sound sound;
+    float delay;
     float rate;
     taca_SoundRateKind rate_kind;
+    float volume;
+    taca_SoundVolumeKind volume_kind;
 } taca_SoundPlayInfo;
 
 typedef struct {

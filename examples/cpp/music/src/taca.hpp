@@ -36,6 +36,11 @@ enum struct SoundRateKind : std::uint32_t {
     Factor = taca_SoundRateKind_Factor,
 };
 
+enum struct SoundVolumeKind : std::uint32_t {
+    Decibels = taca_SoundVolumeKind_Decibels,
+    Factor = taca_SoundVolumeKind_Factor,
+};
+
 enum struct Step : std::uint32_t {
     Vertex = taca_Step_Vertex,
     Instance = taca_Step_Instance,
@@ -104,8 +109,11 @@ struct PipelineInfo {
 
 struct SoundPlayInfo {
     Sound sound;
+    float delay;
     float rate;
     SoundRateKind rate_kind;
+    float volume;
+    SoundVolumeKind volume_kind;
 };
 
 // Helpers

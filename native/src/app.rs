@@ -8,11 +8,13 @@ use std::{
         Arc, Mutex,
     },
     thread,
+    time::Duration,
 };
 
 use kira::{
     manager::{AudioManager, AudioManagerSettings},
     sound::PlaybackRate,
+    StartTime, Volume,
 };
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
@@ -510,11 +512,21 @@ fn taca_sound_play(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
         // eprintln!("no sound");
         return 0;
     };
+    if info.delay > 0.0 {
+        data.settings.start_time = StartTime::Delayed(Duration::from_secs_f32(info.delay));
+    }
     match info.rate_kind {
         0 => data.settings.playback_rate = PlaybackRate::Semitones(info.rate as f64).into(),
         1 => data.settings.playback_rate = PlaybackRate::Factor(info.rate as f64).into(),
         _ => {}
-    };
+    }
+    match info.volume_kind {
+        0 => data.settings.volume = kira::tween::Value::Fixed(Volume::Decibels(info.volume as f64)),
+        1 => {
+            data.settings.volume = kira::tween::Value::Fixed(Volume::Amplitude(info.volume as f64))
+        }
+        _ => {}
+    }
     let _play = match audio_manager.play(data) {
         Ok(play) => play,
         Err(err) => {
