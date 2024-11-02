@@ -4,11 +4,10 @@ import std::math;
 import taca;
 
 Game game;
-const char[] TITLE = "Flyin'";
 
 fn void! start() @export("start") {
     taca::print("Hi from C3!");
-    taca::title_set(TITLE);
+    taca::title_set("Asteroid Tunnel (Taca Demo)");
     // TODO Apparently, !! doesn't crash wasm?
     glb::Mesh danger = glb::load($embed("boulder.glb"))!;
     glb::Mesh light = glb::load($embed("light.glb"))!;
@@ -29,7 +28,9 @@ fn void! start() @export("start") {
         // .instance_buffers = ...
     });
     Pcg32Random random;
-    random.set_seed(TITLE);
+    // This was also previously the title, and I've gotten used to the previous
+    // seed, so keep it for now.
+    random.set_seed("Flyin'");
     game = {
         .dangers = {
             .buf = buf_mesh(danger, DANGER_LIMIT),

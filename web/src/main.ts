@@ -15,7 +15,15 @@ import {
 } from "./drawing";
 import { BindGroupLayout, findBindGroups } from "./gpu";
 import { keys } from "./key";
-import { dataViewOf, fail, getU32, setF32, setU32 } from "./util";
+import {
+  dataViewOf,
+  fail,
+  getF32,
+  getU32,
+  getU8,
+  setF32,
+  setU32,
+} from "./util";
 import { makeWasiEnv } from "./wasi";
 
 export interface AppConfig {
@@ -58,6 +66,9 @@ class App {
       this.keyEventHandle(event, false);
     });
     const handleMouse = (event: MouseEvent) => {
+      if (event.buttons) {
+        audioEnsureResumed(this.audioContext);
+      }
       const rect = canvas.getBoundingClientRect();
       this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
       this.pointerPress = event.buttons;
@@ -67,6 +78,7 @@ class App {
     canvas.addEventListener("mousemove", handleMouse);
     const handleTouch = (event: TouchEvent) => {
       event.preventDefault();
+      audioEnsureResumed(this.audioContext);
       // TODO Multitouch?
       const touch = event.touches[0];
       const rect = canvas.getBoundingClientRect();
@@ -137,6 +149,8 @@ class App {
     };
     return result;
   }
+
+  audioContext = new AudioContext();
 
   bindGroups = [] as {
     pipeline: number;
@@ -422,14 +436,29 @@ class App {
 
   frameTimeBegin: number = Date.now();
 
-  keyEvent = new DataView(new Uint32Array(2).buffer);
+  keyEvent = new DataView(new Uint32Array(3).buffer);
   keyEventBytes = new Uint8Array(this.keyEvent.buffer);
 
   keyEventHandle(event: KeyboardEvent, pressed: boolean) {
+    switch (event.code) {
+      // TODO What other cases?
+      case "KeyR":
+        if (event.ctrlKey) {
+          return;
+        }
+        break;
+      case "F11":
+      case "F12":
+        return;
+    }
+    event.preventDefault();
+    audioEnsureResumed(this.audioContext);
     if (event.repeat) return;
     let { exports, keyEvent } = this;
-    setU32(keyEvent, 0, keys[event.key] ?? 0);
-    setU32(keyEvent, 4, pressed ? 1 : 0);
+    // TODO Report event.code also.
+    setU32(keyEvent, 0, pressed ? 1 : 0);
+    setU32(keyEvent, 4, keys[event.code] ?? 0);
+    setU32(keyEvent, 8, 0);
     if (exports.update) {
       exports.update!(eventTypes.key);
     }
@@ -570,7 +599,7 @@ class App {
       };
     };
     const pipelineInfo: PipelineInfo = {
-      depthTest: !!getU32(infoView, 0),
+      depthTest: !!getU8(infoView, 0),
       fragment: readShaderInfo(1 * 4),
       vertex: readShaderInfo(4 * 4),
       vertexAttrs: this.readAny(
@@ -639,6 +668,49 @@ class App {
   resizeNeeded = false;
 
   shaders: Shader[] = [];
+  sounds: Sound[] = [];
+
+  soundDecode(bytes: number) {
+    const { audioContext, sounds } = this;
+    const sound = { buffer: null } as Sound;
+    sounds.push(sound);
+    const pointer = sounds.length;
+    audioContext.decodeAudioData(
+      this.readBytes(bytes).slice().buffer,
+      (buffer) => {
+        sound.buffer = buffer;
+        // console.log(buffer.duration);
+        this.taskFinish();
+      },
+      (err) => {
+        this.taskFinish();
+        fail(err.message);
+      }
+    );
+    this.tasksActive += 1;
+    return pointer;
+  }
+
+  soundPlay(info: number) {
+    const infoView = this.memoryViewMake(info, 3 * 4);
+    const sound = getU32(infoView, 0);
+    const { audioContext, sounds } = this;
+    const source = audioContext.createBufferSource();
+    source.buffer = sounds[sound - 1].buffer;
+    source.connect(audioContext.destination);
+    const rate = getF32(infoView, 4);
+    switch (getU32(infoView, 8)) {
+      case 0:
+        source.detune.value = 100 * rate;
+        break;
+      case 1:
+        source.playbackRate.value = rate;
+        break;
+    }
+    source.start();
+    return 0;
+  }
+
   tacaBuffer: WebGLBuffer | null = null;
 
   private tacaBufferEnsure() {
@@ -856,6 +928,13 @@ interface AttrInfo {
   type: number;
 }
 
+async function audioEnsureResumed(audioContext: AudioContext) {
+  if (audioContext.state == "suspended") {
+    await audioContext.resume();
+    console.log(`AudioContext state: ${audioContext.state}`);
+  }
+}
+
 interface Buffers {
   // TODO images/textures
   index: Buffer;
@@ -980,6 +1059,12 @@ function makeAppEnv(app: App) {
       app.shaders.push(shaderNew(app.readBytes(bytes)));
       return app.shaders.length;
     },
+    taca_sound_decode(bytes: number) {
+      return app.soundDecode(bytes);
+    },
+    taca_sound_play(info: number) {
+      return app.soundPlay(info);
+    },
     taca_text_align(x: number, y: number) {
       app.textAlign(x, y);
     },
@@ -1039,6 +1124,10 @@ function pipelineInfoDefault(info: Partial<PipelineInfo> = {}): PipelineInfo {
 interface ShaderInfo {
   entry: string;
   shader: number;
+}
+
+interface Sound {
+  buffer: AudioBuffer | null;
 }
 
 const textDecoder = new TextDecoder();

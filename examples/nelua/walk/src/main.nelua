@@ -17,6 +17,7 @@ local max_instances = 1000
 local function start()
   <cexport, codename "start">
   local gc <close> = support.GcStep{}
+  t.title_update("Platformer (Taca Demo)")
   -- For kicks, use an example of wasi printing.
   print "Hi from Nelua!"
   -- d.print_frames("gem shine", r.gem.shine)

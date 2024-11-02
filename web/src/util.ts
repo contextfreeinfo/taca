@@ -2,8 +2,16 @@ export function dataViewOf(array: Uint8Array) {
   return new DataView(array.buffer, array.byteOffset, array.byteLength);
 }
 
+export function getF32(view: DataView, byteOffset: number) {
+  return view.getFloat32(byteOffset, true);
+}
+
 export function getU32(view: DataView, byteOffset: number) {
   return view.getUint32(byteOffset, true);
+}
+
+export function getU8(view: DataView, byteOffset: number) {
+  return view.getUint8(byteOffset);
 }
 
 export function fail(message?: string | null): never {

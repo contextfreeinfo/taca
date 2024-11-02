@@ -1,4 +1,5 @@
 use image::{DynamicImage, ImageResult};
+use kira::sound::static_sound::StaticSoundData;
 use std::{
     future::Future,
     ptr::null_mut,
@@ -13,7 +14,7 @@ use winit::{
     dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size},
     event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
-    keyboard::{self, NamedKey},
+    keyboard::{KeyCode, PhysicalKey},
     window::{Fullscreen, Window, WindowId},
 };
 
@@ -117,8 +118,10 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
             WindowEvent::KeyboardInput {
                 event:
                     winit::event::KeyEvent {
-                        physical_key: _,
-                        logical_key,
+                        // TODO Report physical_key also.
+                        physical_key,
+                        logical_key: _,
+                        // TODO How does this relate to web capabilities?
                         text: _,
                         location: _,
                         state,
@@ -126,9 +129,9 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         ..
                     },
                 ..
-            } => match logical_key {
-                keyboard::Key::Named(key) => match key {
-                    NamedKey::F11 => {
+            } => match physical_key {
+                PhysicalKey::Code(key) => match key {
+                    KeyCode::F11 => {
                         if state.is_pressed() && !repeat {
                             let fullscreen = match gfx.window.fullscreen() {
                                 Some(_) => None,
@@ -137,13 +140,22 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                             gfx.window.set_fullscreen(fullscreen);
                         }
                     }
+                    KeyCode::F12 => {
+                        // Reserved for diagnostic console.
+                        // TODO But F12 is go to definition in VSCode ...
+                        // TODO Instead do Cmd+Option+I / Ctrl+Shift+I?
+                    }
                     _ if !repeat => {
                         let app = unsafe { &mut *self.app.0 };
                         let key: Key = key.into();
                         let key = key as i32;
                         let pressed = state.is_pressed();
                         let system = app.env.as_mut(&mut app.store);
-                        system.key_event = KeyEvent { key, pressed };
+                        system.key_event = KeyEvent {
+                            pressed,
+                            key,
+                            text: [0; 4],
+                        };
                         if let Some(update) = &app.update {
                             update
                                 .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
@@ -152,9 +164,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                     }
                     _ => {}
                 },
-                keyboard::Key::Character(_) => {}
-                keyboard::Key::Unidentified(_) => {}
-                keyboard::Key::Dead(_) => {}
+                PhysicalKey::Unidentified(_) => {}
             },
             WindowEvent::CursorMoved { position, .. } => {
                 self.pointer_pos = Some(position);
@@ -209,6 +219,10 @@ pub enum UserEvent {
     ImageDecoded {
         handle: usize,
         image: ImageResult<DynamicImage>,
+    },
+    SoundDecoded {
+        handle: usize,
+        sound: Result<StaticSoundData, kira::sound::FromFileError>,
     },
 }
 

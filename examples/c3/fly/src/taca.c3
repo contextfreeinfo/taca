@@ -122,12 +122,12 @@ struct BufferUpdate {
     usz stride;
 }
 
-enum EventKind : int {
+enum EventKind : uint {
     FRAME,
     KEY,
 }
 
-enum Key : int {
+enum Key : uint {
     NONE,
     ARROW_UP,
     ARROW_DOWN,
@@ -138,8 +138,9 @@ enum Key : int {
 }
 
 struct KeyEvent {
-    Key key;
     bool pressed;
+    Key key;
+    char[4] text;
 }
 
 // distinct Mesh = void*;

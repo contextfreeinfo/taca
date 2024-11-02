@@ -1,0 +1,110 @@
+#pragma once
+
+#include "app.hpp"
+
+namespace music::songs {
+
+auto basic() -> Song {
+    return {
+        .ticks =
+            {
+                {.notes = {{.semitones = 10}}},
+                {.notes = {{.semitones = 9}}},
+                {},
+                {.notes = {{.semitones = 4}}},
+                {},
+                {},
+                {},
+                {.notes = {{.semitones = 8}, {.semitones = -4}}},
+                {},
+                {},
+                {.notes = {{.semitones = 1}}},
+                {},
+                {},
+                {},
+                {.notes = {{.semitones = 4}}},
+                {.notes = {{.semitones = 3}}},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {.notes = {{.semitones = -4}}},
+                {.notes = {{.semitones = -13}}},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {.notes = {{.semitones = -11}}},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {.notes = {{.semitones = -4}}},
+                {.notes = {{.semitones = 1}}},
+            },
+    };
+}
+
+auto canon_in_d() -> Song {
+    return {
+        .ticks =
+            {
+                {.notes = {{.semitones = 3}, {.semitones = -1}}},
+                {},
+                {.notes = {{.semitones = 3}}},
+                {},
+                {.notes = {{.semitones = 6}}},
+                {},
+                {.notes = {{.semitones = 11}}},
+                {},
+                {.notes = {{.semitones = 1}, {.semitones = -6}}},
+                {},
+                {.notes = {{.semitones = -2}}},
+                {},
+                {.notes = {{.semitones = 1}}},
+                {},
+                {.notes = {{.semitones = 6}}},
+                {},
+                {.notes = {{.semitones = -1}, {.semitones = -4}}},
+                {},
+                {.notes = {{.semitones = -1}}},
+                {},
+                {.notes = {{.semitones = 3}}},
+                {},
+                {.notes = {{.semitones = 8}}},
+                {},
+                {.notes = {{.semitones = -2}, {.semitones = -9}}},
+                {},
+                {.notes = {{.semitones = -6}}},
+                {},
+                {.notes = {{.semitones = -2}}},
+                {},
+                {.notes = {{.semitones = 3}}},
+                {},
+                {.notes = {{.semitones = -4}, {.semitones = -8}}},
+                {},
+                {.notes = {{.semitones = -4}}},
+                {},
+                {.notes = {{.semitones = -1}}},
+                {},
+                {.notes = {{.semitones = 4}}},
+                {},
+                {.notes = {{.semitones = -6}, {.semitones = -13}}},
+                {},
+                {.notes = {{.semitones = -9}}},
+                {},
+                {.notes = {{.semitones = -6}}},
+                {},
+                {.notes = {{.semitones = -1}}},
+                {},
+            },
+    };
+}
+
+} // namespace music::songs

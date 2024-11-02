@@ -73,8 +73,9 @@ local pub.Buffers = @record{
 }
 
 local pub.KeyEvent = @record{
-  key: pub.Key,
   pressed: boolean,
+  key: pub.Key,
+  text: [4]byte,
 }
 
 local pub.BufferInfo = @record{
@@ -183,6 +184,10 @@ end
 
 function pub.texture_info(texture: pub.Texture): pub.TextureInfo
   <cimport, cattribute 'import_name("taca_texture_info")'>
+end
+
+function pub.title_update(texture: string): void
+  <cimport, cattribute 'import_name("taca_title_update")'>
 end
 
 function pub.window_state(): pub.WindowState

@@ -10,6 +10,10 @@ use std::{
     thread,
 };
 
+use kira::{
+    manager::{AudioManager, AudioManagerSettings},
+    sound::PlaybackRate,
+};
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
@@ -22,12 +26,13 @@ use crate::{
     gpu::{
         bindings_apply, bindings_new, bound_ensure, buffer_update, buffered_ensure, buffers_apply,
         create_buffer, create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure,
-        pipeline_apply, pipelined_ensure, shader_create, uniforms_apply, Bindings, BindingsInfo,
-        Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo,
-        MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
-        Texture, TextureInfoExtern,
+        pipeline_apply, pipelined_ensure, shader_create, sound_decode, uniforms_apply, Bindings,
+        BindingsInfo, Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers,
+        ExternPipelineInfo, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame,
+        Shader, Span, Texture, TextureInfoExtern,
     },
     key::KeyEvent,
+    sound::{Sound, SoundPlayInfoExtern},
     text::{to_text_align_x, to_text_align_y, TextEngine},
     wasi,
 };
@@ -63,6 +68,8 @@ impl App {
                 "taca_pipeline_new" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_new),
                 "taca_print" => Function::new_typed_with_env(&mut store, &env, taca_print),
                 "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
+                "taca_sound_decode" => Function::new_typed_with_env(&mut store, &env, taca_sound_decode),
+                "taca_sound_play" => Function::new_typed_with_env(&mut store, &env, taca_sound_play),
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
                 "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
                 "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
@@ -101,6 +108,20 @@ impl App {
                     Ok(image) => {
                         let system = self.env.as_mut(&mut self.store);
                         image_to_texture(system, handle, image);
+                    }
+                    Err(err) => {
+                        // TODO Report errors to app?
+                        dbg!(err);
+                    }
+                }
+                self.task_finish();
+            }
+            UserEvent::SoundDecoded { handle, sound } => {
+                match sound {
+                    Ok(sound) => {
+                        let system = self.env.as_mut(&mut self.store);
+                        // dbg!(sound.duration());
+                        system.sounds[handle - 1].data = Some(sound);
                     }
                     Err(err) => {
                         // TODO Report errors to app?
@@ -151,6 +172,9 @@ impl App {
                     WorkItem::ImageDecode { handle, bytes } => {
                         image_decode(handle, bytes, &event_loop_proxy);
                     }
+                    WorkItem::SoundDecode { handle, bytes } => {
+                        sound_decode(handle, bytes, &event_loop_proxy);
+                    }
                 }
             }
         });
@@ -189,6 +213,7 @@ impl App {
 }
 
 pub struct System {
+    pub audio_manager: Option<AudioManager>,
     pub bindings: Vec<Bindings>,
     pub bindings_updated: Vec<usize>, // TODO Track by buffer per queue instead?
     pub buffers: Vec<Buffer>,
@@ -199,6 +224,7 @@ pub struct System {
     pub pipelines: Vec<Pipeline>,
     pub samplers: Vec<wgpu::Sampler>,
     pub shaders: Vec<Shader>,
+    pub sounds: Vec<Sound>,
     pub tasks_active: usize,
     pub text: Option<Arc<Mutex<TextEngine>>>,
     pub textures: Vec<Texture>,
@@ -207,7 +233,18 @@ pub struct System {
 
 impl System {
     fn new(display: Display) -> System {
+        let audio_manager = AudioManager::<kira::manager::backend::DefaultBackend>::new(
+            AudioManagerSettings::default(),
+        );
+        let audio_manager = match audio_manager {
+            Ok(audio_manager) => Some(audio_manager),
+            Err(err) => {
+                dbg!(err);
+                None
+            }
+        };
         System {
+            audio_manager: audio_manager,
             bindings: vec![],
             bindings_updated: vec![],
             buffers: vec![],
@@ -218,6 +255,7 @@ impl System {
             pipelines: vec![],
             samplers: vec![],
             shaders: vec![],
+            sounds: vec![],
             tasks_active: 0,
             text: None,
             textures: vec![],
@@ -229,6 +267,7 @@ impl System {
 #[derive(Debug)]
 pub enum WorkItem {
     ImageDecode { handle: usize, bytes: Vec<u8> },
+    SoundDecode { handle: usize, bytes: Vec<u8> },
 }
 
 fn read_span<T>(view: &MemoryView, span: Span) -> Vec<T>
@@ -433,6 +472,57 @@ fn taca_shader_new(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
     let shader = shader_create(system, &bytes);
     system.shaders.push(shader);
     system.shaders.len() as u32
+}
+
+fn taca_sound_decode(mut env: FunctionEnvMut<System>, bytes: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let bytes = read_span(&view, bytes);
+    system.sounds.push(Sound { data: None });
+    let handle = system.sounds.len();
+    system.tasks_active += 1;
+    system
+        .worker
+        .as_ref()
+        .unwrap()
+        .send(WorkItem::SoundDecode { handle, bytes })
+        .unwrap();
+    handle.try_into().unwrap()
+}
+
+fn taca_sound_play(mut env: FunctionEnvMut<System>, info: u32) -> u32 {
+    let (system, store) = env.data_and_store_mut();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let info = WasmPtr::<SoundPlayInfoExtern>::new(info)
+        .read(&view)
+        .unwrap();
+    // dbg!(info);
+    let Some(audio_manager) = &mut system.audio_manager else {
+        // eprintln!("no audio manager");
+        return 0;
+    };
+    let Some(mut data) = system
+        .sounds
+        .get(info.sound as usize - 1)
+        .and_then(|it| it.data.clone())
+    else {
+        // eprintln!("no sound");
+        return 0;
+    };
+    match info.rate_kind {
+        0 => data.settings.playback_rate = PlaybackRate::Semitones(info.rate as f64).into(),
+        1 => data.settings.playback_rate = PlaybackRate::Factor(info.rate as f64).into(),
+        _ => {}
+    };
+    let _play = match audio_manager.play(data) {
+        Ok(play) => play,
+        Err(err) => {
+            dbg!(err);
+            return 0;
+        }
+    };
+    0
 }
 
 fn taca_text_align(mut env: FunctionEnvMut<System>, x: u32, y: u32) {

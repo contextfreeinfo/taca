@@ -4,5 +4,6 @@ out/
 static/taca.wasm
 target/
 untracked/
+.vscode/
 .zig-cache/
 zig-out/

@@ -6,6 +6,7 @@ mod app;
 mod display;
 mod gpu;
 mod key;
+mod sound;
 mod text;
 mod wasi;
 use crate::app::App;
