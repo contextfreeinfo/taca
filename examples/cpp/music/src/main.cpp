@@ -22,7 +22,7 @@ auto start() -> void {
     // Sound
     // This is a D6 or maybe D7.
     app.ding = taca::sound_decode(musicbox_data);
-    app.song = songs::basic();
+    app.song = songs::canon_in_d();
     // song_print(app.song);
     // Pipeline
     auto fragment = taca::shader_new(shader_frag_data);
@@ -68,7 +68,6 @@ auto start() -> void {
         taca::BufferKind::Vertex,
         taca::span_sized(max_tris * sizeof(DrawInstance))
     );
-    // song_print(app.song);
 }
 
 // clang-format off

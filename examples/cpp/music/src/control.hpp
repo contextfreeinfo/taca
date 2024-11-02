@@ -21,7 +21,6 @@ auto rewind(App& app) -> void {
 
 auto toggle_play(App& app) -> void {
     app.play_info.playing = !app.play_info.playing;
-    // song_print(app.song);
 }
 
 auto update_click(App& app) -> void {
@@ -122,6 +121,11 @@ auto update_control(App& app) -> void {
 
 auto update_key(App& app, taca::KeyEvent event) -> void {
     switch (event.key) {
+        case taca::Key::ArrowDown: {
+            song_print(app.song);
+            break;
+        }
+        case taca::Key::ArrowLeft:
         case taca::Key::Escape: {
             rewind(app);
             break;

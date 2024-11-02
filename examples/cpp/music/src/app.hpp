@@ -17,7 +17,7 @@ constexpr std::size_t frames_per_tick = 5;
 // TODO Be more precise with extras?
 constexpr std::size_t max_extra_rects = 1000;
 constexpr std::size_t max_pitches = 25;
-constexpr std::size_t max_ticks = 36;
+constexpr std::size_t max_ticks = 48;
 
 // Just play and rewind triangles.
 constexpr std::size_t max_tris = 2;
