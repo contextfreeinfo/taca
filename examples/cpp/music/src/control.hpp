@@ -10,7 +10,7 @@ auto play_ding(const App& app, float semitones) -> void {
     taca::sound_play({
         .sound = app.ding,
         .rate = semitones,
-        .volume = -15,
+        .volume = -25,
     });
 }
 
