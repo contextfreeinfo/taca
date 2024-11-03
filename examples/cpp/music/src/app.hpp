@@ -74,7 +74,6 @@ struct App {
     bool ready;
     std::size_t rewind_tick;
     Song song;
-    bool was_pressed;
     taca::WindowState window_state;
 };
 

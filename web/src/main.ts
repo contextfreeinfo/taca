@@ -73,8 +73,20 @@ class App {
       this.pointerPos = [event.clientX - rect.left, event.clientY - rect.top];
       this.pointerPress = event.buttons;
     };
-    canvas.addEventListener("mousedown", handleMouse);
-    canvas.addEventListener("mouseup", handleMouse);
+    canvas.addEventListener("mousedown", (event: MouseEvent) => {
+      handleMouse(event);
+      let { exports } = this;
+      if (exports.update) {
+        exports.update!(eventTypes.press);
+      }
+    });
+    canvas.addEventListener("mouseup", (event: MouseEvent) => {
+      handleMouse(event);
+      let { exports } = this;
+      if (exports.update) {
+        exports.update!(eventTypes.release);
+      }
+    });
     canvas.addEventListener("mousemove", handleMouse);
     const handleTouch = (event: TouchEvent) => {
       event.preventDefault();
@@ -85,8 +97,20 @@ class App {
       this.pointerPos = [touch.clientX - rect.left, touch.clientY - rect.top];
       this.pointerPress = 1;
     };
-    canvas.addEventListener("touchend", handleTouch);
-    canvas.addEventListener("touchstart", handleTouch);
+    canvas.addEventListener("touchend", (event: TouchEvent) => {
+      handleTouch(event);
+      let { exports } = this;
+      if (exports.update) {
+        exports.update!(eventTypes.release);
+      }
+    });
+    canvas.addEventListener("touchstart", (event: TouchEvent) => {
+      handleTouch(event);
+      let { exports } = this;
+      if (exports.update) {
+        exports.update!(eventTypes.press);
+      }
+    });
     canvas.addEventListener("touchmove", handleTouch);
   }
 
@@ -978,6 +1002,8 @@ const eventTypes = {
   frame: 0,
   key: 1,
   tasksDone: 2,
+  press: 3,
+  release: 4,
 };
 
 async function loadApp(config: AppConfig) {

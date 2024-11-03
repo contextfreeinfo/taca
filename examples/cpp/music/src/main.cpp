@@ -95,6 +95,15 @@ auto update(taca::EventKind event) -> void {
             }
             break;
         }
+        case taca::EventKind::Press: {
+            app.window_state = taca::window_state();
+            update_edit(app, true);
+            break;
+        }
+        case taca::EventKind::Release: {
+            app.draw_mode = DrawMode::Start;
+            break;
+        }
         default:
     }
 }

@@ -23,23 +23,31 @@ auto toggle_play(App& app) -> void {
     app.play_info.playing = !app.play_info.playing;
 }
 
-auto update_click(App& app) -> void {
+auto update_edit(App& app, bool justPressed) -> void {
     using namespace vec;
     auto bands = calc_bands(app);
     if (!(bands.cell_index[0].has_value() && bands.cell_index[1].has_value())) {
-        if (bands.cell_index[0].has_value()) {
-            app.play_info.tick = *bands.cell_index[0];
-            app.play_info.frames_until_tick = 0;
-            app.rewind_tick = app.play_info.tick;
-        } else {
-            auto pointer = bands.pointer;
-            auto extent = bands.button_scale;
-            if (inside(pointer, bands.button_play_offset, extent)) {
-                toggle_play(app);
-            } else if (inside(pointer, bands.button_back_offset, extent)) {
-                rewind(app);
+        if (justPressed) {
+            if (bands.cell_index[0].has_value()) {
+                app.play_info.tick = *bands.cell_index[0];
+                app.play_info.frames_until_tick = 0;
+                app.rewind_tick = app.play_info.tick;
+            } else {
+                auto pointer = bands.pointer;
+                auto extent = bands.button_scale;
+                if (inside(pointer, bands.button_play_offset, extent)) {
+                    toggle_play(app);
+                } else if (inside(pointer, bands.button_back_offset, extent)) {
+                    rewind(app);
+                }
             }
         }
+        return;
+    }
+    if (app.draw_mode == DrawMode::Start && !justPressed) {
+        return;
+    }
+    if (!(bands.cell_index[0].has_value() && bands.cell_index[1].has_value())) {
         return;
     }
     auto cell = vec::map<std::size_t>(bands.cell_index, [](auto index) {
@@ -77,22 +85,6 @@ auto update_click(App& app) -> void {
     }
 }
 
-auto update_press(App& app) -> void {
-    if (app.window_state.press) {
-        if (app.draw_mode == DrawMode::Start) {
-            // TODO Press event instead of this hacking.
-            if (!app.was_pressed) {
-                update_click(app);
-            }
-        } else {
-            update_click(app);
-        }
-    } else {
-        app.draw_mode = DrawMode::Start;
-    }
-    app.was_pressed = app.window_state.press;
-}
-
 auto update_play(App& app) -> void {
     auto& play_info = app.play_info;
     if (play_info.playing) {
@@ -116,7 +108,9 @@ auto update_play(App& app) -> void {
 
 auto update_control(App& app) -> void {
     update_play(app);
-    update_press(app);
+    if (app.window_state.press) {
+        update_edit(app, false);
+    }
 }
 
 auto update_key(App& app, taca::KeyEvent event) -> void {

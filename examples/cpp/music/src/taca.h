@@ -16,6 +16,8 @@ typedef enum /* : uint32_t */ {
     taca_EventKind_Frame,
     taca_EventKind_Key,
     taca_EventKind_TasksDone,
+    taca_EventKind_Press,
+    taca_EventKind_Release,
 } taca_EventKind;
 
 typedef enum {

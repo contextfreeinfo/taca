@@ -40,6 +40,8 @@ pub enum EventKind {
     Frame = 0,
     Key = 1,
     TasksDone = 2,
+    Press = 3,
+    Release = 4,
 }
 
 const REPORT_DELAY: Duration = Duration::from_secs(10);
@@ -180,9 +182,21 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         0
                     }
                 };
-                match state {
-                    winit::event::ElementState::Pressed => self.pointer_press |= bit,
-                    winit::event::ElementState::Released => self.pointer_press &= !bit,
+                let kind = match state {
+                    winit::event::ElementState::Pressed => {
+                        self.pointer_press |= bit;
+                        EventKind::Press
+                    }
+                    winit::event::ElementState::Released => {
+                        self.pointer_press &= !bit;
+                        EventKind::Release
+                    }
+                };
+                let app = unsafe { &mut *self.app.0 };
+                if let Some(update) = &app.update {
+                    update
+                        .call(&mut app.store, &[Value::I32(kind as i32)])
+                        .unwrap();
                 }
             }
             WindowEvent::Resized(size) => self.resized(size),

@@ -19,6 +19,8 @@ enum struct EventKind : std::uint32_t {
     Frame = taca_EventKind_Frame,
     Key = taca_EventKind_Key,
     TasksDone = taca_EventKind_TasksDone,
+    Press = taca_EventKind_Press,
+    Release = taca_EventKind_Release,
 };
 
 enum struct Key : std::uint32_t {
