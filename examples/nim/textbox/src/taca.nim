@@ -13,10 +13,19 @@ macro exportWasm*(def: untyped): untyped =
   )
 
 type
+  EventKind* = enum
+    frame
+    key
+    tasksDone
+    press
+    release
+
   KeyEvent* = object
     pressed: bool
     key: uint32
     text: array[4, uint8]
+
+  Shader* = distinct uint
 
   Span*[T] = object
     data: ptr T
@@ -24,8 +33,12 @@ type
 
 proc tacaPrint(text: Span[char]) {.importc: "taca_print".}
 
+proc tacaShaderNew(bytes: Span[char]): Shader {.importc: "taca_shader_new".}
+
 proc tacaTextDraw*(text: Span[char], x, y: float32)
   {.importc: "taca_text_draw".}
+
+proc tacaTitleUpdate*(text: Span[char]) {.importc: "taca_title_update".}
 
 proc toSpan*(text: string): Span[char] =
   result.data = text[0].addr
@@ -36,5 +49,9 @@ proc keyEvent*(): KeyEvent {.importc: "taca_key_event".}
 proc print*(text: string) =
   tacaPrint(text.toSpan)
 
+proc shaderNew*(bytes: string): Shader = tacaShaderNew(bytes.toSpan)
+
 proc textDraw*(text: string, x, y: float32) =
   tacaTextDraw(text.toSpan, x, y)
+
+proc titleUpdate*(text: string) = tacaTitleUpdate(text.toSpan)
