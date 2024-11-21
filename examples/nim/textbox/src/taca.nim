@@ -39,6 +39,7 @@ type
 
   # Handles
 
+  Pipeline* = distinct uint
   Shader* = distinct uint
 
   # Helpers
@@ -89,6 +90,9 @@ type
 
 # Extern-only bindings
 
+proc tacaPipelineNew(info: PipelineInfoExtern): Pipeline
+  {.importc: "taca_pipeline_new".}
+
 proc tacaPrint(text: Span[char]) {.importc: "taca_print".}
 
 proc tacaShaderNew(bytes: Span[char]): Shader {.importc: "taca_shader_new".}
@@ -101,12 +105,22 @@ proc tacaTitleUpdate(text: Span[char]) {.importc: "taca_title_update".}
 # Helpers
 
 proc toSpan*(bytes: string): Span[char] =
-  result.data = bytes[0].addr
-  result.len = bytes.len
+  Span[char](data: bytes[0].addr, len: bytes.len)
 
 proc toSpan*[T](items: seq[T]): Span[T] =
-  result.data = items[0].addr
-  result.len = items.len
+  Span[T](data: items[0].addr, len: items.len)
+
+proc toExtern(info: PipelineShaderInfo): PipelineShaderInfoExtern =
+  PipelineShaderInfoExtern(entry: info.entry.toSpan, shader: info.shader)
+
+proc toExtern(info: PipelineInfo): PipelineInfoExtern =
+  PipelineInfoExtern(
+    depthTest: info.depthTest,
+    fragment: info.fragment.toExtern,
+    vertex: info.vertex.toExtern,
+    vertexAttributes: info.vertexAttributes.toSpan,
+    vertexBuffers: info.vertexBuffers.toSpan,
+  )
 
 # Main api
 
@@ -115,14 +129,17 @@ proc draw*(itemBegin: uint32, itemCount: uint32, instanceCount: uint32)
 
 proc keyEvent*(): KeyEvent {.importc: "taca_key_event".}
 
+proc pipelineNew*(info: PipelineInfo): Pipeline =
+  info.toExtern.tacaPipelineNew
+
 proc print*(text: string) =
   tacaPrint(text.toSpan)
 
-proc shaderNew*(bytes: string): Shader = tacaShaderNew(bytes.toSpan)
+proc shaderNew*(bytes: string): Shader = bytes.toSpan.tacaShaderNew
 
 proc textAlign*(x: TextAlignX, y: TextAlignY) {.importc: "taca_text_align".}
 
 proc textDraw*(text: string, x, y: float32) =
   tacaTextDraw(text.toSpan, x, y)
 
-proc titleUpdate*(text: string) = tacaTitleUpdate(text.toSpan)
+proc titleUpdate*(text: string) = text.toSpan.tacaTitleUpdate
