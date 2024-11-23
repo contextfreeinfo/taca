@@ -15,6 +15,10 @@ macro exportWasm*(def: untyped): untyped =
 type
   # Enums
 
+  BufferKind* = enum
+    vertex
+    index
+
   EventKind* = enum
     frame
     key
@@ -39,6 +43,7 @@ type
 
   # Handles
 
+  Buffer* = distinct uint
   Pipeline* = distinct uint
   Shader* = distinct uint
 
@@ -90,6 +95,9 @@ type
 
 # Extern-only bindings
 
+proc tacaBufferNew(kind: BufferKind, bytes: Span[char]): Buffer
+  {.importc: "taca_buffer_new".}
+
 proc tacaPipelineNew(info: PipelineInfoExtern): Pipeline
   {.importc: "taca_pipeline_new".}
 
@@ -103,6 +111,9 @@ proc tacaTextDraw(text: Span[char], x, y: float32)
 proc tacaTitleUpdate(text: Span[char]) {.importc: "taca_title_update".}
 
 # Helpers
+
+proc toByteSpan*[T](items: openArray[T]): Span[char] =
+  Span[char](data: cast[ptr char](items[0].addr), len: items.len * T.sizeof)
 
 proc toSpan*(bytes: string): Span[char] =
   Span[char](data: bytes[0].addr, len: bytes.len)
@@ -123,6 +134,12 @@ proc toExtern(info: PipelineInfo): PipelineInfoExtern =
   )
 
 # Main api
+
+proc bufferNew*(kind: BufferKind, len: int): Buffer =
+  tacaBufferNew(kind, Span[char](data: nil, len: len))
+
+proc bufferNew*[T](kind: BufferKind, items: openArray[T]): Buffer =
+  tacaBufferNew(kind, items.toByteSpan)
 
 proc draw*(itemBegin: uint32, itemCount: uint32, instanceCount: uint32)
   {.importc: "taca_draw".}
