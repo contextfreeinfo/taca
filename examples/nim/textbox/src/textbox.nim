@@ -39,10 +39,10 @@ var message: string
 proc update*(eventKind: EventKind) {.exportWasm.} =
   case eventKind
   of frame:
-    # draw(0, 0, 0)
-    # textAlign(center, middle)
-    # textDraw(message, 0, 0)
-    discard
+    buffersApply(app.indexBuffer, [app.vertexBuffer, app.instanceBuffer])
+    draw(0, 0, 0)
+    textAlign(center, middle)
+    textDraw(message, 0, 0)
   of key:
     let event = keyEvent()
     if event.pressed:

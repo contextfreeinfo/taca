@@ -1,4 +1,5 @@
 import std/macros
+# import std/strformat
 
 # From here:
 # https://github.com/aduros/wasm4/blob/979be845216ee9d613cb6555fb8b11c01bec39a0/cli/assets/templates/nim/src/cart/wasm4.nim#L102
@@ -55,6 +56,10 @@ type
 
   # Extern-only objects
 
+  BuffersExtern* = object
+    vertexBuffers: Span[Buffer]
+    indexBuffer: Buffer
+
   PipelineShaderInfoExtern* = object
     entry: Span[char]
     shader: Shader
@@ -98,6 +103,8 @@ type
 proc tacaBufferNew(kind: BufferKind, bytes: Span[char]): Buffer
   {.importc: "taca_buffer_new".}
 
+proc tacaBuffersApply(buffers: BuffersExtern) {.importc: "taca_buffers_apply".}
+
 proc tacaPipelineNew(info: PipelineInfoExtern): Pipeline
   {.importc: "taca_pipeline_new".}
 
@@ -113,13 +120,17 @@ proc tacaTitleUpdate(text: Span[char]) {.importc: "taca_title_update".}
 # Helpers
 
 proc toByteSpan*[T](items: openArray[T]): Span[char] =
-  Span[char](data: cast[ptr char](items[0].addr), len: items.len * T.sizeof)
+  let data = if items.len > 0: cast[ptr char](items[0].addr) else: nil
+  Span[char](data: data, len: items.len * T.sizeof)
 
 proc toSpan*(bytes: string): Span[char] =
-  Span[char](data: bytes[0].addr, len: bytes.len)
+  # Getting the address of an empty string was crashing the app somehow.
+  let data = if bytes.len > 0: bytes[0].addr else: nil
+  Span[char](data: data, len: bytes.len)
 
-proc toSpan*[T](items: seq[T]): Span[T] =
-  Span[T](data: items[0].addr, len: items.len)
+proc toSpan*[T](items: openArray[T]): Span[T] =
+  let data = if items.len > 0: items[0].addr else: nil
+  Span[T](data: data, len: items.len)
 
 proc toExtern(info: PipelineShaderInfo): PipelineShaderInfoExtern =
   PipelineShaderInfoExtern(entry: info.entry.toSpan, shader: info.shader)
@@ -141,22 +152,26 @@ proc bufferNew*(kind: BufferKind, len: int): Buffer =
 proc bufferNew*[T](kind: BufferKind, items: openArray[T]): Buffer =
   tacaBufferNew(kind, items.toByteSpan)
 
+proc buffersApply*(indexBuffer: Buffer, vertexBuffers: openArray[Buffer]) =
+  let buffers = BuffersExtern(
+    vertexBuffers: vertexBuffers.toSpan,
+    indexBuffer: indexBuffer,
+  )
+  buffers.tacaBuffersApply
+
 proc draw*(itemBegin: uint32, itemCount: uint32, instanceCount: uint32)
   {.importc: "taca_draw".}
 
 proc keyEvent*(): KeyEvent {.importc: "taca_key_event".}
 
-proc pipelineNew*(info: PipelineInfo): Pipeline =
-  info.toExtern.tacaPipelineNew
+proc pipelineNew*(info: PipelineInfo): Pipeline = info.toExtern.tacaPipelineNew
 
-proc print*(text: string) =
-  tacaPrint(text.toSpan)
+proc print*(text: string) = tacaPrint(text.toSpan)
 
 proc shaderNew*(bytes: string): Shader = bytes.toSpan.tacaShaderNew
 
 proc textAlign*(x: TextAlignX, y: TextAlignY) {.importc: "taca_text_align".}
 
-proc textDraw*(text: string, x, y: float32) =
-  tacaTextDraw(text.toSpan, x, y)
+proc textDraw*(text: string, x, y: float32) = tacaTextDraw(text.toSpan, x, y)
 
 proc titleUpdate*(text: string) = text.toSpan.tacaTitleUpdate
