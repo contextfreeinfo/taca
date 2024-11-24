@@ -3,9 +3,9 @@ import std/macros
 
 # From here:
 # https://github.com/aduros/wasm4/blob/979be845216ee9d613cb6555fb8b11c01bec39a0/cli/assets/templates/nim/src/cart/wasm4.nim#L102
-macro exportWasm*(def: untyped): untyped = 
+macro exportWasm*(def: untyped): untyped =
   result = def
-  result[^3] = nnkPragma.newTree( 
+  result[^3] = nnkPragma.newTree(
     ident("exportc"),
     nnkExprColonExpr.newTree(
       ident("codegenDecl"),
@@ -54,6 +54,8 @@ type
     data: ptr T
     len: int
 
+  Vec2* = array[2, float32]
+
   # Extern-only objects
 
   BuffersExtern* = object
@@ -98,10 +100,18 @@ type
     vertexAttributes: seq[AttributeInfo]
     vertexBuffers: seq[BufferInfo]
 
+  WindowState* = object
+    pointer: Vec2
+    press: uint32
+    size: Vec2
+
 # Extern-only bindings
 
 proc tacaBufferNew(kind: BufferKind, bytes: Span[char]): Buffer
   {.importc: "taca_buffer_new".}
+
+proc tacaBufferUpdate(buffer: Buffer, bytes: Span[char], bufferOffset: uint)
+  {.importc: "taca_buffer_update".}
 
 proc tacaBuffersApply(buffers: BuffersExtern) {.importc: "taca_buffers_apply".}
 
@@ -152,6 +162,10 @@ proc bufferNew*(kind: BufferKind, len: int): Buffer =
 proc bufferNew*[T](kind: BufferKind, items: openArray[T]): Buffer =
   tacaBufferNew(kind, items.toByteSpan)
 
+proc bufferUpdate*[T](
+  buffer: Buffer, items: openArray[T], itemOffset: int = 0
+) = tacaBufferUpdate(buffer, items.toByteSpan, uint(itemOffset * T.sizeof))
+
 proc buffersApply*(indexBuffer: Buffer, vertexBuffers: openArray[Buffer]) =
   let buffers = BuffersExtern(
     vertexBuffers: vertexBuffers.toSpan,
@@ -175,3 +189,5 @@ proc textAlign*(x: TextAlignX, y: TextAlignY) {.importc: "taca_text_align".}
 proc textDraw*(text: string, x, y: float32) = tacaTextDraw(text.toSpan, x, y)
 
 proc titleUpdate*(text: string) = text.toSpan.tacaTitleUpdate
+
+proc windowState*(): WindowState {.importc: "taca_window_state".}

@@ -11,6 +11,7 @@ type
   App = object
     indexBuffer: Buffer
     instanceBuffer: Buffer
+    message: string
     vertexBuffer: Buffer
 
 var app: App
@@ -29,23 +30,25 @@ proc start*() {.exportWasm.} =
   app = App(
     indexBuffer: bufferNew(index, [0'u16, 1, 2, 1, 3, 2]),
     instanceBuffer: bufferNew(vertex, 10 * DrawInstance.sizeof),
+    message: "Press any key",
     vertexBuffer: bufferNew(vertex, [[-1'f32, -1], [-1, 1], [1, -1], [1, 1]]),
   )
+  app.instanceBuffer.bufferUpdate([
+    DrawInstance(color: [0, 0, 0.2, 1], scale: [1, 1]),
+  ])
   # proc hex(i: int): string = &"{i:02x}"
   # print(&"size: {shader[0..10].map(proc (c: char): string = c.ord.hex)}")
-
-var message: string
 
 proc update*(eventKind: EventKind) {.exportWasm.} =
   case eventKind
   of frame:
     buffersApply(app.indexBuffer, [app.vertexBuffer, app.instanceBuffer])
-    draw(0, 0, 0)
+    draw(0, 6, 1)
+    let size = windowState().size
     textAlign(center, middle)
-    textDraw(message, 0, 0)
+    textDraw(app.message, size[0] / 2, size[1] / 2)
   of key:
     let event = keyEvent()
     if event.pressed:
-      message = &"hi {event.key}"
-      print(message)
+      app.message = &"Key code: {event.key}"
   else: discard
