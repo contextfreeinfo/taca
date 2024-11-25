@@ -21,7 +21,7 @@ changes is the Taca app binary being loaded.
 ## Goals
 
 - Provide core capabilities rather than high level abstractions
-- Still make the core API friendly to use
+- Still make the core API both small and easy to use
 - Choose features that enable lightweight implementation in browser
 - Native player runs unmodified apps in lighter weight runtime than browser
 - Eventually compete with browsers for app distribution
