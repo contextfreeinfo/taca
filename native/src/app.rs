@@ -60,6 +60,7 @@ impl App {
                 "taca_bindings_apply" => Function::new_typed_with_env(&mut store, &env, taca_bindings_apply),
                 "taca_bindings_new" => Function::new_typed_with_env(&mut store, &env, taca_bindings_new),
                 "taca_buffer_new" => Function::new_typed_with_env(&mut store, &env, taca_buffer_new),
+                "taca_buffer_read" => Function::new_typed_with_env(&mut store, &env, taca_buffer_read),
                 "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
                 "taca_buffers_apply" => Function::new_typed_with_env(&mut store, &env, taca_buffers_apply),
                 "taca_clip" => Function::new_typed_with_env(&mut store, &env, taca_clip),
@@ -74,6 +75,7 @@ impl App {
                 "taca_sound_play" => Function::new_typed_with_env(&mut store, &env, taca_sound_play),
                 "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
                 "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
+                "taca_text_event" => Function::new_typed_with_env(&mut store, &env, taca_text_event),
                 "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
                 "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
                 "taca_uniforms_apply" => Function::new_typed_with_env(&mut store, &env, taca_uniforms_apply),
@@ -333,6 +335,14 @@ fn taca_buffer_new(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32
     system.buffers.len() as u32
 }
 
+fn taca_buffer_read(mut env: FunctionEnvMut<System>, _buffer: u32, _bytes: u32, _offset: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let _view = system.memory.as_ref().unwrap().view(&store);
+    // let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    // let bytes = read_span::<u8>(&view, bytes);
+    // buffer_update(system, buffer, &bytes, offset);
+}
+
 fn taca_buffer_update(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, offset: u32) {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
@@ -553,6 +563,14 @@ fn taca_text_draw(mut env: FunctionEnvMut<System>, text: u32, x: f32, y: f32) {
     pass_ensure(system);
     let text_engine = system.text.clone().unwrap();
     text_engine.lock().unwrap().draw(system, &text, x, y);
+}
+
+fn taca_text_event(mut env: FunctionEnvMut<System>, _result: u32) {
+    let (system, store) = env.data_and_store_mut();
+    let _view = system.memory.as_ref().unwrap().view(&store);
+    // WasmPtr::<KeyEvent>::new(result)
+    //     .write(&view, system.key_event)
+    //     .unwrap();
 }
 
 fn taca_texture_info(mut env: FunctionEnvMut<System>, result: u32, texture: u32) {

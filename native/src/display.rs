@@ -156,7 +156,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         system.key_event = KeyEvent {
                             pressed,
                             key,
-                            text: [0; 4],
+                            modifiers: 0,
                         };
                         if let Some(update) = &app.update {
                             update

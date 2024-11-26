@@ -24,8 +24,9 @@ type
     frame
     key
     tasksDone
-    press
+    press # TODO Single touch event kind to match key?
     release
+    text
 
   Step* = enum
     vertex
@@ -87,7 +88,7 @@ type
   KeyEvent* = object
     pressed: bool
     key: uint32
-    text: array[4, uint8]
+    modifiers: uint32
 
   PipelineShaderInfo* = object
     entry: string
@@ -100,6 +101,10 @@ type
     vertexAttributes: seq[AttributeInfo]
     vertexBuffers: seq[BufferInfo]
 
+  TextEvent* = object
+    buffer: Buffer
+    size: int
+
   WindowState* = object
     pointer: Vec2
     press: uint32
@@ -109,6 +114,9 @@ type
 
 proc tacaBufferNew(kind: BufferKind, bytes: Span[char]): Buffer
   {.importc: "taca_buffer_new".}
+
+proc tacaBufferRead(buffer: Buffer, bytes: Span[char], bufferOffset: uint)
+  {.importc: "taca_buffer_update".}
 
 proc tacaBufferUpdate(buffer: Buffer, bytes: Span[char], bufferOffset: uint)
   {.importc: "taca_buffer_update".}
@@ -162,6 +170,10 @@ proc bufferNew*(kind: BufferKind, len: int): Buffer =
 proc bufferNew*[T](kind: BufferKind, items: openArray[T]): Buffer =
   tacaBufferNew(kind, items.toByteSpan)
 
+proc bufferRead*[T](
+  buffer: Buffer, items: openArray[T], itemOffset: int = 0
+) = tacaBufferRead(buffer, items.toByteSpan, uint(itemOffset * T.sizeof))
+
 proc bufferUpdate*[T](
   buffer: Buffer, items: openArray[T], itemOffset: int = 0
 ) = tacaBufferUpdate(buffer, items.toByteSpan, uint(itemOffset * T.sizeof))
@@ -187,6 +199,8 @@ proc shaderNew*(bytes: string): Shader = bytes.toSpan.tacaShaderNew
 proc textAlign*(x: TextAlignX, y: TextAlignY) {.importc: "taca_text_align".}
 
 proc textDraw*(text: string, x, y: float32) = tacaTextDraw(text.toSpan, x, y)
+
+proc textEvent*(): TextEvent {.importc: "taca_text_event".}
 
 proc titleUpdate*(text: string) = text.toSpan.tacaTitleUpdate
 

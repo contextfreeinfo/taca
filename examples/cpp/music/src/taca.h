@@ -112,7 +112,7 @@ typedef struct {
 typedef struct {
     bool pressed;
     taca_Key key;
-    uint8_t text[4];
+    uint32_t modifiers;
 } taca_KeyEvent;
 
 typedef struct {

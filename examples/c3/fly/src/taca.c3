@@ -140,7 +140,7 @@ enum Key : uint {
 struct KeyEvent {
     bool pressed;
     Key key;
-    char[4] text;
+    uint modifiers;
 }
 
 // distinct Mesh = void*;

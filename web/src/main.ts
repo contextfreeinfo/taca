@@ -278,6 +278,10 @@ class App {
     return this.buffers.length;
   }
 
+  bufferRead(bufferPtr: number, slice: number, offset: number) {
+    // TODO
+  }
+
   bufferUpdate(bufferPtr: number, slice: number, offset: number) {
     const { buffers, gl } = this;
     const { buffer, kind, mutable } = buffers[bufferPtr - 1];
@@ -479,7 +483,6 @@ class App {
     audioEnsureResumed(this.audioContext);
     if (event.repeat) return;
     let { exports, keyEvent } = this;
-    // TODO Report event.code also.
     setU32(keyEvent, 0, pressed ? 1 : 0);
     setU32(keyEvent, 4, keys[event.code] ?? 0);
     setU32(keyEvent, 8, 0);
@@ -1065,6 +1068,9 @@ function makeAppEnv(app: App) {
     taca_buffer_new(type: number, info: number) {
       return app.bufferNew(type, info);
     },
+    taca_buffer_read(buffer: number, bytes: number, offset: number) {
+      return app.bufferRead(buffer, bytes, offset);
+    },
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
       return app.bufferUpdate(buffer, bytes, offset);
     },
@@ -1114,6 +1120,9 @@ function makeAppEnv(app: App) {
     },
     taca_text_draw(text: number, x: number, y: number) {
       app.drawText(app.readString(text), x, y);
+    },
+    taca_text_event(result: number) {
+      // app.memoryBytes().set(app.textEventBytes, result);
     },
     taca_texture_info(result: number, texture: number) {
       app.textureInfo(result, texture);

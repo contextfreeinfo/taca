@@ -65,14 +65,6 @@ pub const RenderingContext = struct {
         taca_uniforms_apply(as_u8_span(uniforms));
     }
 
-    pub fn beginPass() void {
-        taca_RenderingContext_beginPass();
-    }
-
-    pub fn commitFrame() void {
-        taca_RenderingContext_commitFrame();
-    }
-
     pub fn draw(
         item_begin: u32,
         item_count: u32,
@@ -87,10 +79,6 @@ pub const RenderingContext = struct {
 
     pub fn drawTexture(texture: *Texture, x: f32, y: f32) void {
         taca_text_drawure(texture, x, y);
-    }
-
-    pub fn endPass() void {
-        taca_RenderingContext_endPass();
     }
 
     pub fn newBuffer(info: BufferInfo) *Buffer {
@@ -161,8 +149,6 @@ pub const VertexFormat = enum(c_int) {
 };
 
 pub const Window = extern struct {
-    pub const newRenderingContext = taca_Window_newRenderingContext;
-
     pub fn print(text: []const u8) void {
         taca_print(Span(u8).from(text));
     }
@@ -249,14 +235,6 @@ extern fn taca_uniforms_apply(
     uniforms: Span(u8),
 ) void;
 
-extern fn taca_RenderingContext_beginPass(
-    // Nothing
-) void;
-
-extern fn taca_RenderingContext_commitFrame(
-    // Nothing
-) void;
-
 extern fn taca_draw(
     item_begin: u32,
     item_count: u32,
@@ -275,10 +253,6 @@ extern fn taca_text_drawure(
     y: f32,
 ) void;
 
-extern fn taca_RenderingContext_endPass(
-    // Nothing
-) void;
-
 extern fn taca_buffer_new(
     kind: BufferKind,
     info: *const BufferSlice,
@@ -291,10 +265,6 @@ extern fn taca_pipeline_new(
 extern fn taca_shader_new(
     bytes: Span(u8),
 ) callconv(.C) *Shader;
-
-extern fn taca_Window_newRenderingContext(
-    // Nothing
-) callconv(.C) *RenderingContext;
 
 extern fn taca_print(
     text: Span(u8),

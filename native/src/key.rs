@@ -6,7 +6,7 @@ use winit::keyboard::KeyCode;
 pub struct KeyEvent {
     pub pressed: bool,
     pub key: i32,
-    pub text: [u8; 4],
+    pub modifiers: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
