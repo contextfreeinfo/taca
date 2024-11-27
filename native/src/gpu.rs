@@ -17,7 +17,7 @@ use wgpu::{
 };
 
 use crate::{
-    app::System,
+    app::{Buffer, System},
     display::{MaybeGraphics, UserEvent},
 };
 
@@ -52,7 +52,7 @@ pub struct BufferSlice {
     pub size: u32,
 }
 
-pub struct Buffer {
+pub struct GpuBuffer {
     pub buffer: wgpu::Buffer,
     pub usage: BufferUsages, // TODO Already available from buffer.
                              // TODO Track against multiple writes during single queue?
@@ -240,8 +240,10 @@ pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
             } => {
                 if buffer_index < bindings.buffers.len() {
                     buffer_index += 1;
-                    let buffer =
-                        &system.buffers[bindings.buffers[buffer_index - 1] as usize - 1].buffer;
+                    let buffer = &system.buffers[bindings.buffers[buffer_index - 1] as usize - 1]
+                        .gpu()
+                        .unwrap()
+                        .buffer;
                     entries.push(wgpu::BindGroupEntry {
                         binding: layout_entry.binding,
                         resource: buffer.as_entire_binding(),
@@ -325,6 +327,8 @@ pub fn buffers_apply(system: &mut System, buffers: MeshBuffers) {
     };
     pass.set_index_buffer(
         system.buffers[buffers.index_buffer as usize - 1]
+            .gpu()
+            .unwrap()
             .buffer
             .slice(..),
         wgpu::IndexFormat::Uint16,
@@ -332,7 +336,11 @@ pub fn buffers_apply(system: &mut System, buffers: MeshBuffers) {
     for (index, buffer) in buffers.vertex_buffers.iter().enumerate() {
         pass.set_vertex_buffer(
             index as u32,
-            system.buffers[*buffer as usize - 1].buffer.slice(..),
+            system.buffers[*buffer as usize - 1]
+                .gpu()
+                .unwrap()
+                .buffer
+                .slice(..),
         );
     }
     frame.buffered = true;
@@ -363,7 +371,7 @@ pub fn buffer_update(system: &mut System, buffer: u32, bytes: &[u8], offset: u32
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
-    let buffer = &system.buffers[buffer as usize - 1].buffer;
+    let buffer = &system.buffers[buffer as usize - 1].gpu().unwrap().buffer;
     gfx.queue
         .write_buffer(buffer, offset as wgpu::BufferAddress, bytes);
 }
@@ -379,12 +387,18 @@ pub fn buffered_ensure(system: &mut System) {
     let index = system
         .buffers
         .iter()
-        .position(|it| it.usage.contains(BufferUsages::INDEX))
+        .position(|it| {
+            it.gpu()
+                .map_or(false, |it| it.usage.contains(BufferUsages::INDEX))
+        })
         .unwrap();
     let vertex = system
         .buffers
         .iter()
-        .position(|it| it.usage.contains(BufferUsages::VERTEX))
+        .position(|it| {
+            it.gpu()
+                .map_or(false, |it| it.usage.contains(BufferUsages::VERTEX))
+        })
         .unwrap();
     let bindings = MeshBuffers {
         vertex_buffers: &[vertex as u32 + 1],
@@ -421,7 +435,9 @@ pub fn create_buffer(system: &mut System, contents: Option<&[u8]>, size: u32, ty
     };
     // dbg!(&buffer);
     // dbg!(&contents);
-    system.buffers.push(Buffer { buffer, usage });
+    system
+        .buffers
+        .push(Buffer::GpuBuffer(GpuBuffer { buffer, usage }));
 }
 
 pub fn create_pipeline(system: &mut System, info: PipelineInfo) {

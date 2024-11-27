@@ -29,9 +29,9 @@ use crate::{
         bindings_apply, bindings_new, bound_ensure, buffer_update, buffered_ensure, buffers_apply,
         create_buffer, create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure,
         pipeline_apply, pipelined_ensure, shader_create, sound_decode, uniforms_apply, Bindings,
-        BindingsInfo, Buffer, BufferSlice, ExternBindingsInfo, ExternMeshBuffers,
-        ExternPipelineInfo, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame,
-        Shader, Span, Texture, TextureInfoExtern,
+        BindingsInfo, BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo,
+        GpuBuffer, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader,
+        Span, Texture, TextureInfoExtern,
     },
     key::KeyEvent,
     sound::{Sound, SoundPlayInfoExtern},
@@ -214,6 +214,31 @@ impl App {
                 .unwrap();
         }
     }
+}
+
+pub enum Buffer {
+    CpuBuffer(CpuBuffer),
+    GpuBuffer(GpuBuffer),
+}
+
+impl Buffer {
+    pub fn cpu(&self) -> Option<&CpuBuffer> {
+        match self {
+            Buffer::CpuBuffer(buffer) => Some(&buffer),
+            Buffer::GpuBuffer(_) => None,
+        }
+    }
+
+    pub fn gpu(&self) -> Option<&GpuBuffer> {
+        match self {
+            Buffer::CpuBuffer(_) => None,
+            Buffer::GpuBuffer(buffer) => Some(&buffer),
+        }
+    }
+}
+
+pub struct CpuBuffer {
+    pub data: Vec<u8>,
 }
 
 pub struct System {
