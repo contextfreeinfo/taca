@@ -42,6 +42,7 @@ pub enum EventKind {
     TasksDone = 2,
     Press = 3,
     Release = 4,
+    Text = 5,
 }
 
 const REPORT_DELAY: Duration = Duration::from_secs(10);
@@ -124,7 +125,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         physical_key,
                         logical_key: _,
                         // TODO How does this relate to web capabilities?
-                        text: _,
+                        text,
                         location: _,
                         state,
                         repeat,
@@ -158,10 +159,18 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                             key,
                             modifiers: 0,
                         };
+                        if let Some(text) = &text {
+                            system.update_text_buffer(text.as_str());
+                        }
                         if let Some(update) = &app.update {
                             update
                                 .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
                                 .unwrap();
+                            if text.is_some() {
+                                update
+                                    .call(&mut app.store, &[Value::I32(EventKind::Text as i32)])
+                                    .unwrap();
+                            }
                         }
                     }
                     _ => {}

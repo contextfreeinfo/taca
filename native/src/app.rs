@@ -33,7 +33,7 @@ use crate::{
         GpuBuffer, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader,
         Span, Texture, TextureInfoExtern,
     },
-    key::KeyEvent,
+    key::{KeyEvent, TextEvent},
     sound::{Sound, SoundPlayInfoExtern},
     text::{to_text_align_x, to_text_align_y, TextEngine},
     wasi,
@@ -256,6 +256,7 @@ pub struct System {
     pub sounds: Vec<Sound>,
     pub tasks_active: usize,
     pub text: Option<Arc<Mutex<TextEngine>>>,
+    pub text_buffer: usize,
     pub textures: Vec<Texture>,
     pub worker: Option<Sender<WorkItem>>,
 }
@@ -287,9 +288,23 @@ impl System {
             sounds: vec![],
             tasks_active: 0,
             text: None,
+            text_buffer: 0,
             textures: vec![],
             worker: None,
         }
+    }
+
+    pub fn update_text_buffer(&mut self, text: &str) {
+        if self.text_buffer == 0 {
+            self.buffers
+                .push(Buffer::CpuBuffer(CpuBuffer { data: vec![] }));
+            self.text_buffer = self.buffers.len();
+        }
+        let Buffer::CpuBuffer(buffer) = &mut self.buffers[self.text_buffer - 1] else {
+            panic!()
+        };
+        buffer.data.clear();
+        buffer.data.extend(text.as_bytes());
     }
 }
 
@@ -360,12 +375,27 @@ fn taca_buffer_new(mut env: FunctionEnvMut<System>, typ: u32, slice: u32) -> u32
     system.buffers.len() as u32
 }
 
-fn taca_buffer_read(mut env: FunctionEnvMut<System>, _buffer: u32, _bytes: u32, _offset: u32) {
+fn taca_buffer_read(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, offset: u32) {
     let (system, store) = env.data_and_store_mut();
-    let _view = system.memory.as_ref().unwrap().view(&store);
-    // let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
-    // let bytes = read_span::<u8>(&view, bytes);
-    // buffer_update(system, buffer, &bytes, offset);
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    let Some(buffer) = system
+        .buffers
+        .get(match buffer as usize {
+            0 => return,
+            ind => ind - 1,
+        })
+        .and_then(|it| it.cpu())
+    else {
+        return;
+    };
+    let len = bytes.len as usize;
+    let offset = offset as usize;
+    if offset + len > buffer.data.len() {
+        return;
+    }
+    view.write(bytes.ptr as u64, &buffer.data[offset..len])
+        .unwrap();
 }
 
 fn taca_buffer_update(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, offset: u32) {
@@ -590,12 +620,23 @@ fn taca_text_draw(mut env: FunctionEnvMut<System>, text: u32, x: f32, y: f32) {
     text_engine.lock().unwrap().draw(system, &text, x, y);
 }
 
-fn taca_text_event(mut env: FunctionEnvMut<System>, _result: u32) {
+fn taca_text_event(mut env: FunctionEnvMut<System>, result: u32) {
     let (system, store) = env.data_and_store_mut();
-    let _view = system.memory.as_ref().unwrap().view(&store);
-    // WasmPtr::<KeyEvent>::new(result)
-    //     .write(&view, system.key_event)
-    //     .unwrap();
+    let view = system.memory.as_ref().unwrap().view(&store);
+    let event = TextEvent {
+        buffer: system.text_buffer.try_into().unwrap(),
+        size: match system.text_buffer {
+            0 => 0,
+            ind => system
+                .buffers
+                .get(ind - 1)
+                .and_then(|it| it.cpu())
+                .map_or(0, |it| it.data.len().try_into().unwrap_or(0)),
+        },
+    };
+    WasmPtr::<TextEvent>::new(result)
+        .write(&view, event)
+        .unwrap();
 }
 
 fn taca_texture_info(mut env: FunctionEnvMut<System>, result: u32, texture: u32) {

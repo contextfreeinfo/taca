@@ -12,6 +12,7 @@ type
     indexBuffer: Buffer
     instanceBuffer: Buffer
     message: string
+    textInput: string
     vertexBuffer: Buffer
 
 var app: App
@@ -51,4 +52,9 @@ proc update*(eventKind: EventKind) {.exportWasm.} =
     let event = keyEvent()
     if event.pressed:
       app.message = &"Key code: {event.key}"
+  of text:
+    let event = textEvent()
+    app.textInput.setLen(event.size)
+    bufferRead(event.buffer, app.textInput)
+    app.message = &"Text: \"{app.textInput}\""
   else: discard

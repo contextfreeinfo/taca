@@ -116,7 +116,7 @@ proc tacaBufferNew(kind: BufferKind, bytes: Span[char]): Buffer
   {.importc: "taca_buffer_new".}
 
 proc tacaBufferRead(buffer: Buffer, bytes: Span[char], bufferOffset: uint)
-  {.importc: "taca_buffer_update".}
+  {.importc: "taca_buffer_read".}
 
 proc tacaBufferUpdate(buffer: Buffer, bytes: Span[char], bufferOffset: uint)
   {.importc: "taca_buffer_update".}
@@ -171,7 +171,7 @@ proc bufferNew*[T](kind: BufferKind, items: openArray[T]): Buffer =
   tacaBufferNew(kind, items.toByteSpan)
 
 proc bufferRead*[T](
-  buffer: Buffer, items: openArray[T], itemOffset: int = 0
+  buffer: Buffer, items: var openArray[T], itemOffset: int = 0
 ) = tacaBufferRead(buffer, items.toByteSpan, uint(itemOffset * T.sizeof))
 
 proc bufferUpdate*[T](

@@ -9,6 +9,13 @@ pub struct KeyEvent {
     pub modifiers: u32,
 }
 
+#[derive(Clone, Copy, Debug, Default, ValueType)]
+#[repr(C)]
+pub struct TextEvent {
+    pub buffer: u32,
+    pub size: u32,
+}
+
 #[derive(Clone, Copy, Debug)]
 #[repr(i32)]
 pub enum Key {
