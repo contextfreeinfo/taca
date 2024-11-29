@@ -153,20 +153,28 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         let key: Key = key.into();
                         let key = key as i32;
                         let pressed = state.is_pressed();
+                        let mut has_text = false;
                         let system = app.env.as_mut(&mut app.store);
                         system.key_event = KeyEvent {
                             pressed,
                             key,
                             modifiers: 0,
                         };
-                        if let Some(text) = &text {
-                            system.update_text_buffer(text.as_str());
+                        if pressed {
+                            if let Some(text) = &text {
+                                let text = text.as_str();
+                                if !(text.len() == 1 && text.chars().next().unwrap() < '\x20') {
+                                    has_text = true;
+                                    system.update_text_buffer(text);
+                                }
+                            }
                         }
                         if let Some(update) = &app.update {
+                            // TODO Put text info back into key event?
                             update
                                 .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
                                 .unwrap();
-                            if text.is_some() {
+                            if has_text {
                                 update
                                     .call(&mut app.store, &[Value::I32(EventKind::Text as i32)])
                                     .unwrap();

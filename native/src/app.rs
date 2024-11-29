@@ -389,12 +389,9 @@ fn taca_buffer_read(mut env: FunctionEnvMut<System>, buffer: u32, bytes: u32, of
     else {
         return;
     };
-    let len = bytes.len as usize;
     let offset = offset as usize;
-    if offset + len > buffer.data.len() {
-        return;
-    }
-    view.write(bytes.ptr as u64, &buffer.data[offset..len])
+    let len = (bytes.len as usize).min(buffer.data.len() - offset);
+    view.write(bytes.ptr as u64, &buffer.data[offset..offset + len])
         .unwrap();
 }
 

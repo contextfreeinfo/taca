@@ -14,7 +14,7 @@ import {
   shaderProgramBuild,
 } from "./drawing";
 import { BindGroupLayout, findBindGroups } from "./gpu";
-import { keys } from "./key";
+import { keys, keyText } from "./key";
 import {
   dataViewOf,
   fail,
@@ -202,7 +202,11 @@ class App {
             bindingLayout.index,
             bufferIndex + 1
           );
-          gl.bindBufferBase(gl.UNIFORM_BUFFER, bufferIndex + 1, buffer.buffer);
+          gl.bindBufferBase(
+            gl.UNIFORM_BUFFER,
+            bufferIndex + 1,
+            (buffer as GpuBuffer).buffer
+          );
           bufferIndex += 1;
           break;
         }
@@ -279,12 +283,19 @@ class App {
   }
 
   bufferRead(bufferPtr: number, slice: number, offset: number) {
-    // TODO
+    const buffer = this.buffers[bufferPtr - 1];
+    if (buffer.kind != "cpu") {
+      // TODO Support reading some gpu buffers.
+      return;
+    }
+    const bytes = this.readBytes(slice);
+    const length = Math.min(buffer.bytes.length - offset, bytes.length);
+    bytes.set(buffer.bytes.subarray(offset, offset + length));
   }
 
   bufferUpdate(bufferPtr: number, slice: number, offset: number) {
     const { buffers, gl } = this;
-    const { buffer, kind, mutable } = buffers[bufferPtr - 1];
+    const { buffer, kind, mutable } = buffers[bufferPtr - 1] as GpuBuffer;
     const bytes = this.readBytes(slice);
     // TODO Is this checked automatically?
     mutable || fail();
@@ -307,7 +318,8 @@ class App {
         if (!this.boundBuffersDefault) {
           const { buffers } = this;
           const find = (kind: string) =>
-            buffers.find((buffer) => buffer.kind == kind) ?? fail();
+            buffers.find((buffer) => (buffer as GpuBuffer).kind == kind) ??
+            fail();
           this.boundBuffersDefault = boundBuffersDefault = {
             index: find("index"),
             vertex: [find("vertex")],
@@ -343,7 +355,7 @@ class App {
           vertexBufferInfos[vertexBufferIndex + 1]?.firstAttr ??
           Number.MAX_SAFE_INTEGER;
         // Work out drawing.
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertex.buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, (vertex as GpuBuffer).buffer);
         stride = vertexInfo.stride;
       }
       const attr = attrs[a];
@@ -355,7 +367,7 @@ class App {
     // TODO Instance buffer.
     // Index buffer.
     const index = boundBuffers!.index;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index.buffer);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, (index as GpuBuffer).buffer);
     this.buffered = true;
   }
 
@@ -482,19 +494,46 @@ class App {
     event.preventDefault();
     audioEnsureResumed(this.audioContext);
     if (event.repeat) return;
-    let { exports, keyEvent } = this;
+    const { buffers, exports, keyEvent, textEvent } = this;
+    const text = pressed ? keyText(event) : "";
+    if (text) {
+      const bytes = textEncoder.encode(text);
+      if (this.textBuffer) {
+        const buffer = buffers[this.textBuffer - 1] as CpuBuffer;
+        if (buffer.bytes.length < bytes.length) {
+          buffer.bytes = bytes;
+        } else {
+          buffer.bytes.set(bytes);
+        }
+        buffer.length = bytes.length;
+      } else {
+        buffers.push({
+          bytes,
+          kind: "cpu",
+          length: bytes.length,
+        });
+        this.textBuffer = buffers.length;
+      }
+    }
+    // TODO Combine text into key event again?
     setU32(keyEvent, 0, pressed ? 1 : 0);
     setU32(keyEvent, 4, keys[event.code] ?? 0);
     setU32(keyEvent, 8, 0);
     if (exports.update) {
       exports.update!(eventTypes.key);
+      if (text) {
+        const textBuffer = this.textBuffer;
+        setU32(textEvent, 0, textBuffer);
+        setU32(textEvent, 4, (buffers[textBuffer - 1] as CpuBuffer).length);
+        exports.update!(eventTypes.text);
+      }
     }
   }
 
   gl: WebGL2RenderingContext;
 
   imageDecode(bytes: number) {
-    let { gl, textures } = this;
+    const { gl, textures } = this;
     let pointer = 0;
     const texture = imageDecode(
       gl,
@@ -807,6 +846,7 @@ class App {
   }
 
   textAlignVals: [CanvasTextAlign, CanvasTextBaseline] = ["left", "alphabetic"];
+  textBuffer = 0;
 
   textDraw(text: string, textureIndex?: number) {
     const { gl, offscreen, offscreenContext, textures } = this;
@@ -873,6 +913,9 @@ class App {
     );
     return textureIndex!;
   }
+
+  textEvent = new DataView(new Uint32Array(2).buffer);
+  textEventBytes = new Uint8Array(this.textEvent.buffer);
 
   textTexture: number = 0;
   textTextureText: string = "";
@@ -986,7 +1029,15 @@ interface Buffers {
   vertex: Buffer[];
 }
 
-interface Buffer {
+type Buffer = CpuBuffer | GpuBuffer;
+
+interface CpuBuffer {
+  bytes: Uint8Array;
+  kind: "cpu";
+  length: number;
+}
+
+interface GpuBuffer {
   buffer: WebGLBuffer;
   kind: BufferKind;
   mutable: boolean;
@@ -1007,6 +1058,7 @@ const eventTypes = {
   tasksDone: 2,
   press: 3,
   release: 4,
+  text: 5,
 };
 
 async function loadApp(config: AppConfig) {
@@ -1122,7 +1174,7 @@ function makeAppEnv(app: App) {
       app.drawText(app.readString(text), x, y);
     },
     taca_text_event(result: number) {
-      // app.memoryBytes().set(app.textEventBytes, result);
+      app.memoryBytes().set(app.textEventBytes, result);
     },
     taca_texture_info(result: number, texture: number) {
       app.textureInfo(result, texture);
@@ -1184,6 +1236,7 @@ interface Sound {
 }
 
 const textDecoder = new TextDecoder();
+const textEncoder = new TextEncoder();
 
 interface Uniforms {
   count: number;

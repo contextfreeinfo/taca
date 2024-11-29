@@ -54,6 +54,7 @@ proc update*(eventKind: EventKind) {.exportWasm.} =
       app.message = &"Key code: {event.key}"
   of text:
     let event = textEvent()
+    # print(event.repr)
     app.textInput.setLen(event.size)
     bufferRead(event.buffer, app.textInput)
     app.message = &"Text: \"{app.textInput}\""
