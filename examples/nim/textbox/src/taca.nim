@@ -28,6 +28,17 @@ type
     release
     text
 
+  Key* = enum
+    none
+    arrowUp
+    arrowDown
+    arrowLeft
+    arrowRight
+    space
+    escape
+    enter
+    backspace
+
   Step* = enum
     vertex
     instance
@@ -63,6 +74,11 @@ type
     vertexBuffers: Span[Buffer]
     indexBuffer: Buffer
 
+  KeyEventExtern* = object
+    pressed: bool
+    key: uint32
+    modifiers: uint32
+
   PipelineShaderInfoExtern* = object
     entry: Span[char]
     shader: Shader
@@ -87,7 +103,7 @@ type
 
   KeyEvent* = object
     pressed: bool
-    key: uint32
+    key: Key
     modifiers: uint32
 
   PipelineShaderInfo* = object
@@ -122,6 +138,8 @@ proc tacaBufferUpdate(buffer: Buffer, bytes: Span[char], bufferOffset: uint)
   {.importc: "taca_buffer_update".}
 
 proc tacaBuffersApply(buffers: BuffersExtern) {.importc: "taca_buffers_apply".}
+
+proc tacaKeyEvent*(): KeyEventExtern {.importc: "taca_key_event".}
 
 proc tacaPipelineNew(info: PipelineInfoExtern): Pipeline
   {.importc: "taca_pipeline_new".}
@@ -188,7 +206,13 @@ proc buffersApply*(indexBuffer: Buffer, vertexBuffers: openArray[Buffer]) =
 proc draw*(itemBegin: uint32, itemCount: uint32, instanceCount: uint32)
   {.importc: "taca_draw".}
 
-proc keyEvent*(): KeyEvent {.importc: "taca_key_event".}
+proc keyEvent*(): KeyEvent =
+  let extern = tacaKeyEvent()
+  KeyEvent(
+    pressed: extern.pressed,
+    key: Key(extern.key),
+    modifiers: extern.modifiers
+  )
 
 proc pipelineNew*(info: PipelineInfo): Pipeline = info.toExtern.tacaPipelineNew
 

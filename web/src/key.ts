@@ -11,6 +11,10 @@ export let keys: { [key: string]: number } = {
   ArrowLeft: 3,
   ArrowRight: 4,
   ArrowUp: 1,
+  Backspace: 8,
+  Del: 9,
+  Delete: 9,
+  Enter: 7,
   Escape: 6,
   Space: 5,
 };
