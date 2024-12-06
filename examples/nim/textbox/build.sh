@@ -6,8 +6,6 @@ pub() {
     done
 }
 
-mkdir -p out && \
-naga src/shader.wgsl out/shader.spv && \
-nimble build -d:release && \
+bash build-lib.sh && \
 lz4 -f9 out/textbox.wasm out/textbox.taca && \
 pub out/textbox.taca nim
