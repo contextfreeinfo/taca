@@ -8,10 +8,10 @@ pub() {
     done
 }
 
-(cd ../../nim/textbox && bash build-lib.sh) && \
+(cd ../../nim/textbox && bash build-ext.sh) && \
 rm -rf out/bundle && \
-mkdir -p out/bundle/taca/lib && \
-cp ../../nim/textbox/out/textbox.wasm out/bundle/taca/lib/ && \
+mkdir -p out/bundle/taca/ext && \
+cp ../../nim/textbox/out/textbox.wasm out/bundle/taca/ext/ && \
 odin build src -no-entry-point -o:speed -out:out/bundle/taca/app.wasm \
     -target=freestanding_wasm32 && \
 rm -f out/guess.taca && \

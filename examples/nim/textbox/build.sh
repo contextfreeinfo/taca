@@ -6,6 +6,6 @@ pub() {
     done
 }
 
-bash build-lib.sh && \
+bash build-ext.sh && \
 lz4 -f9 out/textbox.wasm out/textbox.taca && \
 pub out/textbox.taca nim
