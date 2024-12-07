@@ -25,6 +25,7 @@ import {
   setU32,
 } from "./util";
 import { makeWasiEnv } from "./wasi";
+import { unzipSync } from "fflate";
 
 export interface AppConfig {
   canvas: HTMLCanvasElement;
@@ -1069,6 +1070,8 @@ async function loadApp(config: AppConfig) {
     appBytes[0] == 4
       ? // Presume lz4 because wasm starts with 0.
         lz4Decompress(appBytes).buffer
+      : appBytes[0] == 0x50
+      ? await zipRead(appBytes)
       : appData;
   let app = new App(config);
   const env = makeAppEnv(app);
@@ -1244,4 +1247,14 @@ interface Uniforms {
   // TODO These are needed only once, not per pipeline.
   tacaIndex: number;
   tacaSize: number;
+}
+
+async function zipRead(bytes: Uint8Array) {
+  const entries = unzipSync(bytes, {
+    // Extract only core taca files to start with. TODO Be more selective?
+    filter: (info) => info.name.startsWith("taca/"),
+  });
+  // console.log(entries);
+  // TODO Extract extensions.
+  return entries["taca/app.wasm"].buffer;
 }
