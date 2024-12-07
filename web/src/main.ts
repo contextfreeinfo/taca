@@ -1069,14 +1069,14 @@ async function loadApp(config: AppConfig) {
   const actualData =
     appBytes[0] == 4
       ? // Presume lz4 because wasm starts with 0.
-        lz4Decompress(appBytes).buffer
+        [lz4Decompress(appBytes).buffer]
       : appBytes[0] == 0x50
-      ? await zipRead(appBytes)
-      : appData;
+      ? zipRead(appBytes)
+      : [appData];
   let app = new App(config);
   const env = makeAppEnv(app);
   const wasi = makeWasiEnv(app);
-  let { instance } = await WebAssembly.instantiate(actualData, {
+  let { instance } = await WebAssembly.instantiate(actualData[0], {
     env,
     wasi_snapshot_preview1: wasi,
   });
@@ -1249,12 +1249,16 @@ interface Uniforms {
   tacaSize: number;
 }
 
-async function zipRead(bytes: Uint8Array) {
+function zipRead(bytes: Uint8Array) {
   const entries = unzipSync(bytes, {
     // Extract only core taca files to start with. TODO Be more selective?
-    filter: (info) => info.name.startsWith("taca/"),
+    filter: (info) => /^taca\/(?:ext\/)?[^/]+\.wasm/.test(info.name),
   });
+  const appers = Object.entries(entries)
+    .filter((it) => it[0].includes("/ext/"))
+    .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+    .map((it) => it[1].buffer);
   // console.log(entries);
-  // TODO Extract extensions.
-  return entries["taca/app.wasm"].buffer;
+  appers.push(entries["taca/app.wasm"].buffer);
+  return appers;
 }
