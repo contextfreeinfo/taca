@@ -6,6 +6,7 @@ import {
   shaderToGlsl,
   ShaderStage,
 } from "../pkg/cana";
+import { Part, textEncoder } from "./part";
 import {
   Texture,
   TexturePipeline,
@@ -15,15 +16,7 @@ import {
 } from "./drawing";
 import { BindGroupLayout, findBindGroups } from "./gpu";
 import { keys, keyText } from "./key";
-import {
-  dataViewOf,
-  fail,
-  getF32,
-  getU32,
-  getU8,
-  setF32,
-  setU32,
-} from "./util";
+import { fail, getF32, getU32, getU8, setF32, setU32 } from "./util";
 import { makeWasiEnv } from "./wasi";
 import { unzipSync } from "fflate";
 
@@ -76,17 +69,11 @@ class App {
     };
     canvas.addEventListener("mousedown", (event: MouseEvent) => {
       handleMouse(event);
-      let { exports } = this;
-      if (exports.update) {
-        exports.update!(eventTypes.press);
-      }
+      this.partsUpdate(eventTypes.press);
     });
     canvas.addEventListener("mouseup", (event: MouseEvent) => {
       handleMouse(event);
-      let { exports } = this;
-      if (exports.update) {
-        exports.update!(eventTypes.release);
-      }
+      this.partsUpdate(eventTypes.release);
     });
     canvas.addEventListener("mousemove", handleMouse);
     const handleTouch = (event: TouchEvent) => {
@@ -100,17 +87,11 @@ class App {
     };
     canvas.addEventListener("touchend", (event: TouchEvent) => {
       handleTouch(event);
-      let { exports } = this;
-      if (exports.update) {
-        exports.update!(eventTypes.release);
-      }
+      this.partsUpdate(eventTypes.release);
     });
     canvas.addEventListener("touchstart", (event: TouchEvent) => {
       handleTouch(event);
-      let { exports } = this;
-      if (exports.update) {
-        exports.update!(eventTypes.press);
-      }
+      this.partsUpdate(eventTypes.press);
     });
     canvas.addEventListener("touchmove", handleTouch);
   }
@@ -223,17 +204,17 @@ class App {
     }
   }
 
-  bindingsNew(info: number) {
-    const infoBytes = this.memoryViewMake(info, 8 * 4);
+  bindingsNew(part: Part, info: number) {
+    const infoBytes = part.memoryViewMake(info, 8 * 4);
     const pipeline = getU32(infoBytes, 0);
     const group = getU32(infoBytes, 4);
-    const buffers = this.readAny(info + 8, 4, (view, offset) =>
+    const buffers = part.readAny(info + 8, 4, (view, offset) =>
       getU32(view, offset)
     );
-    const samplers = this.readAny(info + 16, 4, (view, offset) =>
+    const samplers = part.readAny(info + 16, 4, (view, offset) =>
       getU32(view, offset)
     );
-    const textures = this.readAny(info + 24, 4, (view, offset) =>
+    const textures = part.readAny(info + 24, 4, (view, offset) =>
       getU32(view, offset)
     );
     // TODO Connecting samplers to textures is hard without more shader digging.
@@ -243,10 +224,10 @@ class App {
     return this.bindGroups.length;
   }
 
-  buffersApply(buffersPtr: number) {
+  buffersApply(part: Part, buffersPtr: number) {
     const { buffers } = this;
     // Minimize allocations because this is in the draw loop.
-    const view = this.memoryView();
+    const view = part.memoryView();
     const vertexPtr = getU32(view, buffersPtr);
     const vertexLen = getU32(view, buffersPtr + 4);
     const index = buffers[getU32(view, buffersPtr + 8) - 1];
@@ -262,12 +243,12 @@ class App {
   boundBuffers: Buffers | null = null;
   boundBuffersDefault: Buffers | null = null;
 
-  bufferNew(type: number, info: number) {
-    const infoBytes = this.memoryViewMake(info, 2 * 4);
+  bufferNew(part: Part, type: number, info: number) {
+    const infoBytes = part.memoryViewMake(info, 2 * 4);
     const ptr = getU32(infoBytes, 0);
     const size = getU32(infoBytes, 4);
     const data = ptr
-      ? this.memoryBytes().subarray(ptr, ptr + size)
+      ? part.memoryBytes().subarray(ptr, ptr + size)
       : new Uint8Array(size);
     const { gl } = this;
     const buffer = gl.createBuffer() ?? fail();
@@ -283,21 +264,21 @@ class App {
     return this.buffers.length;
   }
 
-  bufferRead(bufferPtr: number, slice: number, offset: number) {
+  bufferRead(part: Part, bufferPtr: number, slice: number, offset: number) {
     const buffer = this.buffers[bufferPtr - 1];
     if (buffer.kind != "cpu") {
       // TODO Support reading some gpu buffers.
       return;
     }
-    const bytes = this.readBytes(slice);
+    const bytes = part.readBytes(slice);
     const length = Math.min(buffer.bytes.length - offset, bytes.length);
     bytes.set(buffer.bytes.subarray(offset, offset + length));
   }
 
-  bufferUpdate(bufferPtr: number, slice: number, offset: number) {
+  bufferUpdate(part: Part, bufferPtr: number, slice: number, offset: number) {
     const { buffers, gl } = this;
     const { buffer, kind, mutable } = buffers[bufferPtr - 1] as GpuBuffer;
-    const bytes = this.readBytes(slice);
+    const bytes = part.readBytes(slice);
     // TODO Is this checked automatically?
     mutable || fail();
     const target = {
@@ -448,8 +429,6 @@ class App {
     }
   }
 
-  exports: AppExports = undefined as any;
-
   frameCommit() {
     this.buffered = this.passBegun = false;
     this.boundBuffers = this.pipeline = null;
@@ -495,7 +474,7 @@ class App {
     event.preventDefault();
     audioEnsureResumed(this.audioContext);
     if (event.repeat) return;
-    const { buffers, exports, keyEvent, textEvent } = this;
+    const { buffers, keyEvent, textEvent } = this;
     const text = pressed ? keyText(event) : "";
     if (text) {
       const bytes = textEncoder.encode(text);
@@ -520,25 +499,23 @@ class App {
     setU32(keyEvent, 0, pressed ? 1 : 0);
     setU32(keyEvent, 4, keys[event.code] ?? 0);
     setU32(keyEvent, 8, 0);
-    if (exports.update) {
-      exports.update!(eventTypes.key);
-      if (text) {
-        const textBuffer = this.textBuffer;
-        setU32(textEvent, 0, textBuffer);
-        setU32(textEvent, 4, (buffers[textBuffer - 1] as CpuBuffer).length);
-        exports.update!(eventTypes.text);
-      }
+    this.partsUpdate(eventTypes.key);
+    if (text) {
+      const textBuffer = this.textBuffer;
+      setU32(textEvent, 0, textBuffer);
+      setU32(textEvent, 4, (buffers[textBuffer - 1] as CpuBuffer).length);
+      this.partsUpdate(eventTypes.text);
     }
   }
 
   gl: WebGL2RenderingContext;
 
-  imageDecode(bytes: number) {
+  imageDecode(part: Part, bytes: number) {
     const { gl, textures } = this;
     let pointer = 0;
     const texture = imageDecode(
       gl,
-      this.readBytes(bytes),
+      part.readBytes(bytes),
       () => this.taskFinish(),
       (reason) => {
         this.taskFinish();
@@ -553,38 +530,16 @@ class App {
 
   indexBuffer: Buffer | null = null;
 
-  init(instance: WebAssembly.Instance) {
-    this.exports = instance.exports as any;
-    this.memory = instance.exports.memory as any;
-  }
-
-  memory: WebAssembly.Memory = undefined as any;
-
-  #memoryBuffer: ArrayBuffer | null = null;
-  #memoryBufferBytes: Uint8Array | null = null;
-  #memoryBufferView: DataView | null = null;
-
-  memoryBytes() {
-    if (this.#memoryBuffer != this.memory.buffer) {
-      // Either on first access or on internal reallocation.
-      this.#memoryBuffer = this.memory.buffer;
-      this.#memoryBufferBytes = new Uint8Array(this.#memoryBuffer);
-      this.#memoryBufferView = new DataView(this.#memoryBuffer);
-    }
-    return this.#memoryBufferBytes!;
-  }
-
-  memoryView() {
-    this.memoryBytes();
-    return this.#memoryBufferView!;
-  }
-
-  memoryViewMake(ptr: number, len: number) {
-    return new DataView(this.memory.buffer, ptr, len);
-  }
-
   offscreen = new OffscreenCanvas(1, 1);
   offscreenContext = this.offscreen.getContext("2d") ?? fail();
+
+  parts: Part[] = [];
+
+  partsUpdate(kind: number) {
+    for (const part of this.parts) {
+      part.update(kind);
+    }
+  }
 
   passBegin() {
     let { gl, resizeNeeded } = this;
@@ -650,18 +605,18 @@ class App {
     }
   }
 
-  pipelineNew(info: number) {
-    let pipelineInfo = this.pipelineInfoRead(info);
+  pipelineNew(part: Part, info: number) {
+    let pipelineInfo = this.pipelineInfoRead(part, info);
     pipelineInfo = this.#pipelineBuild(pipelineInfo);
     return this.pipelines.length;
   }
 
-  private pipelineInfoRead(info: number): PipelineInfo {
+  private pipelineInfoRead(part: Part, info: number): PipelineInfo {
     // TODO Can wit-bindgen or flatbuffers automate some of this?
-    const infoView = this.memoryViewMake(info, 11 * 4);
+    const infoView = part.memoryViewMake(info, 11 * 4);
     const readShaderInfo = (offset: number) => {
       return {
-        entry: this.readString(infoView.byteOffset + offset),
+        entry: part.readString(infoView.byteOffset + offset),
         shader: getU32(infoView, offset + 2 * 4),
       };
     };
@@ -669,7 +624,7 @@ class App {
       depthTest: !!getU8(infoView, 0),
       fragment: readShaderInfo(1 * 4),
       vertex: readShaderInfo(4 * 4),
-      vertexAttrs: this.readAny(
+      vertexAttrs: part.readAny(
         info + 7 * 4,
         2 * 4,
         (view, offset): AttrInfo => ({
@@ -680,7 +635,7 @@ class App {
           type: 0,
         })
       ),
-      vertexBuffers: this.readAny(
+      vertexBuffers: part.readAny(
         info + 9 * 4,
         3 * 4,
         (view, offset): BufferInfo => ({
@@ -698,31 +653,6 @@ class App {
   pointerPos: [x: number, y: number] = [0, 0];
   pointerPress = 0;
 
-  readAny<T>(
-    spanPtr: number,
-    itemSize: number,
-    build: (view: DataView, offset: number) => T
-  ): T[] {
-    const view = dataViewOf(this.readBytes(spanPtr, itemSize));
-    return [...Array(view.byteLength / itemSize).keys()].map((i) =>
-      build(view, i * itemSize)
-    );
-  }
-
-  readBytes(spanPtr: number, itemSize: number = 1) {
-    // Can cache memory bytes when no app calls are being made.
-    const memoryBytes = this.memoryBytes();
-    const spanView = new DataView(memoryBytes.buffer, spanPtr, 2 * 4);
-    // Wasm is explicitly little-endian.
-    const contentPtr = getU32(spanView, 0);
-    const contentLen = itemSize * getU32(spanView, 4);
-    return memoryBytes.subarray(contentPtr, contentPtr + contentLen);
-  }
-
-  readString(spanPtr: number) {
-    return textDecoder.decode(this.readBytes(spanPtr));
-  }
-
   resizeCanvas() {
     const { canvas } = this.config;
     canvas.width = canvas.clientWidth;
@@ -737,13 +667,13 @@ class App {
   shaders: Shader[] = [];
   sounds: Sound[] = [];
 
-  soundDecode(bytes: number) {
+  soundDecode(part: Part, bytes: number) {
     const { audioContext, sounds } = this;
     const sound = { buffer: null } as Sound;
     sounds.push(sound);
     const pointer = sounds.length;
     audioContext.decodeAudioData(
-      this.readBytes(bytes).slice().buffer,
+      part.readBytes(bytes).slice().buffer,
       (buffer) => {
         sound.buffer = buffer;
         // console.log(buffer.duration);
@@ -758,8 +688,8 @@ class App {
     return pointer;
   }
 
-  soundPlay(info: number) {
-    const infoView = this.memoryViewMake(info, 6 * 4);
+  soundPlay(part: Part, info: number) {
+    const infoView = part.memoryViewMake(info, 6 * 4);
     const sound = getU32(infoView, 0 * 4);
     const { audioContext, sounds } = this;
     const source = audioContext.createBufferSource();
@@ -833,9 +763,7 @@ class App {
 
   taskFinish() {
     this.tasksActive -= 1;
-    if (!this.tasksActive && this.exports.update) {
-      this.exports.update!(eventTypes.tasksDone);
-    }
+    this.partsUpdate(eventTypes.tasksDone);
   }
 
   textAlign(x: number, y: number) {
@@ -922,16 +850,16 @@ class App {
   textTextureText: string = "";
   texturePipeline: TexturePipeline;
 
-  textureInfo(result: number, texture: number) {
+  textureInfo(part: Part, result: number, texture: number) {
     let size = this.textures[texture - 1]?.size ?? [0, 0];
-    const view = this.memoryViewMake(result, 2 * 4);
+    const view = part.memoryViewMake(result, 2 * 4);
     setF32(view, 0, size[0]);
     setF32(view, 4, size[1]);
   }
 
   textures: Texture[] = [];
 
-  uniformsApply(uniforms: number) {
+  uniformsApply(part: Part, uniforms: number) {
     this.#pipelinedEnsure();
     const { gl } = this;
     if (!this.uniformsBuffer) {
@@ -948,7 +876,7 @@ class App {
       }
       this.uniformsBuffer = uniformsBuffer;
     }
-    const uniformsBytes = this.readBytes(uniforms);
+    const uniformsBytes = part.readBytes(uniforms);
     gl.bindBuffer(gl.UNIFORM_BUFFER, this.uniformsBuffer);
     gl.bufferSubData(gl.UNIFORM_BUFFER, 0, uniformsBytes);
   }
@@ -989,24 +917,17 @@ class App {
 
   vertexBuffer: Buffer | null = null;
 
-  windowState(result: number) {
+  windowState(part: Part, result: number) {
     // TODO Include time.
     const { clientWidth, clientHeight } = this.canvas;
     const [pointerX, pointerY] = this.pointerPos;
-    const view = this.memoryViewMake(result, 5 * 4);
+    const view = part.memoryViewMake(result, 5 * 4);
     setF32(view, 0, pointerX);
     setF32(view, 4, pointerY);
     setU32(view, 8, this.pointerPress);
     setF32(view, 12, clientWidth);
     setF32(view, 16, clientHeight);
   }
-}
-
-interface AppExports {
-  _initialize: (() => void) | undefined;
-  _start: (() => void) | undefined;
-  start: (() => void) | undefined;
-  update: ((event: number) => void) | undefined;
 }
 
 interface AttrInfo {
@@ -1066,35 +987,45 @@ async function loadApp(config: AppConfig) {
   const appData = config.code as ArrayBuffer;
   config.code = undefined;
   const appBytes = new Uint8Array(appData);
-  const actualData =
+  const wasmBuffers =
     appBytes[0] == 4
       ? // Presume lz4 because wasm starts with 0.
         [lz4Decompress(appBytes).buffer]
       : appBytes[0] == 0x50
       ? zipRead(appBytes)
       : [appData];
-  let app = new App(config);
-  const env = makeAppEnv(app);
-  const wasi = makeWasiEnv(app);
-  let { instance } = await WebAssembly.instantiate(actualData[0], {
-    env,
-    wasi_snapshot_preview1: wasi,
+  // Load parts.
+  const app = new App(config);
+  const partPromises = wasmBuffers.map(async (wasmBuffer) => {
+    const part = new Part();
+    const env = makeAppEnv(app, part);
+    const wasi = makeWasiEnv(part);
+    let { instance } = await WebAssembly.instantiate(wasmBuffer, {
+      env,
+      wasi_snapshot_preview1: wasi,
+    });
+    part.init(instance);
+    return part;
   });
-  app.init(instance);
-  // TODO Fold config into start.
-  const exports = app.exports;
-  if (exports._initialize) {
-    exports._initialize();
-  } else if (exports._start) {
-    exports._start();
+  const parts = await Promise.all(partPromises);
+  // Init them in order.
+  for (const part of parts) {
+    const exports = part.exports;
+    if (exports._initialize) {
+      exports._initialize();
+    } else if (exports._start) {
+      exports._start();
+    }
+    if (exports.start) {
+      exports.start();
+    }
   }
-  if (exports.start) {
-    exports.start();
-  }
-  if (exports.update) {
+  // Run updates.
+  app.parts = parts;
+  if (parts.some((it) => it.exports.update)) {
     const update = () => {
       try {
-        exports.update!(0);
+        app.partsUpdate(eventTypes.frame);
       } finally {
         app.frameEnd();
       }
@@ -1112,25 +1043,25 @@ async function loadAppData(code: ArrayBuffer | Promise<Response>) {
   }
 }
 
-function makeAppEnv(app: App) {
+function makeAppEnv(app: App, part: Part) {
   return {
     taca_bindings_apply(bindings: number) {
       app.bindingsApply(bindings);
     },
     taca_bindings_new(info: number) {
-      return app.bindingsNew(info);
+      return app.bindingsNew(part, info);
     },
     taca_buffer_new(type: number, info: number) {
-      return app.bufferNew(type, info);
+      return app.bufferNew(part, type, info);
     },
     taca_buffer_read(buffer: number, bytes: number, offset: number) {
-      return app.bufferRead(buffer, bytes, offset);
+      return app.bufferRead(part, buffer, bytes, offset);
     },
     taca_buffer_update(buffer: number, bytes: number, offset: number) {
-      return app.bufferUpdate(buffer, bytes, offset);
+      return app.bufferUpdate(part, buffer, bytes, offset);
     },
     taca_buffers_apply(buffers: number) {
-      app.buffersApply(buffers);
+      app.buffersApply(part, buffers);
     },
     taca_clip(x: number, y: number, sizeX: number, sizeY: number) {
       const { gl } = app;
@@ -1146,51 +1077,51 @@ function makeAppEnv(app: App) {
       app.draw(itemBegin, itemCount, instanceCount);
     },
     taca_image_decode(bytes: number) {
-      return app.imageDecode(bytes);
+      return app.imageDecode(part, bytes);
     },
     taca_key_event(result: number) {
-      app.memoryBytes().set(app.keyEventBytes, result);
+      part.memoryBytes().set(app.keyEventBytes, result);
     },
     taca_pipeline_apply(pipeline: number) {
       app.pipelineApply(pipeline);
     },
     taca_pipeline_new(info: number) {
-      return app.pipelineNew(info);
+      return app.pipelineNew(part, info);
     },
     taca_print(text: number) {
-      console.log(app.readString(text));
+      console.log(part.readString(text));
     },
     taca_shader_new(bytes: number) {
-      app.shaders.push(shaderNew(app.readBytes(bytes)));
+      app.shaders.push(shaderNew(part.readBytes(bytes)));
       return app.shaders.length;
     },
     taca_sound_decode(bytes: number) {
-      return app.soundDecode(bytes);
+      return app.soundDecode(part, bytes);
     },
     taca_sound_play(info: number) {
-      return app.soundPlay(info);
+      return app.soundPlay(part, info);
     },
     taca_text_align(x: number, y: number) {
       app.textAlign(x, y);
     },
     taca_text_draw(text: number, x: number, y: number) {
-      app.drawText(app.readString(text), x, y);
+      app.drawText(part.readString(text), x, y);
     },
     taca_text_event(result: number) {
-      app.memoryBytes().set(app.textEventBytes, result);
+      part.memoryBytes().set(app.textEventBytes, result);
     },
     taca_texture_info(result: number, texture: number) {
-      app.textureInfo(result, texture);
+      app.textureInfo(part, result, texture);
     },
     taca_title_update(title: number) {
       // TODO Abstract to provide callbacks for these things?
-      document.title = app.readString(title);
+      document.title = part.readString(title);
     },
     taca_uniforms_apply(uniforms: number) {
-      app.uniformsApply(uniforms);
+      app.uniformsApply(part, uniforms);
     },
     taca_window_state(result: number) {
-      app.windowState(result);
+      app.windowState(part, result);
     },
   };
 }
@@ -1238,9 +1169,6 @@ interface Sound {
   buffer: AudioBuffer | null;
 }
 
-const textDecoder = new TextDecoder();
-const textEncoder = new TextEncoder();
-
 interface Uniforms {
   count: number;
   size: number;
@@ -1254,11 +1182,12 @@ function zipRead(bytes: Uint8Array) {
     // Extract only core taca files to start with. TODO Be more selective?
     filter: (info) => /^taca\/(?:ext\/)?[^/]+\.wasm/.test(info.name),
   });
-  const appers = Object.entries(entries)
+  // console.log(entries);
+  const parts = Object.entries(entries)
     .filter((it) => it[0].includes("/ext/"))
     .sort((a, b) => (a[0] > b[0] ? 1 : -1))
     .map((it) => it[1].buffer);
-  // console.log(entries);
-  appers.push(entries["taca/app.wasm"].buffer);
-  return appers;
+  parts.push(entries["taca/app.wasm"].buffer);
+  // console.log(parts);
+  return parts;
 }

@@ -1,19 +1,15 @@
+import { Part } from "./part";
 import { fail, getU32, setU16, setU32, setU64, setU8 } from "./util";
 
-interface App {
-  memoryViewMake(ptr: number, len: number): DataView;
-  readString(spanPtr: number): string;
-}
-
-export function makeWasiEnv(app: App) {
+export function makeWasiEnv(part: Part) {
   const outs = [] as string[];
   return {
     args_get() {
       return 0;
     },
     args_sizes_get(argvSize: number, argvBufSize: number) {
-      setU32(app.memoryViewMake(argvSize, 4), 0, 0);
-      setU32(app.memoryViewMake(argvBufSize, 4), 0, 0);
+      setU32(part.memoryViewMake(argvSize, 4), 0, 0);
+      setU32(part.memoryViewMake(argvBufSize, 4), 0, 0);
       return 0;
     },
     fd_close() {
@@ -21,7 +17,7 @@ export function makeWasiEnv(app: App) {
     },
     fd_fdstat_get(fd: number, fdstat: number) {
       // Ignore fd for now. Just presume character device.
-      const view = app.memoryViewMake(fdstat, 24);
+      const view = part.memoryViewMake(fdstat, 24);
       setU8(view, 0, 2); // 2 is for character device.
       setU8(view, 1, 0); // Just filler, but zero anyway.
       setU16(view, 2, 0); // Flags.
@@ -31,7 +27,7 @@ export function makeWasiEnv(app: App) {
       return 0;
     },
     fd_seek(fd: number, fileDelta: bigint, whence: number, newOffset: number) {
-      setU64(app.memoryViewMake(newOffset, 8), 0, 0n);
+      setU64(part.memoryViewMake(newOffset, 8), 0, 0n);
       // Claim failure.
       // See https://github.com/ziglang/zig/blob/4d81e8ee915c3e012131cf90ed87cc8c6a01a934/stage1/wasi.c#L998
       return 29;
@@ -41,8 +37,8 @@ export function makeWasiEnv(app: App) {
       let text = outs[fd] ?? "";
       for (var i = 0; i < len; i += 1) {
         const offset = iovec + 8 * i;
-        text += app.readString(offset);
-        total += getU32(app.memoryViewMake(offset, 8), 4);
+        text += part.readString(offset);
+        total += getU32(part.memoryViewMake(offset, 8), 4);
       }
       // TODO Just split at the last newline and log multiple lines at once?
       const lines = text.split("\n");
@@ -64,6 +60,6 @@ export function makeWasiEnv(app: App) {
     random_get(buf: number, bufLen: number) {
       // Claim failure.
       return 29;
-    }
+    },
   };
 }
