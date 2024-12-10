@@ -72,7 +72,7 @@ proc update*(eventKind: EventKind) {.exportWasm.} =
       textDraw(&"{textBox.text}|", offsetX, offsetY)
   of key:
     let event = keyEvent()
-    print(event.repr)
+    # print(event.repr)
     if not event.pressed:
       return
     app.message = &"Key code: {event.key}"

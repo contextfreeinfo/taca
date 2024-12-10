@@ -7,7 +7,7 @@ use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
-use wasmer::{Value, ValueType};
+use wasmer::ValueType;
 use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::{
     application::ApplicationHandler,
@@ -25,7 +25,7 @@ use crate::{
 };
 
 pub struct Display {
-    pub app: AppPtr,
+    pub app: AppPtr, // TODO Arc<Mutex<App>>?
     pub graphics: MaybeGraphics,
     pub pointer_pos: Option<PhysicalPosition<f64>>,
     pub pointer_press: u32,
@@ -154,31 +154,26 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         let key = key as i32;
                         let pressed = state.is_pressed();
                         let mut has_text = false;
-                        let system = app.env.as_mut(&mut app.store);
-                        system.key_event = KeyEvent {
-                            pressed,
-                            key,
-                            modifiers: 0,
-                        };
-                        if pressed {
-                            if let Some(text) = &text {
-                                let text = text.as_str();
-                                if !(text.len() == 1 && text.chars().next().unwrap() < '\x20') {
-                                    has_text = true;
-                                    system.update_text_buffer(text);
+                        {
+                            let mut system = app.system.lock().unwrap();
+                            system.key_event = KeyEvent {
+                                pressed,
+                                key,
+                                modifiers: 0,
+                            };
+                            if pressed {
+                                if let Some(text) = &text {
+                                    let text = text.as_str();
+                                    if !(text.len() == 1 && text.chars().next().unwrap() < '\x20') {
+                                        has_text = true;
+                                        system.update_text_buffer(text);
+                                    }
                                 }
                             }
                         }
-                        if let Some(update) = &app.update {
-                            // TODO Put text info back into key event?
-                            update
-                                .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
-                                .unwrap();
-                            if has_text {
-                                update
-                                    .call(&mut app.store, &[Value::I32(EventKind::Text as i32)])
-                                    .unwrap();
-                            }
+                        app.parts_update(EventKind::Key);
+                        if has_text {
+                            app.parts_update(EventKind::Text);
                         }
                     }
                     _ => {}
@@ -210,11 +205,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                     }
                 };
                 let app = unsafe { &mut *self.app.0 };
-                if let Some(update) = &app.update {
-                    update
-                        .call(&mut app.store, &[Value::I32(kind as i32)])
-                        .unwrap();
-                }
+                app.parts_update(kind);
             }
             WindowEvent::Resized(size) => self.resized(size),
             WindowEvent::RedrawRequested => self.draw(),
