@@ -2,7 +2,7 @@
 
 use std::{
     fs::File,
-    io::Read,
+    io::{Cursor, Read},
     sync::{
         mpsc::{channel, Sender},
         Arc, Mutex,
@@ -22,6 +22,7 @@ use wasmer::{
     Value, ValueType, WasmPtr, WasmRef,
 };
 use winit::event_loop::EventLoop;
+use zip::ZipArchive;
 
 use crate::{
     display::{Display, EventKind, Graphics, MaybeGraphics, UserEvent, WindowState},
@@ -51,9 +52,9 @@ pub struct AppPtr(pub *mut App);
 unsafe impl Send for AppPtr {}
 
 impl App {
-    fn init(wasm: &[u8], display: Display) -> App {
+    fn init(wasm: Vec<Vec<u8>>, display: Display) -> App {
         let mut store = Store::default();
-        let module = Module::new(&store, wasm).unwrap();
+        let module = Module::new(&store, &wasm[0]).unwrap();
         let env = FunctionEnv::new(&mut store, System::new(display));
         let import_object = imports! {
             "env" => {
@@ -147,20 +148,46 @@ impl App {
     }
 
     pub fn load(path: &str, display: Display) -> App {
-        let mut buf = Vec::<u8>::new();
+        let mut buf = Vec::new();
         File::open(path)
             .expect("Bad open")
             .read_to_end(&mut buf)
             .expect("Bad read");
-        if buf[0] == 0x04 {
-            // Presume lz4 compressed since wasm starts with 0x00.
-            let mut dest = vec![0u8; 0];
-            FrameDecoder::new(&buf as &[u8])
-                .read_to_end(&mut dest)
-                .unwrap();
-            buf = dest;
-        }
-        App::init(&buf, display)
+        let bufs = if buf[0] == 0x50 {
+            let mut bufs: Vec<Vec<u8>> = vec![];
+            let mut zip = ZipArchive::new(Cursor::new(buf)).unwrap();
+            // Read extensions.
+            for i in 0..zip.len() {
+                let mut file = zip.by_index(i).unwrap();
+                let name = file.name();
+                if let Some(ext_name) = name.strip_prefix("taca/ext/") {
+                    if !ext_name.contains('/') && ext_name.ends_with(".wasm") {
+                        let mut buf = Vec::new();
+                        file.read_to_end(&mut buf).unwrap();
+                        bufs.push(buf);
+                    }
+                }
+            }
+            // Read app.
+            {
+                let mut file = zip.by_name("taca/app.wasm").unwrap();
+                let mut buf = Vec::new();
+                file.read_to_end(&mut buf).unwrap();
+                bufs.push(buf);
+            }
+            bufs
+        } else {
+            if buf[0] == 0x04 {
+                // Presume lz4 compressed since wasm starts with 0x00.
+                let mut dest = vec![0u8; 0];
+                FrameDecoder::new(&buf as &[u8])
+                    .read_to_end(&mut dest)
+                    .unwrap();
+                buf = dest;
+            }
+            vec![buf]
+        };
+        App::init(bufs, display)
     }
 
     pub fn run(&mut self, event_loop: EventLoop<UserEvent>, ptr: *mut App) {

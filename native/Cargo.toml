@@ -14,6 +14,7 @@ wasmer = "4.3.2"
 wasmer-types = "4.3.2"
 wgpu = { version = "22.1.0", features = ["spirv"] }
 winit = "0.30.3"
+zip = "2.2.1"
 
 [dependencies.image]
 version = "0.25.2"

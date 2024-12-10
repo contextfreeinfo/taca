@@ -988,7 +988,7 @@ async function loadApp(config: AppConfig) {
   config.code = undefined;
   const appBytes = new Uint8Array(appData);
   const wasmBuffers =
-    appBytes[0] == 4
+    appBytes[0] == 0x04
       ? // Presume lz4 because wasm starts with 0.
         [lz4Decompress(appBytes).buffer]
       : appBytes[0] == 0x50
