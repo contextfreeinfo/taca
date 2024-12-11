@@ -986,6 +986,7 @@ const eventTypes = {
 async function loadApp(config: AppConfig) {
   const appData = config.code as ArrayBuffer;
   config.code = undefined;
+  // Read wasm buffers.
   const appBytes = new Uint8Array(appData);
   const wasmBuffers =
     appBytes[0] == 0x04
@@ -994,20 +995,43 @@ async function loadApp(config: AppConfig) {
       : appBytes[0] == 0x50
       ? zipRead(appBytes)
       : [appData];
-  // Load parts.
+  // Instantiate extensions.
   const app = new App(config);
-  const partPromises = wasmBuffers.map(async (wasmBuffer) => {
+  const reservedExports = new Set(["init", "initialize", "start", "update"]);
+  const bonusExports = {};
+  const makePart = async (buffer: ArrayBufferLike) => {
     const part = new Part();
     const env = makeAppEnv(app, part);
+    Object.assign(env, bonusExports);
     const wasi = makeWasiEnv(part);
-    let { instance } = await WebAssembly.instantiate(wasmBuffer, {
+    let { instance } = await WebAssembly.instantiate(buffer, {
       env,
       wasi_snapshot_preview1: wasi,
     });
     part.init(instance);
     return part;
-  });
-  const parts = await Promise.all(partPromises);
+  };
+  const extPromises = wasmBuffers.slice(0, -1).map(makePart);
+  const parts = await Promise.all(extPromises);
+  // Fill in bonus exports after extensions are instantiated.
+  for (const part of parts) {
+    Object.assign(
+      bonusExports,
+      Object.fromEntries(
+        Object.entries(part.exports).filter(([key]) => {
+          const reserved =
+            reservedExports.has(key) || // core reserved
+            key.includes(".") || // reserved for future namespacing rules
+            key.startsWith("_") || // reserved for whatever
+            key.startsWith("taca_"); // reserved for taca
+          return !reserved;
+        })
+      )
+    );
+  }
+  // Build the main app part and init everything.
+  const appPart = await makePart(wasmBuffers.at(-1)!);
+  parts.push(appPart);
   // Init them in order.
   for (const part of parts) {
     const exports = part.exports;

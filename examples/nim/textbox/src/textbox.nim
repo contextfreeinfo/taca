@@ -27,6 +27,10 @@ type
 
 var app: App
 
+proc textbox_entry_read*(buffer: Buffer) {.exportWasm.} =
+  var text = app.textBoxes[app.focus].text
+  print(&"textbox_entry_read({buffer.repr}) -> {text}")
+
 proc start*() {.exportWasm.} =
   titleUpdate("Text Box (Taca Demo)")
   print("Hi from Nim!")
