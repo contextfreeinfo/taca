@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use std::{
+    collections::HashMap,
     fs::File,
     io::{Cursor, Read},
     sync::{
@@ -18,8 +19,8 @@ use kira::{
 };
 use lz4_flex::frame::FrameDecoder;
 use wasmer::{
-    imports, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
-    Value, ValueType, WasmPtr, WasmRef,
+    imports, Extern, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module,
+    Store, Value, ValueType, WasmPtr, WasmRef,
 };
 use winit::event_loop::EventLoop;
 use zip::ZipArchive;
@@ -81,63 +82,89 @@ pub struct PartData {
 impl App {
     fn init(wasms: Vec<Vec<u8>>, display: Display) -> App {
         let mut parts = vec![];
+        // Prep building parts.
         let mut store = Store::default();
         let system = Arc::new(Mutex::new(System::new(display)));
-        for wasm in &wasms {
-            let module = Module::new(&store, wasm).unwrap();
-            let part_data = PartData {
-                memory: None,
-                system: system.clone(),
+        let mut make_part =
+            |wasm: &Vec<u8>, parts: &mut Vec<Part>, bonus_exports: &mut HashMap<String, Extern>| {
+                let module = Module::new(&store, wasm).unwrap();
+                let part_data = PartData {
+                    memory: None,
+                    system: system.clone(),
+                };
+                let env = FunctionEnv::new(&mut store, part_data);
+                let mut import_object = imports! {
+                    "env" => {
+                        "taca_bindings_apply" => Function::new_typed_with_env(&mut store, &env, taca_bindings_apply),
+                        "taca_bindings_new" => Function::new_typed_with_env(&mut store, &env, taca_bindings_new),
+                        "taca_buffer_new" => Function::new_typed_with_env(&mut store, &env, taca_buffer_new),
+                        "taca_buffer_read" => Function::new_typed_with_env(&mut store, &env, taca_buffer_read),
+                        "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
+                        "taca_buffers_apply" => Function::new_typed_with_env(&mut store, &env, taca_buffers_apply),
+                        "taca_clip" => Function::new_typed_with_env(&mut store, &env, taca_clip),
+                        "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
+                        "taca_image_decode" => Function::new_typed_with_env(&mut store, &env, taca_image_decode),
+                        "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
+                        "taca_pipeline_apply" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_apply),
+                        "taca_pipeline_new" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_new),
+                        "taca_print" => Function::new_typed_with_env(&mut store, &env, taca_print),
+                        "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
+                        "taca_sound_decode" => Function::new_typed_with_env(&mut store, &env, taca_sound_decode),
+                        "taca_sound_play" => Function::new_typed_with_env(&mut store, &env, taca_sound_play),
+                        "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
+                        "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
+                        "taca_text_event" => Function::new_typed_with_env(&mut store, &env, taca_text_event),
+                        "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
+                        "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
+                        "taca_uniforms_apply" => Function::new_typed_with_env(&mut store, &env, taca_uniforms_apply),
+                        "taca_window_state" => Function::new_typed_with_env(&mut store, &env, taca_window_state),
+                    },
+                    "wasi_snapshot_preview1" => {
+                        "args_get" => Function::new_typed_with_env(&mut store, &env, wasi::args_get),
+                        "args_sizes_get" => Function::new_typed_with_env(&mut store, &env, wasi::args_sizes_get),
+                        "fd_close" => Function::new_typed_with_env(&mut store, &env, wasi::fd_close),
+                        "fd_fdstat_get" => Function::new_typed_with_env(&mut store, &env, wasi::fd_fdstat_get),
+                        "fd_seek" => Function::new_typed_with_env(&mut store, &env, wasi::fd_seek),
+                        "fd_write" => Function::new_typed_with_env(&mut store, &env, wasi::fd_write),
+                        "proc_exit" => Function::new_typed(&mut store, wasi::proc_exit),
+                        "random_get" => Function::new_typed(&mut store, wasi::random_get),
+                    },
+                };
+                for (bonus_key, bonus_export) in bonus_exports.iter() {
+                    import_object.define("env", bonus_key, bonus_export.clone());
+                }
+                // import_object.define(ns, name, val);
+                let instance = Instance::new(&mut store, &module, &import_object).unwrap();
+                let update = instance.exports.get_function("update").ok().cloned();
+                let part_data = env.as_mut(&mut store);
+                part_data.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
+                let part = Part {
+                    env,
+                    instance,
+                    update,
+                };
+                parts.push(part);
             };
-            let env = FunctionEnv::new(&mut store, part_data);
-            let import_object = imports! {
-                "env" => {
-                    "taca_bindings_apply" => Function::new_typed_with_env(&mut store, &env, taca_bindings_apply),
-                    "taca_bindings_new" => Function::new_typed_with_env(&mut store, &env, taca_bindings_new),
-                    "taca_buffer_new" => Function::new_typed_with_env(&mut store, &env, taca_buffer_new),
-                    "taca_buffer_read" => Function::new_typed_with_env(&mut store, &env, taca_buffer_read),
-                    "taca_buffer_update" => Function::new_typed_with_env(&mut store, &env, taca_buffer_update),
-                    "taca_buffers_apply" => Function::new_typed_with_env(&mut store, &env, taca_buffers_apply),
-                    "taca_clip" => Function::new_typed_with_env(&mut store, &env, taca_clip),
-                    "taca_draw" => Function::new_typed_with_env(&mut store, &env, taca_draw),
-                    "taca_image_decode" => Function::new_typed_with_env(&mut store, &env, taca_image_decode),
-                    "taca_key_event" => Function::new_typed_with_env(&mut store, &env, taca_key_event),
-                    "taca_pipeline_apply" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_apply),
-                    "taca_pipeline_new" => Function::new_typed_with_env(&mut store, &env, taca_pipeline_new),
-                    "taca_print" => Function::new_typed_with_env(&mut store, &env, taca_print),
-                    "taca_shader_new" => Function::new_typed_with_env(&mut store, &env, taca_shader_new),
-                    "taca_sound_decode" => Function::new_typed_with_env(&mut store, &env, taca_sound_decode),
-                    "taca_sound_play" => Function::new_typed_with_env(&mut store, &env, taca_sound_play),
-                    "taca_text_align" => Function::new_typed_with_env(&mut store, &env, taca_text_align),
-                    "taca_text_draw" => Function::new_typed_with_env(&mut store, &env, taca_text_draw),
-                    "taca_text_event" => Function::new_typed_with_env(&mut store, &env, taca_text_event),
-                    "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
-                    "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
-                    "taca_uniforms_apply" => Function::new_typed_with_env(&mut store, &env, taca_uniforms_apply),
-                    "taca_window_state" => Function::new_typed_with_env(&mut store, &env, taca_window_state),
-                },
-                "wasi_snapshot_preview1" => {
-                    "args_get" => Function::new_typed_with_env(&mut store, &env, wasi::args_get),
-                    "args_sizes_get" => Function::new_typed_with_env(&mut store, &env, wasi::args_sizes_get),
-                    "fd_close" => Function::new_typed_with_env(&mut store, &env, wasi::fd_close),
-                    "fd_fdstat_get" => Function::new_typed_with_env(&mut store, &env, wasi::fd_fdstat_get),
-                    "fd_seek" => Function::new_typed_with_env(&mut store, &env, wasi::fd_seek),
-                    "fd_write" => Function::new_typed_with_env(&mut store, &env, wasi::fd_write),
-                    "proc_exit" => Function::new_typed(&mut store, wasi::proc_exit),
-                    "random_get" => Function::new_typed(&mut store, wasi::random_get),
-                },
-            };
-            let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-            let update = instance.exports.get_function("update").ok().cloned();
-            let part_data = env.as_mut(&mut store);
-            part_data.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
-            let part = Part {
-                env,
-                instance,
-                update,
-            };
-            parts.push(part);
+        // Separate last as app from earlier extensions.
+        let (app_wasm, ext_wasms) = wasms.split_last().unwrap();
+        let mut bonus_exports = HashMap::new();
+        for wasm in ext_wasms {
+            make_part(wasm, &mut parts, &mut bonus_exports);
         }
+        // Build bonus exports to import into app.
+        for part in &parts {
+            for (key, export) in part.instance.exports.iter() {
+                match key.as_str() {
+                    "init" | "initialize" | "start" | "update" => {}
+                    _ if key.starts_with('_') || key.starts_with("taca_") => {}
+                    _ => {
+                        bonus_exports.insert(key.clone(), export.clone());
+                    }
+                };
+            }
+        }
+        // Make and finish app.
+        make_part(app_wasm, &mut parts, &mut bonus_exports);
         {
             let mut system = system.lock().unwrap();
             system.parts = parts;
