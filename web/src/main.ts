@@ -996,6 +996,7 @@ async function loadApp(config: AppConfig) {
       ? zipRead(appBytes)
       : [appData];
   // Instantiate extensions.
+  // TODO Recursive dependencies.
   const app = new App(config);
   const reservedExports = new Set(["init", "initialize", "start", "update"]);
   const bonusExports = {};

@@ -84,7 +84,7 @@ impl App {
         let mut store = Store::default();
         let system = Arc::new(Mutex::new(System::new(display)));
         for wasm in &wasms {
-            let module = Module::new(&store, &wasm).unwrap();
+            let module = Module::new(&store, wasm).unwrap();
             let part_data = PartData {
                 memory: None,
                 system: system.clone(),
@@ -162,7 +162,7 @@ impl App {
                 self.task_finish();
             }
             UserEvent::SoundDecoded { handle, sound } => {
-                match sound {
+                match *sound {
                     Ok(sound) => {
                         let mut system = self.system.lock().unwrap();
                         // dbg!(sound.duration());
@@ -303,7 +303,7 @@ pub enum Buffer {
 impl Buffer {
     pub fn cpu(&self) -> Option<&CpuBuffer> {
         match self {
-            Buffer::CpuBuffer(buffer) => Some(&buffer),
+            Buffer::CpuBuffer(buffer) => Some(buffer),
             Buffer::GpuBuffer(_) => None,
         }
     }
@@ -311,7 +311,7 @@ impl Buffer {
     pub fn gpu(&self) -> Option<&GpuBuffer> {
         match self {
             Buffer::CpuBuffer(_) => None,
-            Buffer::GpuBuffer(buffer) => Some(&buffer),
+            Buffer::GpuBuffer(buffer) => Some(buffer),
         }
     }
 }
@@ -353,7 +353,7 @@ impl System {
             }
         };
         System {
-            audio_manager: audio_manager,
+            audio_manager,
             bindings: vec![],
             bindings_updated: vec![],
             buffers: vec![],
@@ -400,7 +400,7 @@ where
     match span.len {
         0 => vec![],
         _ => WasmPtr::<T>::new(span.ptr)
-            .slice(&view, span.len)
+            .slice(view, span.len)
             .unwrap()
             .read_to_vec()
             .unwrap(),
@@ -411,7 +411,7 @@ fn read_string(view: &MemoryView, span: Span) -> String {
     match span.len {
         0 => "".into(),
         _ => WasmPtr::<u8>::new(span.ptr)
-            .read_utf8_string(&view, span.len)
+            .read_utf8_string(view, span.len)
             .unwrap(),
     }
 }

@@ -445,7 +445,7 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
         true => (true, wgpu::CompareFunction::Less),
         false => (false, wgpu::CompareFunction::Always),
     };
-    fn choose_entry<'a>(entry: String, default: &'a str) -> String {
+    fn choose_entry(entry: String, default: &str) -> String {
         match entry.as_str() {
             "" => default.to_string(),
             _ => entry,
@@ -493,11 +493,11 @@ pub fn create_pipeline(system: &mut System, info: PipelineInfo) {
         .map(|entries| {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: None,
-                entries: &entries,
+                entries,
             })
         })
         .collect();
-    let group_layout_refs: Vec<_> = group_layouts.iter().map(|it| it).collect();
+    let group_layout_refs: Vec<_> = group_layouts.iter().collect();
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &group_layout_refs,
@@ -593,7 +593,7 @@ pub fn image_decode(
     let cursor = Cursor::new(bytes);
     let image = ImageReader::new(cursor)
         .with_guessed_format()
-        .map_err(|err| ImageError::IoError(err))
+        .map_err(ImageError::IoError)
         .and_then(|reader| reader.decode());
     event_loop_proxy
         .send_event(UserEvent::ImageDecoded { handle, image })
@@ -865,7 +865,10 @@ pub fn sound_decode(
     let cursor = Cursor::new(bytes);
     let sound = StaticSoundData::from_cursor(cursor);
     event_loop_proxy
-        .send_event(UserEvent::SoundDecoded { handle, sound })
+        .send_event(UserEvent::SoundDecoded {
+            handle,
+            sound: Box::new(sound),
+        })
         .unwrap();
 }
 
@@ -876,7 +879,7 @@ fn step_mode_translate(step: u32) -> wgpu::VertexStepMode {
     }
 }
 
-pub fn uniforms_apply<'a>(system: &'a mut System, bytes: &[u8]) {
+pub fn uniforms_apply(system: &mut System, bytes: &[u8]) {
     pipelined_ensure(system);
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();

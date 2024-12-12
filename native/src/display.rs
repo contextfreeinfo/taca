@@ -106,7 +106,7 @@ impl Display {
     }
 }
 
-impl<'a> ApplicationHandler<UserEvent> for Display {
+impl ApplicationHandler<UserEvent> for Display {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -244,7 +244,7 @@ pub enum UserEvent {
     },
     SoundDecoded {
         handle: usize,
-        sound: Result<StaticSoundData, kira::sound::FromFileError>,
+        sound: Box<Result<StaticSoundData, kira::sound::FromFileError>>,
     },
 }
 
