@@ -19,6 +19,8 @@ type
   BufferKind* = enum
     vertex
     index
+    uniform
+    cpu
 
   EventKind* = enum
     frame

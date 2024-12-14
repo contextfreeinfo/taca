@@ -335,6 +335,13 @@ impl Buffer {
         }
     }
 
+    pub fn cpu_mut(&mut self) -> Option<&mut CpuBuffer> {
+        match self {
+            Buffer::CpuBuffer(buffer) => Some(buffer),
+            Buffer::GpuBuffer(_) => None,
+        }
+    }
+
     pub fn gpu(&self) -> Option<&GpuBuffer> {
         match self {
             Buffer::CpuBuffer(_) => None,
@@ -468,7 +475,7 @@ fn taca_bindings_new(mut env: FunctionEnvMut<PartData>, bindings: u32) -> u32 {
     system.bindings.len().try_into().unwrap()
 }
 
-fn taca_buffer_new(mut env: FunctionEnvMut<PartData>, typ: u32, slice: u32) -> u32 {
+fn taca_buffer_new(mut env: FunctionEnvMut<PartData>, kind: u32, slice: u32) -> u32 {
     let (part, store) = env.data_and_store_mut();
     let mut system = part.system.lock().unwrap();
     let view = part.memory.as_ref().unwrap().view(&store);
@@ -480,7 +487,12 @@ fn taca_buffer_new(mut env: FunctionEnvMut<PartData>, typ: u32, slice: u32) -> u
                 .unwrap(),
         ),
     };
-    create_buffer(&mut system, contents.as_deref(), slice.size, typ);
+    match kind {
+        3 => system
+            .buffers
+            .push(Buffer::CpuBuffer(CpuBuffer { data: vec![] })),
+        _ => create_buffer(&mut system, contents.as_deref(), slice.size, kind),
+    }
     system.buffers.len() as u32
 }
 
@@ -489,6 +501,7 @@ fn taca_buffer_read(mut env: FunctionEnvMut<PartData>, buffer: u32, bytes: u32, 
     let system = part.system.lock().unwrap();
     let view = part.memory.as_ref().unwrap().view(&store);
     let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
+    // TODO Also read gpu buffers.
     let Some(buffer) = system
         .buffers
         .get(match buffer as usize {
@@ -511,6 +524,19 @@ fn taca_buffer_update(mut env: FunctionEnvMut<PartData>, buffer: u32, bytes: u32
     let view = part.memory.as_ref().unwrap().view(&store);
     let bytes = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
     let bytes = read_span::<u8>(&view, bytes);
+    if let Some(buffer) = system
+        .buffers
+        .get_mut(buffer as usize - 1)
+        .and_then(|it| it.cpu_mut())
+    {
+        // Cpu buffer.
+        let data = &mut buffer.data;
+        let offset = offset as usize;
+        let new_size = data.len().max(offset + bytes.len());
+        data.resize(new_size, 0);
+        data[offset..offset + bytes.len()].copy_from_slice(&bytes);
+        return;
+    }
     buffer_update(&mut system, buffer, &bytes, offset);
 }
 
