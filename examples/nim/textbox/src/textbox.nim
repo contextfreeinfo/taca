@@ -27,13 +27,14 @@ type
 
 var app: App
 
-proc textbox_entry_read*(buffer: Buffer) {.exportWasm.} =
-  var text = app.textBoxes[app.focus].text
-  print(&"textbox_entry_read({buffer.repr}) -> {text}")
+proc textbox_entry_read*(buffer: Buffer): int {.exportWasm.} =
+  var text: string = app.textBoxes[app.focus].text
+  bufferUpdate(buffer, text)
+  text.len
 
-proc textbox_label_write*(buffer: Buffer) {.exportWasm.} =
-  # var text = app.textBoxes[app.focus].text
-  print(&"textbox_label_write({buffer.repr})")
+proc textbox_label_write*(buffer: Buffer, size: uint) {.exportWasm.} =
+  app.message.setLen(size)
+  bufferRead(buffer, app.message)
 
 proc start*() {.exportWasm.} =
   titleUpdate("Text Box (Taca Demo)")

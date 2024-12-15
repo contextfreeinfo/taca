@@ -2,15 +2,15 @@ package guess
 
 import "base:runtime"
 // import "core:encoding/endian"
-// import "core:fmt"
+import "core:fmt"
 import "taca"
 
 foreign import env "env"
 
 @(default_calling_convention = "c")
 foreign env {
-	textbox_entry_read :: proc(buffer: taca.Buffer) ---
-	textbox_label_write :: proc(buffer: taca.Buffer) ---
+	textbox_entry_read :: proc(buffer: taca.Buffer) -> uint ---
+	textbox_label_write :: proc(buffer: taca.Buffer, size: uint) ---
 }
 
 App :: struct {
@@ -29,10 +29,9 @@ start :: proc "c" () {
 	taca.print("Hi from Odin!")
 	app = {
 		buffer = taca.buffer_new(.Cpu),
-		ctx = context,
+		ctx    = context,
 	}
-	write_string(app.buffer, "Guess a number between 1 and 100:")
-	textbox_label_write(app.buffer)
+	label_update(app, "Guess a number between 1 and 100:")
 }
 
 @(export)
@@ -41,16 +40,23 @@ update :: proc "c" (kind: taca.EventKind) {
 	defer free_all(context.temp_allocator)
 	// taca.print(fmt.tprintf("%d", kind))
 	if kind == .Key {
-		textbox_entry_read(app.buffer)
+		entry := entry_read(app)
+		taca.print(fmt.tprintf("got %s", entry))
 	}
 }
 
-write_string :: proc(buffer: taca.Buffer, text: string) {
-	buf := make([]u8, 4 + len(text), context.temp_allocator)
-	size: u32 = cast(u32)len(text)
-	// taca.print(fmt.tprintf("%d", size))
-	// endian.put_u32(buf, .Little, cast(u32)len(text))
-	runtime.mem_copy_non_overlapping(raw_data(buf), transmute(^u8)&size, size_of(size))
-	runtime.mem_copy_non_overlapping(raw_data(buf[size_of(size):]), raw_data(text), len(text))
-	taca.buffer_update(buffer, buf[:])
+entry_read :: proc(app: App) -> string {
+	size := textbox_entry_read(app.buffer)
+	buf := make([]u8, size, context.temp_allocator)
+	taca.buffer_read(app.buffer, buf)
+	return transmute(string)buf
+}
+
+label_update :: proc(app: App, text: string) {
+	textbox_label_write(app.buffer, write_string(app.buffer, text))
+}
+
+write_string :: proc(buffer: taca.Buffer, text: string) -> uint {
+	taca.buffer_update(buffer, transmute([]u8)text)
+	return len(text)
 }
