@@ -250,17 +250,25 @@ class App {
     const data = ptr
       ? part.memoryBytes().subarray(ptr, ptr + size)
       : new Uint8Array(size);
-    const { gl } = this;
-    const buffer = gl.createBuffer() ?? fail();
-    const kind = ["vertex", "index", "uniform"][type] as BufferKind;
-    const usage = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
-    // TODO Change to numbers for kind or just cache these elsewhere?
-    const target =
-      [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER, gl.UNIFORM_BUFFER][type] ??
-      fail();
-    gl.bindBuffer(target, buffer);
-    gl.bufferData(target, data, usage);
-    this.buffers.push({ buffer, kind, mutable: !ptr, size });
+    if (type == 3) {
+      // Cpu buffer.
+      const bytes = new Uint8Array(data.length);
+      bytes.set(data);
+      this.buffers.push({ bytes, kind: "cpu", length: bytes.length });
+    } else {
+      // Gpu buffer.
+      const { gl } = this;
+      const buffer = gl.createBuffer() ?? fail();
+      const kind = ["vertex", "index", "uniform"][type] as BufferKind;
+      const usage = ptr ? gl.STATIC_DRAW : gl.STREAM_DRAW;
+      // TODO Change to numbers for kind or just cache these elsewhere?
+      const target =
+        [gl.ARRAY_BUFFER, gl.ELEMENT_ARRAY_BUFFER, gl.UNIFORM_BUFFER][type] ??
+        fail();
+      gl.bindBuffer(target, buffer);
+      gl.bufferData(target, data, usage);
+      this.buffers.push({ buffer, kind, mutable: !ptr, size });
+    }
     return this.buffers.length;
   }
 
@@ -276,18 +284,32 @@ class App {
   }
 
   bufferUpdate(part: Part, bufferPtr: number, slice: number, offset: number) {
-    const { buffers, gl } = this;
-    const { buffer, kind, mutable } = buffers[bufferPtr - 1] as GpuBuffer;
     const bytes = part.readBytes(slice);
-    // TODO Is this checked automatically?
-    mutable || fail();
-    const target = {
-      vertex: gl.ARRAY_BUFFER,
-      index: gl.ELEMENT_ARRAY_BUFFER,
-      uniform: gl.UNIFORM_BUFFER,
-    }[kind];
-    gl.bindBuffer(target, buffer);
-    gl.bufferSubData(target, offset, bytes);
+    const { buffers, gl } = this;
+    const bufferWrapper = buffers[bufferPtr - 1];
+    if (bufferWrapper.kind == "cpu") {
+      // Cpu buffer.
+      const length = Math.max(bufferWrapper.length, offset + bytes.length);
+      bufferWrapper.length = length;
+      if (length > bufferWrapper.bytes.length) {
+        const newBytes = new Uint8Array(Math.ceil(length * 1.5));
+        newBytes.set(bufferWrapper.bytes);
+        bufferWrapper.bytes = newBytes;
+      }
+      bufferWrapper.bytes.set(bytes, offset);
+    } else {
+      // Gpu buffer.
+      const { buffer, kind, mutable } = bufferWrapper;
+      // TODO Is this checked automatically?
+      mutable || fail();
+      const target = {
+        vertex: gl.ARRAY_BUFFER,
+        index: gl.ELEMENT_ARRAY_BUFFER,
+        uniform: gl.UNIFORM_BUFFER,
+      }[kind];
+      gl.bindBuffer(target, buffer);
+      gl.bufferSubData(target, offset, bytes);
+    }
   }
 
   buffered = false;
