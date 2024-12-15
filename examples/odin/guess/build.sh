@@ -8,7 +8,7 @@ pub() {
     done
 }
 
-(cd ../../nim/textbox && bash build-ext.sh) && \
+(cd ../../nim/textbox && bash build.sh) && \
 rm -rf out/bundle && \
 mkdir -p out/bundle/taca/ext && \
 cp ../../nim/textbox/out/textbox.wasm out/bundle/taca/ext/ && \

@@ -1,8 +1,9 @@
 package guess
 
 import "base:runtime"
-// import "core:encoding/endian"
 import "core:fmt"
+import "core:math/rand"
+import "core:strconv"
 import "taca"
 
 foreign import env "env"
@@ -15,8 +16,11 @@ foreign env {
 }
 
 App :: struct {
+	answer: int,
 	buffer: taca.Buffer,
 	ctx:    runtime.Context,
+	frames: int,
+	max:    int,
 }
 
 app: App
@@ -26,26 +30,24 @@ start :: proc "c" () {
 	context = runtime.default_context()
 	defer free_all(context.temp_allocator)
 	taca.title_update("Guessing Game (Taca Demo)")
-	// fmt.println("Hellope!")
 	taca.print("Hi from Odin!")
 	app = {
 		buffer = taca.buffer_new(.Cpu),
 		ctx    = context,
+		max    = 100,
 	}
-	label_update(app, "Guess a number between 1 and 100:")
+	label_update(app, fmt.tprintf("Guess a number between 1 and %d:", app.max))
 }
 
 @(export)
 update :: proc "c" (kind: taca.Event_Kind) {
 	context = app.ctx
 	defer free_all(context.temp_allocator)
-	// taca.print(fmt.tprintf("%d", kind))
+	app.frames += 1
 	if kind == .Key {
 		event := taca.key_event()
 		if event.pressed && event.key == .Enter {
-			entry := entry_read(app)
-			entry_update(app, "")
-			taca.print(fmt.tprintf("got %s", entry))
+			process_entry(&app)
 		}
 	}
 }
@@ -63,6 +65,32 @@ entry_update :: proc(app: App, text: string) {
 
 label_update :: proc(app: App, text: string) {
 	textbox_label_write(app.buffer, write_string(app.buffer, text))
+}
+
+pick_answer :: proc(app: ^App) {
+	app.answer = rand.int_max(app.max - 1) + 1
+	// taca.print(fmt.tprintf("Answer: %d", app.answer))
+}
+
+process_entry :: proc(app: ^App) {
+	if app.answer == 0 {
+		// Seed random only after first entry so it depends on timing.
+		rand.reset(u64(app.frames))
+		pick_answer(app)
+	}
+	entry := entry_read(app^)
+	entry_update(app^, "")
+	guess, ok := strconv.parse_int(entry)
+	if !ok {
+		label_update(app^, fmt.tprintf(`"%s" is not an integer. Guess again:`, entry))
+	} else if guess < app.answer {
+		label_update(app^, fmt.tprintf("%d is too low. Guess again:", guess))
+	} else if guess > app.answer {
+		label_update(app^, fmt.tprintf("%d is too high. Guess again:", guess))
+	} else {
+		label_update(app^, fmt.tprintf("%d is the answer! Guess a new number:", guess))
+		pick_answer(app)
+	}
 }
 
 write_string :: proc(buffer: taca.Buffer, text: string) -> uint {
