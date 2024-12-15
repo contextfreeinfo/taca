@@ -5,13 +5,16 @@ foreign import env "env"
 @(default_calling_convention = "c")
 foreign env {
 	@(link_name = "taca_buffer_new")
-	buffer_new :: proc(kind: BufferKind, bytes: []u8 = nil) -> Buffer ---
+	buffer_new :: proc(kind: Buffer_Kind, bytes: []u8 = nil) -> Buffer ---
 
 	@(link_name = "taca_buffer_read")
 	buffer_read :: proc(buffer: Buffer, bytes: []u8, buffer_offset: uint = 0) ---
 
 	@(link_name = "taca_buffer_update")
 	buffer_update :: proc(buffer: Buffer, bytes: []u8, buffer_offset: uint = 0) ---
+
+	@(link_name = "taca_key_event")
+	key_event :: proc() -> Key_Event ---
 
 	@(link_name = "taca_print")
 	print :: proc(text: string) ---
@@ -22,17 +25,17 @@ foreign env {
 
 Buffer :: distinct u32
 
-BufferKind :: enum {
+Buffer_Kind :: enum {
 	Vertex,
 	Index,
 	Uniform,
 	Cpu,
 }
 
-EventKind :: enum {
+Event_Kind :: enum u32 {
 	Frame,
 	Key,
-	TasksDone,
+	Tasks_Done,
 	Press, // TODO Single touch event kind to match key?
 	Release,
 	Text,

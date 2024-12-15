@@ -10,6 +10,7 @@ foreign import env "env"
 @(default_calling_convention = "c")
 foreign env {
 	textbox_entry_read :: proc(buffer: taca.Buffer) -> uint ---
+	textbox_entry_write :: proc(buffer: taca.Buffer, size: uint) -> uint ---
 	textbox_label_write :: proc(buffer: taca.Buffer, size: uint) ---
 }
 
@@ -35,13 +36,17 @@ start :: proc "c" () {
 }
 
 @(export)
-update :: proc "c" (kind: taca.EventKind) {
+update :: proc "c" (kind: taca.Event_Kind) {
 	context = app.ctx
 	defer free_all(context.temp_allocator)
 	// taca.print(fmt.tprintf("%d", kind))
 	if kind == .Key {
-		entry := entry_read(app)
-		taca.print(fmt.tprintf("got %s", entry))
+		event := taca.key_event()
+		if event.pressed && event.key == .Enter {
+			entry := entry_read(app)
+			entry_update(app, "")
+			taca.print(fmt.tprintf("got %s", entry))
+		}
 	}
 }
 
@@ -50,6 +55,10 @@ entry_read :: proc(app: App) -> string {
 	buf := make([]u8, size, context.temp_allocator)
 	taca.buffer_read(app.buffer, buf)
 	return transmute(string)buf
+}
+
+entry_update :: proc(app: App, text: string) {
+	textbox_entry_write(app.buffer, write_string(app.buffer, text))
 }
 
 label_update :: proc(app: App, text: string) {

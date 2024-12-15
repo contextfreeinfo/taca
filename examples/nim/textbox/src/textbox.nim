@@ -20,7 +20,7 @@ type
     focus: int
     indexBuffer: Buffer
     instanceBuffer: Buffer
-    message: string
+    label: string
     textBoxes: seq[TextBox]
     textInput: string
     vertexBuffer: Buffer
@@ -28,13 +28,18 @@ type
 var app: App
 
 proc textbox_entry_read*(buffer: Buffer): int {.exportWasm.} =
-  var text: string = app.textBoxes[app.focus].text
+  var text = app.textBoxes[app.focus].text
   bufferUpdate(buffer, text)
   text.len
 
+proc textbox_entry_write*(buffer: Buffer, size: uint): int {.exportWasm.} =
+  var textBox = app.textBoxes[app.focus].addr
+  textBox.text.setLen(size)
+  bufferRead(buffer, textBox.text)
+
 proc textbox_label_write*(buffer: Buffer, size: uint) {.exportWasm.} =
-  app.message.setLen(size)
-  bufferRead(buffer, app.message)
+  app.label.setLen(size)
+  bufferRead(buffer, app.label)
 
 proc start*() {.exportWasm.} =
   titleUpdate("Text Box (Taca Demo)")
@@ -50,7 +55,7 @@ proc start*() {.exportWasm.} =
   app = App(
     indexBuffer: bufferNew(index, [0'u16, 1, 2, 1, 3, 2]),
     instanceBuffer: bufferNew(vertex, 10 * DrawInstance.sizeof),
-    message: "Press any key",
+    label: "Press any key",
     textBoxes: @[TextBox(alignX: center, alignY: middle, offset: [0, 30])],
     vertexBuffer: bufferNew(vertex, [[-1'f32, -1], [-1, 1], [1, -1], [1, 1]]),
   )
@@ -72,11 +77,11 @@ proc update*(eventKind: EventKind) {.exportWasm.} =
     draw(0, 6, 1)
     let size = windowState().size
     textAlign(center, middle)
-    let messageOffset = [size[0] / 2, size[1] / 2]
-    textDraw(app.message, messageOffset[0], messageOffset[1])
+    let labelOffset = [size[0] / 2, size[1] / 2]
+    textDraw(app.label, labelOffset[0], labelOffset[1])
     for textBox in app.textBoxes:
-      let offsetX = messageOffset[0] + textBox.offset[0]
-      let offsetY = messageOffset[1] + textBox.offset[1]
+      let offsetX = labelOffset[0] + textBox.offset[0]
+      let offsetY = labelOffset[1] + textBox.offset[1]
       textAlign(textBox.alignX, textBox.alignY)
       textDraw(&"{textBox.text}|", offsetX, offsetY)
   of key:
@@ -84,19 +89,19 @@ proc update*(eventKind: EventKind) {.exportWasm.} =
     # print(event.repr)
     if not event.pressed:
       return
-    app.message = &"Key code: {event.key}"
+    app.label = &"Key code: {event.key}"
     if event.key == backspace and app.focus >= 0:
       removeLastRune(app.textBoxes[app.focus].text)
   of text:
     let event = textEvent()
     if app.focus < 0:
       return
-    let textBox = addr app.textBoxes[app.focus]
+    let textBox = app.textBoxes[app.focus].addr
     # print(event.repr)
     app.textInput.setLen(event.size)
     bufferRead(event.buffer, app.textInput)
     # print(app.textInput)
     textBox.text &= app.textInput
-    app.message = &"Text: \"{app.textInput}\""
+    app.label = &"Text: \"{app.textInput}\""
     # print(textBox.repr)
   else: discard
