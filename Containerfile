@@ -6,7 +6,9 @@ ARG BINARYEN_VERSION=118
 ARG C3_VERSION=0.6.2
 ARG NAGA_VERSION=22.0.0
 ARG NELUA_VERSION=ff7a42c275239933f6e615b2ad2e6a8d507afe7b
+ARG NIM_VERSION=2.2.0
 ARG NODE_VERSION=20.16.0
+ARG ODIN_VERSION=dev-2024-12
 ARG RUST_VERSION=1.80.0
 ARG VULKAN_SDK_VERSION=1.3.290.0
 ARG WASI_SDK_VERSION=24.0
@@ -23,6 +25,7 @@ RUN apt-get update && apt-get install -y \
     libxml2 \
     lz4 \
     vim \
+    zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,7 +34,8 @@ RUN apt-get update && apt-get install -y \
 # c3
 RUN curl -LO https://github.com/c3lang/c3c/releases/download/v${C3_VERSION}/c3-linux.tar.gz \
     && tar -xf c3-linux.tar.gz \
-    && mv c3 /opt/c3
+    && mv c3 /opt/c3 \
+    && rm c3-linux.tar.gz
 ENV PATH="/opt/c3:${PATH}"
 
 # nelua
@@ -43,9 +47,23 @@ RUN git clone https://github.com/edubart/nelua-lang.git \
     && cd .. \
     && rm -rf nelua-lang
 
+# nim
+RUN curl -LO https://nim-lang.org/download/nim-${NIM_VERSION}-linux_x64.tar.xz \
+    && tar -xf nim-${NIM_VERSION}-linux_x64.tar.xz \
+    && mv nim-${NIM_VERSION} /opt/nim \
+    && rm nim-${NIM_VERSION}-linux_x64.tar.xz
+ENV PATH="/opt/nim/bin:${PATH}"
+
 # node
 RUN curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
     | tar -xJ --strip-components=1 -C /usr/local
+
+# odin
+RUN curl -LO https://github.com/odin-lang/Odin/releases/download/${ODIN_VERSION}/odin-linux-amd64-${ODIN_VERSION}.tar.gz \
+    && tar -xf odin-linux-amd64-${ODIN_VERSION}.tar.gz \
+    && mv $(find . -maxdepth 1 -type d -name 'odin-*') /opt/odin \
+    && rm odin-linux-amd64-${ODIN_VERSION}.tar.gz
+ENV PATH="/opt/odin:${PATH}"
 
 # rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain ${RUST_VERSION}

@@ -112,7 +112,7 @@ typedef struct {
 typedef struct {
     bool pressed;
     taca_Key key;
-    uint8_t text[4];
+    uint32_t modifiers;
 } taca_KeyEvent;
 
 typedef struct {
@@ -195,7 +195,7 @@ __attribute__((import_name("taca_text_align")))
 void taca_text_align(taca_TextAlignX x, taca_TextAlignY y);
 
 __attribute__((import_name("taca_text_draw")))
-void taca_text_draw(taca_StringView bytes, float x, float y);
+void taca_text_draw(taca_StringView text, float x, float y);
 
 __attribute__((import_name("taca_title_update")))
 void taca_title_update(taca_StringView text);

@@ -117,7 +117,7 @@ impl TextEngine {
                 bias: wgpu::DepthBiasState::default(),
             });
             let text_renderer =
-                TextRenderer::new(atlas, &device, MultisampleState::default(), depth);
+                TextRenderer::new(atlas, device, MultisampleState::default(), depth);
             renderers.push(text_renderer);
         }
         let text_renderer = &mut renderers[renderer_index];
@@ -134,7 +134,7 @@ impl TextEngine {
         // Render
         let size = window.inner_size();
         viewport.update(
-            &queue,
+            queue,
             Resolution {
                 width: size.width,
                 height: size.height,
@@ -156,13 +156,13 @@ impl TextEngine {
         // dbg!(text, &align_x, &align_y, left, top, size);
         text_renderer
             .prepare(
-                &device,
-                &queue,
+                device,
+                queue,
                 font_system,
                 atlas,
-                &viewport,
+                viewport,
                 [TextArea {
-                    buffer: &buffer,
+                    buffer,
                     left,
                     top,
                     scale: 1.0,
@@ -202,7 +202,7 @@ fn adjust_metrics(buffer: &mut Buffer, font: &Font, font_system: &mut FontSystem
         width += run.line_w;
     }
     let height = font.size * max_height;
-    return (width, height);
+    (width, height)
     // buffer.set_metrics(font_system, Metrics::new(font.size / max_height, font_size * 1.5));
 }
 

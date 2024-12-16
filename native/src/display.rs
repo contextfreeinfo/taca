@@ -7,7 +7,7 @@ use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
-use wasmer::{Value, ValueType};
+use wasmer::ValueType;
 use wgpu::{Adapter, Device, Instance, Queue, Surface, SurfaceConfiguration, TextureFormat};
 use winit::{
     application::ApplicationHandler,
@@ -25,7 +25,7 @@ use crate::{
 };
 
 pub struct Display {
-    pub app: AppPtr,
+    pub app: AppPtr, // TODO Arc<Mutex<App>>?
     pub graphics: MaybeGraphics,
     pub pointer_pos: Option<PhysicalPosition<f64>>,
     pub pointer_press: u32,
@@ -42,6 +42,7 @@ pub enum EventKind {
     TasksDone = 2,
     Press = 3,
     Release = 4,
+    Text = 5,
 }
 
 const REPORT_DELAY: Duration = Duration::from_secs(10);
@@ -105,7 +106,7 @@ impl Display {
     }
 }
 
-impl<'a> ApplicationHandler<UserEvent> for Display {
+impl ApplicationHandler<UserEvent> for Display {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -124,7 +125,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         physical_key,
                         logical_key: _,
                         // TODO How does this relate to web capabilities?
-                        text: _,
+                        text,
                         location: _,
                         state,
                         repeat,
@@ -152,16 +153,27 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                         let key: Key = key.into();
                         let key = key as i32;
                         let pressed = state.is_pressed();
-                        let system = app.env.as_mut(&mut app.store);
-                        system.key_event = KeyEvent {
-                            pressed,
-                            key,
-                            text: [0; 4],
-                        };
-                        if let Some(update) = &app.update {
-                            update
-                                .call(&mut app.store, &[Value::I32(EventKind::Key as i32)])
-                                .unwrap();
+                        let mut has_text = false;
+                        {
+                            let mut system = app.system.lock().unwrap();
+                            system.key_event = KeyEvent {
+                                pressed,
+                                key,
+                                modifiers: 0,
+                            };
+                            if pressed {
+                                if let Some(text) = &text {
+                                    let text = text.as_str();
+                                    if !(text.len() == 1 && text.chars().next().unwrap() < '\x20') {
+                                        has_text = true;
+                                        system.update_text_buffer(text);
+                                    }
+                                }
+                            }
+                        }
+                        app.parts_update(EventKind::Key);
+                        if has_text {
+                            app.parts_update(EventKind::Text);
                         }
                     }
                     _ => {}
@@ -193,11 +205,7 @@ impl<'a> ApplicationHandler<UserEvent> for Display {
                     }
                 };
                 let app = unsafe { &mut *self.app.0 };
-                if let Some(update) = &app.update {
-                    update
-                        .call(&mut app.store, &[Value::I32(kind as i32)])
-                        .unwrap();
-                }
+                app.parts_update(kind);
             }
             WindowEvent::Resized(size) => self.resized(size),
             WindowEvent::RedrawRequested => self.draw(),
@@ -236,7 +244,7 @@ pub enum UserEvent {
     },
     SoundDecoded {
         handle: usize,
-        sound: Result<StaticSoundData, kira::sound::FromFileError>,
+        sound: Box<Result<StaticSoundData, kira::sound::FromFileError>>,
     },
 }
 

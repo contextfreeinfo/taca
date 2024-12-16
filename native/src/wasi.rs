@@ -2,7 +2,7 @@ use std::fmt;
 
 use wasmer::{FunctionEnvMut, ValueType, WasmPtr, WasmRef};
 
-use crate::app::System;
+use crate::app::PartData;
 
 #[derive(Copy, Clone, Debug, ValueType)]
 #[repr(C)]
@@ -11,11 +11,15 @@ struct WasmIOVec {
     size: u32,
 }
 
-pub fn args_get(_env: FunctionEnvMut<System>, _argv: u32, _argv_buf: u32) -> u32 {
+pub fn args_get(_env: FunctionEnvMut<PartData>, _argv: u32, _argv_buf: u32) -> u32 {
     0
 }
 
-pub fn args_sizes_get(mut env: FunctionEnvMut<System>, argv_size: u32, argv_buf_size: u32) -> u32 {
+pub fn args_sizes_get(
+    mut env: FunctionEnvMut<PartData>,
+    argv_size: u32,
+    argv_buf_size: u32,
+) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     view.write(argv_size as u64, &[0]).unwrap();
@@ -23,7 +27,7 @@ pub fn args_sizes_get(mut env: FunctionEnvMut<System>, argv_size: u32, argv_buf_
     0
 }
 
-pub fn fd_close(_env: FunctionEnvMut<System>, _fd: u32) -> u32 {
+pub fn fd_close(_env: FunctionEnvMut<PartData>, _fd: u32) -> u32 {
     0
 }
 
@@ -52,7 +56,7 @@ enum WasiFileType {
     SymbolicLink,
 }
 
-pub fn fd_fdstat_get(mut env: FunctionEnvMut<System>, _fd: u32, fdstat: u32) -> u32 {
+pub fn fd_fdstat_get(mut env: FunctionEnvMut<PartData>, _fd: u32, fdstat: u32) -> u32 {
     let (system, store) = env.data_and_store_mut();
     let view = system.memory.as_ref().unwrap().view(&store);
     let fdstat = WasmRef::<WasiFdStat>::new(&view, fdstat as u64);
@@ -70,7 +74,7 @@ pub fn fd_fdstat_get(mut env: FunctionEnvMut<System>, _fd: u32, fdstat: u32) -> 
 }
 
 pub fn fd_seek(
-    mut env: FunctionEnvMut<System>,
+    mut env: FunctionEnvMut<PartData>,
     _fd: u32,
     _filedelta: u64,
     _whence: u32,
@@ -83,7 +87,7 @@ pub fn fd_seek(
 }
 
 pub fn fd_write(
-    mut env: FunctionEnvMut<System>,
+    mut env: FunctionEnvMut<PartData>,
     fd: u32,
     iovec: u32,
     len: u32,
