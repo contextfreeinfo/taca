@@ -8,11 +8,15 @@ WebAssembly allows a variety of source languages to be used.
 
 |C++|C3|
 |:-:|:-:|
-|[![Music box](docs/cpp-music.webp)<br>Music box](https://contextfreeinfo.github.io/taca/demo/?app=apps/cpp/music.taca) ([source](examples/cpp/music/src/))|[![Asteroid 3D game](docs/c3-fly.webp)<br>Asteroid 3D game](https://contextfreeinfo.github.io/taca/demo/?app=apps/c3/fly.taca) ([source](examples/c3/fly/src/))|
+|[![Music Box](docs/cpp-music.webp)<br>Music Box](https://contextfreeinfo.github.io/taca/demo/?app=apps/cpp/music.taca) ([source](examples/cpp/music/src/))|[![Asteroid Field](docs/c3-fly.webp)<br>Asteroid Field](https://contextfreeinfo.github.io/taca/demo/?app=apps/c3/fly.taca) ([source](examples/c3/fly/src/))|
 
-|Nelua|Zig|
+|Nelua|Odin + Nim|
 |:-:|:-:|
-|[![Platformer demo](docs/nelua-walk.webp)<br>Platformer demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([source](examples/nelua/walk/src/))|[![Triangle demo](docs/zig-hi2.webp)<br>Triangle demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi2.taca) ([source](examples/zig/hi/src/))|
+|[![Platformer](docs/nelua-walk.webp)<br>Platformer](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([source](examples/nelua/walk/src/))|[<img alt="Guessing Game" src="docs/odin-nim-guess.webp" width="320" height="180"/><br>Guessing Game](https://contextfreeinfo.github.io/taca/demo/?app=apps/odin/guess.taca) ([source](examples/odin/guess/src/))|
+
+|Zig|
+|:-:|
+|[![Triangle Demo](docs/zig-hi2.webp)<br>Triangle Demo](https://contextfreeinfo.github.io/taca/demo/?app=apps/zig/hi2.taca) ([source](examples/zig/hi/src/))|
 
 Any of these languages or various others could have been used for any of these
 demos. And note that all links above go to the same page. The only thing that
