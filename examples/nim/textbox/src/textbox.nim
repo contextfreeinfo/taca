@@ -24,6 +24,7 @@ type
 
   Uniforms = object
     frames: float32
+    pad: array[3, float32]
 
 var app: App
 
