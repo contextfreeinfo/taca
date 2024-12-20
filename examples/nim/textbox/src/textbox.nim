@@ -11,13 +11,19 @@ type
     scale: array[2, float32]
 
   App = object
+    bindings: Bindings
     entry: string
-    fontSize: float
+    frames: float32
+    fontSize: float32
     indexBuffer: Buffer
     instanceBuffer: Buffer
     label: string
     textInput: string
+    uniformsBuffer: Buffer
     vertexBuffer: Buffer
+
+  Uniforms = object
+    frames: float32
 
 var app: App
 
@@ -44,11 +50,14 @@ proc start*() {.exportWasm.} =
       BufferInfo(firstAttribute: 1, step: instance),
     ],
   ).pipelineNew
+  let uniformsBuffer = taca.bufferNew(uniform, Uniforms.sizeof)
   app = App(
+    bindings: BindingsInfo(buffers: @[uniformsBuffer]).bindingsNew,
     fontSize: 30,
     indexBuffer: bufferNew(index, [0'u16, 1, 2, 1, 3, 2]),
     instanceBuffer: bufferNew(vertex, 10 * DrawInstance.sizeof),
     label: "Enter text:",
+    uniformsBuffer: uniformsBuffer,
     vertexBuffer: bufferNew(vertex, [[-1'f32, -1], [-1, 1], [1, -1], [1, 1]]),
   )
   app.instanceBuffer.bufferUpdate([
@@ -63,6 +72,10 @@ proc removeLastRune(s: var string) =
 proc update*(eventKind: EventKind) {.exportWasm.} =
   case eventKind
   of frame:
+    # let uniforms = [Uniforms(frames: app.frames)]
+    # print(&"frames: {uniforms}, {uniforms.sizeof}, {uniforms.toByteSpan.repr}")
+    bufferUpdate(app.uniformsBuffer, [Uniforms(frames: app.frames)])
+    bindingsApply(app.bindings)
     buffersApply(app.indexBuffer, [app.vertexBuffer, app.instanceBuffer])
     draw(0, 6, 1)
     let size = windowState().size
@@ -71,6 +84,7 @@ proc update*(eventKind: EventKind) {.exportWasm.} =
     let screenCenter = [size[0] / 2, size[1] / 2]
     textDraw(app.label, screenCenter[0], screenCenter[1] - adjustY)
     textDraw(&"{app.entry}|", screenCenter[0], screenCenter[1] + adjustY)
+    app.frames += 1
   of key:
     let event = keyEvent()
     # print(event.repr)

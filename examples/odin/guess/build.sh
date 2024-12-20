@@ -20,5 +20,4 @@ ls -l out/guess.taca && \
 pub out/guess.taca odin
 
 # unzip -lv out/guess.taca && \
-# lz4 -f9 out/guess.wasm out/guess.taca && \
 # wasm2wat --generate-names out/guess.wasm -o out/guess.wat

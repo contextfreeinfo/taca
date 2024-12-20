@@ -58,9 +58,12 @@ type
 
   # Handles
 
+  Bindings* = distinct uint
   Buffer* = distinct uint
   Pipeline* = distinct uint
+  Sampler* = distinct uint
   Shader* = distinct uint
+  Texture* = distinct uint
 
   # Helpers
 
@@ -71,6 +74,13 @@ type
   Vec2* = array[2, float32]
 
   # Extern-only objects
+
+  BindingsInfoExtern* = object
+    pipeline: Pipeline
+    group_index: uint
+    buffers: Span[Buffer]
+    samplers: Span[Sampler]
+    textures: Span[Texture]
 
   BuffersExtern* = object
     vertexBuffers: Span[Buffer]
@@ -97,6 +107,13 @@ type
   AttributeInfo* = object
     shaderLocation: uint
     valueOffset: uint
+
+  BindingsInfo* = object
+    pipeline: Pipeline
+    group_index: uint
+    buffers: seq[Buffer]
+    samplers: seq[Sampler]
+    textures: seq[Texture]
 
   BufferInfo* = object
     firstAttribute: uint
@@ -130,6 +147,9 @@ type
 
 # Extern-only bindings
 
+proc tacaBindingsNew(info: BindingsInfoExtern): Bindings
+  {.importc: "taca_bindings_new".}
+
 proc tacaBufferNew(kind: BufferKind, bytes: Span[char]): Buffer
   {.importc: "taca_buffer_new".}
 
@@ -160,6 +180,7 @@ proc tacaTitleUpdate(text: Span[char]) {.importc: "taca_title_update".}
 proc toByteSpan*[T](items: openArray[T]): Span[char] =
   let data = if items.len > 0: cast[ptr char](items[0].addr) else: nil
   Span[char](data: data, len: items.len * T.sizeof)
+  # tacaPrint((&"{result.repr} {cast[ptr char](result.addr).repr}").toSpan)
 
 proc toSpan*(bytes: string): Span[char] =
   # Getting the address of an empty string was crashing the app somehow.
@@ -169,6 +190,15 @@ proc toSpan*(bytes: string): Span[char] =
 proc toSpan*[T](items: openArray[T]): Span[T] =
   let data = if items.len > 0: items[0].addr else: nil
   Span[T](data: data, len: items.len)
+
+proc toExtern(info: BindingsInfo): BindingsInfoExtern =
+  BindingsInfoExtern(
+    pipeline: info.pipeline,
+    group_index: info.group_index,
+    buffers: info.buffers.toSpan,
+    samplers: info.samplers.toSpan,
+    textures: info.textures.toSpan,
+  )
 
 proc toExtern(info: PipelineShaderInfo): PipelineShaderInfoExtern =
   PipelineShaderInfoExtern(entry: info.entry.toSpan, shader: info.shader)
@@ -183,6 +213,11 @@ proc toExtern(info: PipelineInfo): PipelineInfoExtern =
   )
 
 # Main api
+
+proc bindingsApply*(bindings: Bindings) {.importc: "taca_bindings_apply".}
+
+proc bindingsNew*(info: BindingsInfo): Bindings =
+  tacaBindingsNew(info.toExtern)
 
 proc bufferNew*(kind: BufferKind, len: int): Buffer =
   tacaBufferNew(kind, Span[char](data: nil, len: len))

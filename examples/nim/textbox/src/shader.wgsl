@@ -1,3 +1,9 @@
+struct Uniforms {
+  frames: f32,
+}
+
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
 struct VertexOutput {
   @builtin(position) pos: vec4f,
   @location(0) color: vec4f,
@@ -20,5 +26,12 @@ fn vertex_main(
 fn fragment_main(
   in: VertexOutput,
 ) -> @location(0) vec4f {
-  return in.color;
+  let time = uniforms.frames;
+  let scale1 = decorate((in.pos.xy + time * 1e-1) * 1e-2);
+  let scale2 = decorate((in.pos.xy + time * 2e-1) * 5e-2);
+  return in.color * (0.5 * scale1 + 0.5 * scale2);
+}
+
+fn decorate(pos: vec2f) -> f32 {
+  return smoothstep(-1.0, 1.0, sin(pos.x + pos.y));
 }

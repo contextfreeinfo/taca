@@ -156,7 +156,7 @@ impl App {
             for (key, export) in part.instance.exports.iter() {
                 match key.as_str() {
                     "init" | "initialize" | "start" | "update" => {}
-                    _ if key.starts_with('_') || key.starts_with("taca_") => {}
+                    _ if key.starts_with('_') || key.starts_with("taca_") || key.contains('.') => {}
                     _ => {
                         bonus_exports.insert(key.clone(), export.clone());
                     }
