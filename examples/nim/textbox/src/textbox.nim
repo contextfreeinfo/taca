@@ -11,6 +11,7 @@ type
     scale: array[2, float32]
 
   App = object
+    bgcolor: array[4, float32]
     bindings: Bindings
     entry: string
     frames: float32
@@ -23,16 +24,22 @@ type
     vertexBuffer: Buffer
 
   Uniforms = object
+    color: array[4, float32]
     frames: float32
     pad: array[3, float32]
 
 var app: App
 
+proc textbox_bgcolor_update*(
+  r: float32, g: float32, b: float32
+) {.exportWasm.} =
+  app.bgcolor = [r, g, b, 1]
+
 proc textbox_entry_read*(buffer: Buffer): int {.exportWasm.} =
   bufferUpdate(buffer, app.entry)
   app.entry.len
 
-proc textbox_entry_write*(buffer: Buffer, size: uint): int {.exportWasm.} =
+proc textbox_entry_write*(buffer: Buffer, size: uint) {.exportWasm.} =
   app.entry.setLen(size)
   bufferRead(buffer, app.entry)
 
@@ -53,6 +60,7 @@ proc start*() {.exportWasm.} =
   ).pipelineNew
   let uniformsBuffer = taca.bufferNew(uniform, Uniforms.sizeof)
   app = App(
+    bgcolor: [0, 0, 0.2, 1],
     bindings: BindingsInfo(buffers: @[uniformsBuffer]).bindingsNew,
     fontSize: 30,
     indexBuffer: bufferNew(index, [0'u16, 1, 2, 1, 3, 2]),
@@ -62,7 +70,7 @@ proc start*() {.exportWasm.} =
     vertexBuffer: bufferNew(vertex, [[-1'f32, -1], [-1, 1], [1, -1], [1, 1]]),
   )
   app.instanceBuffer.bufferUpdate([
-    DrawInstance(color: [0, 0, 0.2, 1], scale: [1, 1]),
+    DrawInstance(color: [1, 1, 1, 1], scale: [1, 1]),
   ])
 
 proc removeLastRune(s: var string) =
@@ -73,9 +81,8 @@ proc removeLastRune(s: var string) =
 proc update*(eventKind: EventKind) {.exportWasm.} =
   case eventKind
   of frame:
-    # let uniforms = [Uniforms(frames: app.frames)]
-    # print(&"frames: {uniforms}, {uniforms.sizeof}, {uniforms.toByteSpan.repr}")
-    bufferUpdate(app.uniformsBuffer, [Uniforms(frames: app.frames)])
+    let uniforms = Uniforms(color: app.bgcolor, frames: app.frames)
+    bufferUpdate(app.uniformsBuffer, [uniforms])
     bindingsApply(app.bindings)
     buffersApply(app.indexBuffer, [app.vertexBuffer, app.instanceBuffer])
     draw(0, 6, 1)

@@ -1,4 +1,5 @@
 struct Uniforms {
+  color: vec4f,
   frames: f32,
 }
 
@@ -29,7 +30,7 @@ fn fragment_main(
   let time = uniforms.frames;
   let scale1 = decorate((in.pos.xy + time * 1e-1) * 1e-2);
   let scale2 = decorate((in.pos.xy + time * 2e-1) * 5e-2);
-  return in.color * (0.5 * scale1 + 0.5 * scale2);
+  return in.color * uniforms.color * (0.5 * scale1 + 0.5 * scale2);
 }
 
 fn decorate(pos: vec2f) -> f32 {

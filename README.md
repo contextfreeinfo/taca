@@ -12,7 +12,7 @@ WebAssembly allows a variety of source languages to be used.
 
 |Nelua|Odin + Nim|
 |:-:|:-:|
-|[![Platformer](docs/nelua-walk.webp)<br>Platformer](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([source](examples/nelua/walk/src/))|[<img alt="Guessing Game" src="docs/odin-nim-guess.webp" width="320" height="180"/><br>Guessing Game](https://contextfreeinfo.github.io/taca/demo/?app=apps/odin/guess.taca) ([source](examples/odin/guess/src/))|
+|[![Platformer](docs/nelua-walk.webp)<br>Platformer](https://contextfreeinfo.github.io/taca/demo/?app=apps/nelua/walk.taca) ([source](examples/nelua/walk/src/))|[![Guessing Game](docs/odin-nim-guess.webp)<br>Guessing Game](https://contextfreeinfo.github.io/taca/demo/?app=apps/odin/guess.taca) ([source](examples/odin/guess/src/))|
 
 |Zig|
 |:-:|

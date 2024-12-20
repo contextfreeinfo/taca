@@ -10,8 +10,9 @@ foreign import env "env"
 
 @(default_calling_convention = "c")
 foreign env {
+	textbox_bgcolor_update :: proc(r, g, b: f32) ---
 	textbox_entry_read :: proc(buffer: taca.Buffer) -> uint ---
-	textbox_entry_write :: proc(buffer: taca.Buffer, size: uint) -> uint ---
+	textbox_entry_write :: proc(buffer: taca.Buffer, size: uint) ---
 	textbox_label_write :: proc(buffer: taca.Buffer, size: uint) ---
 }
 
@@ -37,6 +38,7 @@ start :: proc "c" () {
 		max    = 100,
 	}
 	label_update(app, fmt.tprintf("Guess a number between 1 and %d:", app.max))
+	// textbox_bgcolor_update(0.1, 0.15, 0)
 }
 
 @(export)
