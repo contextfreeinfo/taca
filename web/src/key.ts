@@ -16,5 +16,6 @@ export let keys: { [key: string]: number } = {
   Delete: 9,
   Enter: 7,
   Escape: 6,
+  NumpadEnter: 10,
   Space: 5,
 };

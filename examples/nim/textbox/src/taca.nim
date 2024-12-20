@@ -40,6 +40,8 @@ type
     escape
     enter
     backspace
+    delete
+    numpadEnter
 
   Step* = enum
     vertex

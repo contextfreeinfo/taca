@@ -46,7 +46,8 @@ update :: proc "c" (kind: taca.Event_Kind) {
 	app.frames += 1
 	if kind == .Key {
 		event := taca.key_event()
-		if event.pressed && event.key == .Enter {
+		key := event.key
+		if event.pressed && (key == .Enter || key == .Numpad_Enter) {
 			process_entry(&app)
 		}
 	}

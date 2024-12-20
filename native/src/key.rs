@@ -29,6 +29,7 @@ pub enum Key {
     Enter = 7,
     Backspace = 8,
     Delete = 9,
+    NumpadEnter = 10,
 }
 
 impl From<KeyCode> for Key {
@@ -42,6 +43,7 @@ impl From<KeyCode> for Key {
             KeyCode::Delete => Key::Delete,
             KeyCode::Enter => Key::Enter,
             KeyCode::Escape => Key::Escape,
+            KeyCode::NumpadEnter => Key::NumpadEnter,
             KeyCode::Space => Key::Space,
             _ => Key::None,
         }

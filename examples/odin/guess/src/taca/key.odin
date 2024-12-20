@@ -16,4 +16,6 @@ Key :: enum u32 {
 	Escape,
 	Enter,
 	Backspace,
+	Delete,
+	Numpad_Enter,
 }
