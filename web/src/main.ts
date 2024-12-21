@@ -1227,14 +1227,14 @@ interface Uniforms {
 function zipRead(bytes: Uint8Array) {
   const entries = unzipSync(bytes, {
     // Extract only core taca files to start with. TODO Be more selective?
-    filter: (info) => /^taca\/(?:ext\/)?[^/]+\.wasm/.test(info.name),
+    filter: (info) => /^(?:ext\/)?[^/]+\.wasm/.test(info.name),
   });
   // console.log(entries);
   const parts = Object.entries(entries)
-    .filter((it) => it[0].includes("/ext/"))
+    .filter((it) => it[0].startsWith("ext/"))
     .sort((a, b) => (a[0] > b[0] ? 1 : -1))
     .map((it) => it[1].buffer);
-  parts.push(entries["taca/app.wasm"].buffer);
+  parts.push(entries["app.wasm"].buffer);
   // console.log(parts);
   return parts;
 }

@@ -10,9 +10,9 @@ pub() {
 
 (cd ../../nim/textbox && bash build.sh) && \
 rm -rf out/bundle && \
-mkdir -p out/bundle/taca/ext && \
-cp ../../nim/textbox/out/textbox.wasm out/bundle/taca/ext/ && \
-odin build src -no-entry-point -o:speed -out:out/bundle/taca/app.wasm \
+mkdir -p out/bundle/ext && \
+cp ../../nim/textbox/out/textbox.wasm out/bundle/ext/ && \
+odin build src -no-entry-point -o:speed -out:out/bundle/app.wasm \
     -target=wasi_wasm32 && \
 rm -f out/guess.taca && \
 (cd out/bundle && zip -r ../guess.taca .) && \

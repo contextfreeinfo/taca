@@ -224,7 +224,7 @@ impl App {
             for i in 0..zip.len() {
                 let mut file = zip.by_index(i).unwrap();
                 let name = file.name();
-                if let Some(ext_name) = name.strip_prefix("taca/ext/") {
+                if let Some(ext_name) = name.strip_prefix("ext/") {
                     if !ext_name.contains('/') && ext_name.ends_with(".wasm") {
                         let mut buf = Vec::new();
                         file.read_to_end(&mut buf).unwrap();
@@ -234,7 +234,7 @@ impl App {
             }
             // Read app.
             {
-                let mut file = zip.by_name("taca/app.wasm").unwrap();
+                let mut file = zip.by_name("app.wasm").unwrap();
                 let mut buf = Vec::new();
                 file.read_to_end(&mut buf).unwrap();
                 bufs.push(buf);
