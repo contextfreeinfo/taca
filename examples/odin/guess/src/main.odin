@@ -33,12 +33,12 @@ start :: proc "c" () {
 	taca.title_update("Guessing Game (Taca Demo)")
 	taca.print("Hi from Odin!")
 	app = {
-		buffer = taca.buffer_new(.Cpu),
+		buffer = taca.buffer_new(.CPU),
 		ctx    = context,
 		max    = 100,
 	}
 	label_update(app, fmt.tprintf("Guess a number between 1 and %d:", app.max))
-	// textbox_bgcolor_update(0.1, 0.15, 0)
+	textbox_bgcolor_update(0.09, 0.24, 0.4)
 }
 
 @(export)

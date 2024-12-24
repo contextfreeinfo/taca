@@ -60,7 +60,7 @@ proc start*() {.exportWasm.} =
   ).pipelineNew
   let uniformsBuffer = taca.bufferNew(uniform, Uniforms.sizeof)
   app = App(
-    bgcolor: [0, 0, 0.2, 1],
+    bgcolor: [0.64, 0.59, 0.21, 1],
     bindings: BindingsInfo(buffers: @[uniformsBuffer]).bindingsNew,
     fontSize: 30,
     indexBuffer: bufferNew(index, [0'u16, 1, 2, 1, 3, 2]),

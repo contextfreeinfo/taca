@@ -29,7 +29,7 @@ Buffer_Kind :: enum {
 	Vertex,
 	Index,
 	Uniform,
-	Cpu,
+	CPU,
 }
 
 Event_Kind :: enum u32 {
