@@ -20,7 +20,15 @@ export fn start() void {
         .slice = taca.BufferSlice.new(&[_]u16{ 0, 1, 2 }),
     });
     _ = ctx.newShader(@embedFile("shader.opt.spv"));
-    stage = .{};
+    const uniforms = ctx.newBuffer(.{
+        .kind = .uniform,
+        .slice = taca.BufferSlice.newSized(@sizeOf(Uniforms)),
+    });
+    _ = ctx.newPipeline(.{});
+    stage = .{
+        .bindings = ctx.newBindings(.{ .buffers = &[_]*taca.Buffer{uniforms} }),
+        .uniforms = uniforms,
+    };
 }
 
 export fn update(event: taca.EventKind) void {
@@ -28,11 +36,12 @@ export fn update(event: taca.EventKind) void {
     const state = window.state();
     const size = state.size;
     const aspect = size[0] / size[1];
-    ctx.applyUniforms(&Uniforms{
+    ctx.updateBuffer(stage.?.uniforms, &[_]Uniforms{.{
         .aspect = if (aspect < 1) .{ 1 / aspect, 1 } else .{ 1, aspect },
         .count = @floatFromInt(stage.?.count),
         .pointer = state.pointer,
-    });
+    }}, 0);
+    ctx.applyBindings(stage.?.bindings);
     // Triangle
     ctx.draw(0, 3, 1);
     // Text
@@ -45,7 +54,9 @@ export fn update(event: taca.EventKind) void {
 var stage: ?Stage = null;
 
 const Stage = struct {
+    bindings: *taca.Bindings,
     count: u32 = 0,
+    uniforms: *taca.Buffer,
 };
 
 const Uniforms = extern struct {

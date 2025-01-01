@@ -1,7 +1,11 @@
-pub const Bindings = struct {
-    vertex_buffers: []const *Buffer,
-    index_buffer: *Buffer,
-    // TODO images
+pub const Bindings = extern struct {};
+
+pub const BindingsInfo = struct {
+    pipeline: ?*Pipeline = null,
+    group_index: usize = 0,
+    buffers: []const *Buffer = &[_]*Buffer{},
+    samplers: []const *Sampler = &[_]*Sampler{},
+    textures: []const *Texture = &[_]*Texture{},
 };
 
 pub const Buffer = extern struct {};
@@ -20,17 +24,28 @@ pub const BufferSlice = extern struct {
         const info = @typeInfo(@TypeOf(items)).Pointer;
         return .{ .ptr = items.ptr, .size = @sizeOf(info.child) };
     }
+
+    pub fn newSized(size: usize) BufferSlice {
+        return .{ .ptr = null, .size = size };
+    }
 };
 
 pub const BufferKind = enum(c_int) {
     vertex,
     index,
+    uniform,
+    cpu,
 };
 
 pub const EventKind = enum(c_int) {
     frame,
     key,
     tasks_done,
+};
+
+pub const MeshBuffers = struct {
+    vertex_buffers: []const *Buffer,
+    index_buffer: *Buffer,
 };
 
 pub const Pipeline = extern struct {};
@@ -53,16 +68,16 @@ pub const PipelineInfo = struct {
 pub const RenderingContext = struct {
     const Self = RenderingContext;
 
-    pub fn applyBuffers(bindings: Bindings) void {
-        taca_buffers_apply(ExternBindings.from(bindings));
+    pub fn applyBindings(bindings: *Bindings) void {
+        taca_bindings_apply(bindings);
+    }
+
+    pub fn applyBuffers(buffers: MeshBuffers) void {
+        taca_buffers_apply(ExternBuffers.from(buffers));
     }
 
     pub fn applyPipeline(pipeline: *Pipeline) void {
         taca_pipeline_apply(pipeline);
-    }
-
-    pub fn applyUniforms(uniforms: anytype) void {
-        taca_uniforms_apply(as_u8_span(uniforms));
     }
 
     pub fn draw(
@@ -81,6 +96,10 @@ pub const RenderingContext = struct {
         taca_text_drawure(texture, x, y);
     }
 
+    pub fn newBindings(info: BindingsInfo) *Bindings {
+        return taca_bindings_new(ExternBindingsInfo.from(info));
+    }
+
     pub fn newBuffer(info: BufferInfo) *Buffer {
         return taca_buffer_new(info.kind, &info.slice);
     }
@@ -92,7 +111,21 @@ pub const RenderingContext = struct {
     pub fn newShader(bytes: []const u8) *Shader {
         return taca_shader_new(Span(u8).from(bytes));
     }
+
+    pub fn updateBuffer(
+        buffer: *Buffer,
+        items: anytype,
+        buffer_offset: usize,
+    ) void {
+        const info = @typeInfo(@TypeOf(items)).Pointer;
+        taca_buffer_update(buffer, .{
+            .ptr = @ptrCast(items.ptr),
+            .len = @sizeOf(info.child) * items.len,
+        }, buffer_offset);
+    }
 };
+
+pub const Sampler = extern struct {};
 
 pub const Shader = extern struct {};
 
@@ -180,12 +213,30 @@ fn as_u8_span(any: anytype) Span(u8) {
 
 // Extern definitions
 
-const ExternBindings = extern struct {
+const ExternBindingsInfo = extern struct {
+    pipeline: ?*Pipeline,
+    group_index: usize,
+    buffers: Span(*Buffer),
+    samplers: Span(*Sampler),
+    textures: Span(*Texture),
+
+    pub fn from(info: BindingsInfo) ExternBindingsInfo {
+        return .{
+            .pipeline = info.pipeline,
+            .group_index = info.group_index,
+            .buffers = Span(*Buffer).from(info.buffers),
+            .samplers = Span(*Sampler).from(info.samplers),
+            .textures = Span(*Texture).from(info.textures),
+        };
+    }
+};
+
+const ExternBuffers = extern struct {
     vertex_buffers: Span(*Buffer),
     index_buffer: *Buffer,
     // TODO images
 
-    pub fn from(bindings: Bindings) ExternBindings {
+    pub fn from(bindings: MeshBuffers) ExternBuffers {
         return .{
             .vertex_buffers = Span(*Buffer).from(bindings.vertex_buffers),
             .index_buffer = bindings.index_buffer,
@@ -223,16 +274,22 @@ const ExternPipelineShaderInfo = extern struct {
     }
 };
 
+extern fn taca_bindings_apply(
+    bindings: *Bindings,
+) void;
+
 extern fn taca_buffers_apply(
-    bindings: ExternBindings,
+    bindings: ExternBuffers,
+) void;
+
+extern fn taca_buffer_update(
+    buffer: *Buffer,
+    bytes: Span(u8),
+    buffer_offset: usize,
 ) void;
 
 extern fn taca_pipeline_apply(
     pipeline: *Pipeline,
-) void;
-
-extern fn taca_uniforms_apply(
-    uniforms: Span(u8),
 ) void;
 
 extern fn taca_draw(
@@ -252,6 +309,10 @@ extern fn taca_text_drawure(
     x: f32,
     y: f32,
 ) void;
+
+extern fn taca_bindings_new(
+    info: ExternBindingsInfo,
+) callconv(.C) *Bindings;
 
 extern fn taca_buffer_new(
     kind: BufferKind,

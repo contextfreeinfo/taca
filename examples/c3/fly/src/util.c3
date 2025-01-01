@@ -10,8 +10,9 @@ const usz MAX_LIMIT = DANGER_LIMIT;
 const float MOVE_LIMIT = 4;
 const usz TARGET_LIMIT = 20;
 
-fn MeshBuf buf_mesh(glb::Mesh mesh, usz limit = 1) {
+fn MeshBuf buf_mesh(glb::Mesh mesh, Pipeline pipeline, usz limit = 1) {
     return {
+        .bindings = uniform_bindings_new(pipeline),
         .idx = taca::buffer_new(INDEX, mesh.idx),
         .idx_len = mesh.idx.len / ushort.sizeof,
         .limit = limit,
@@ -21,9 +22,29 @@ fn MeshBuf buf_mesh(glb::Mesh mesh, usz limit = 1) {
     };
 }
 
+fn void buf_mesh_bindings_apply(MeshBuf* buf, Uniforms* uniforms) {
+    taca::buffer_update(buf.bindings.buffer, value_as_slice(char, uniforms));
+    taca::bindings_apply(buf.bindings.bindings);
+}
+
+fn char[] sized_slice(usz size) {
+    return ((char*)null)[:size];
+}
+
 macro slice_as_slice($Type, slice) {
     assert((slice.len * $sizeof(slice[0])) % $Type.sizeof == 0);
     return (($Type*)(void*)slice)[:slice.len * $sizeof(slice[0]) / $Type.sizeof];
+}
+
+fn BufferBindings uniform_bindings_new(Pipeline pipeline) {
+    Buffer buffer = taca::buffer_new(UNIFORM, sized_slice(Uniforms.sizeof));
+    return {
+        .bindings = taca::bindings_new({
+            .pipeline = pipeline,
+            .buffers = {buffer},
+        }),
+        .buffer = buffer,
+    };
 }
 
 macro value_as_slice($Type, value) {
@@ -54,6 +75,7 @@ struct Game {
 }
 
 struct MeshBuf {
+    BufferBindings bindings;
     Buffer idx;
     usz idx_len;
     usz limit;
@@ -75,6 +97,11 @@ struct ObjExtra {
 }
 
 def Range = ExclusiveRange(<int>);
+
+struct BufferBindings {
+    Bindings bindings;
+    Buffer buffer;
+}
 
 struct Uniforms {
     Matrix4f proj;
