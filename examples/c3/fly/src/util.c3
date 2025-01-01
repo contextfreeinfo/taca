@@ -10,9 +10,9 @@ const usz MAX_LIMIT = DANGER_LIMIT;
 const float MOVE_LIMIT = 4;
 const usz TARGET_LIMIT = 20;
 
-fn MeshBuf buf_mesh(glb::Mesh mesh, Pipeline pipeline, usz limit = 1) {
+fn MeshBuf buf_mesh(glb::Mesh mesh, usz limit = 1) {
     return {
-        .bindings = uniform_bindings_new(pipeline),
+        .bindings = uniform_bindings_new(),
         .idx = taca::buffer_new(INDEX, mesh.idx),
         .idx_len = mesh.idx.len / ushort.sizeof,
         .limit = limit,
@@ -36,13 +36,10 @@ macro slice_as_slice($Type, slice) {
     return (($Type*)(void*)slice)[:slice.len * $sizeof(slice[0]) / $Type.sizeof];
 }
 
-fn BufferBindings uniform_bindings_new(Pipeline pipeline) {
+fn BufferBindings uniform_bindings_new() {
     Buffer buffer = taca::buffer_new(UNIFORM, sized_slice(Uniforms.sizeof));
     return {
-        .bindings = taca::bindings_new({
-            .pipeline = pipeline,
-            .buffers = {buffer},
-        }),
+        .bindings = taca::bindings_new({.buffers = {buffer}}),
         .buffer = buffer,
     };
 }

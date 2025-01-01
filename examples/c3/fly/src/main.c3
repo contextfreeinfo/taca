@@ -16,7 +16,7 @@ fn void! start() @export("start") {
     // taca::print(string::tformat("pos: %s", slice_as_slice(float[3], ship.pos)));
     Shader fragment = taca::shader_new($embed("../out/fragment.spv"));
     Shader vertex = taca::shader_new($embed("../out/vertex.spv"));
-    Pipeline pipeline = taca::pipeline_new({
+    taca::pipeline_new({
         .depth_test = true,
         .fragment = { .shader = fragment },
         .vertex = { .shader = vertex },
@@ -33,15 +33,15 @@ fn void! start() @export("start") {
     random.set_seed("Flyin'");
     game = {
         .dangers = {
-            .buf = buf_mesh(danger, pipeline, DANGER_LIMIT),
+            .buf = buf_mesh(danger, DANGER_LIMIT),
         },
-        .light = buf_mesh(light, pipeline),
+        .light = buf_mesh(light),
         .pause = 1,
         .pos = { 0, -2, 0 },
         .random = random,
-        .ship = buf_mesh(ship, pipeline),
+        .ship = buf_mesh(ship),
         .targets = {
-            .buf = buf_mesh(target, pipeline, TARGET_LIMIT),
+            .buf = buf_mesh(target, TARGET_LIMIT),
         },
     };
     update_multis(&game);
