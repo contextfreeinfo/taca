@@ -208,6 +208,7 @@ pub fn bindings_apply(system: &mut System, bindings: u32) {
 }
 
 pub fn bindings_new(system: &mut System, bindings: BindingsInfo) {
+    pipelined_ensure(system);
     let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
         panic!();
     };
@@ -352,19 +353,11 @@ pub fn bound_ensure(system: &mut System) {
     let Some(frame) = system.frame.as_mut() else {
         return;
     };
-    if frame.bound || system.pipelines[frame.pipeline - 1].bind_groups.is_empty() {
+    if frame.bound || system.bindings.is_empty() {
         return;
     }
-    match () {
-        _ if system.bindings.is_empty() => {
-            // We apparently need something bound, and neither size 0 nor 1 works.
-            uniforms_apply(system, &[0; 4]);
-        }
-        _ => {
-            // TODO Choose a bind group that's actually for this pipeline.
-            bindings_apply(system, 1);
-        }
-    }
+    // TODO Choose a bind group that's actually for this pipeline.
+    bindings_apply(system, 1);
 }
 
 pub fn buffer_update(system: &mut System, buffer: u32, bytes: &[u8], offset: u32) {

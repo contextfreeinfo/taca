@@ -203,6 +203,7 @@ class App {
         }
       }
     }
+    this.bound = true;
   }
 
   bindingsNew(part: Part, info: number) {
@@ -224,6 +225,8 @@ class App {
     this.bindGroups.push(bindGroup);
     return this.bindGroups.length;
   }
+
+  bound = false;
 
   buffersApply(part: Part, buffersPtr: number) {
     const { buffers } = this;
@@ -333,6 +336,9 @@ class App {
         this.boundBuffers = boundBuffersDefault;
       }
       this.#buffersBind();
+    }
+    if (!this.bound && this.bindGroups.length) {
+      this.bindingsApply(1);
     }
   }
 
@@ -453,7 +459,7 @@ class App {
   }
 
   frameCommit() {
-    this.buffered = this.passBegun = false;
+    this.bound = this.buffered = this.passBegun = false;
     this.boundBuffers = this.pipeline = null;
   }
 

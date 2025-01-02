@@ -24,11 +24,8 @@ export fn start() void {
         .kind = .uniform,
         .slice = taca.BufferSlice.newSized(@sizeOf(Uniforms)),
     });
-    _ = ctx.newPipeline(.{});
-    stage = .{
-        .bindings = ctx.newBindings(.{ .buffers = &[_]*taca.Buffer{uniforms} }),
-        .uniforms = uniforms,
-    };
+    _ = ctx.newBindings(.{ .buffers = &[_]*taca.Buffer{uniforms} });
+    stage = .{ .uniforms = uniforms };
 }
 
 export fn update(event: taca.EventKind) void {
@@ -41,7 +38,6 @@ export fn update(event: taca.EventKind) void {
         .count = @floatFromInt(stage.?.count),
         .pointer = state.pointer,
     }}, 0);
-    ctx.applyBindings(stage.?.bindings);
     // Triangle
     ctx.draw(0, 3, 1);
     // Text
@@ -54,7 +50,6 @@ export fn update(event: taca.EventKind) void {
 var stage: ?Stage = null;
 
 const Stage = struct {
-    bindings: *taca.Bindings,
     count: u32 = 0,
     uniforms: *taca.Buffer,
 };

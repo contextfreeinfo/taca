@@ -48,9 +48,9 @@ export fn start() void {
         .kind = .uniform,
         .slice = taca.BufferSlice.newSized(@sizeOf(Uniforms)),
     });
+    _ = ctx.newBindings(.{ .buffers = &[_]*taca.Buffer{uniforms} });
     // App state.
     stage = .{
-        .bindings = ctx.newBindings(.{ .buffers = &[_]*taca.Buffer{uniforms} }),
         .decor_index = decor_index,
         .decor_pipeline = decor_pipeline,
         .decor_vertex = decor_vertex,
@@ -68,7 +68,6 @@ export fn update(event: taca.EventKind) void {
         .count = @floatFromInt(stage.?.count),
         .pointer = state.pointer,
     }}, 0);
-    ctx.applyBindings(stage.?.bindings);
     // Triangle
     ctx.draw(0, 3, 1);
     // Decor
@@ -90,7 +89,6 @@ export fn update(event: taca.EventKind) void {
 var stage: ?Stage = null;
 
 const Stage = struct {
-    bindings: *taca.Bindings,
     count: u32 = 0,
     decor_index: *taca.Buffer,
     decor_pipeline: *taca.Pipeline,
