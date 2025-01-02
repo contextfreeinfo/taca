@@ -14,15 +14,17 @@ shader-build() {
     # xxd -i out/$1.opt.spv > out/$1.c
 }
 
-mkdir -p out && \
+rm -rf out && \
+mkdir -p out/bundle && \
 shader-build shader.frag && \
 shader-build shader.vert && \
 xxd -i src/musicbox.ogg > out/musicbox-data.c && \
 "$WASI_SDK/bin/clang++" --std=c++23 -Os -s -Wall -Wextra -Werror -Isrc -Iout \
      -Wno-missing-field-initializers -Wno-unused-variable \
      -Wno-unused-parameter -fno-exceptions \
-     -o out/music.wasm src/main.cpp && \
-lz4 -f9 out/music.wasm out/music.taca && \
+     -o out/bundle/app.wasm src/main.cpp && \
+(cd out/bundle && zip -r ../music.taca .) && \
+ls -l out/*.taca && \
 pub out/music.taca cpp
 
 # && \

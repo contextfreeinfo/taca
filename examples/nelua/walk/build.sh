@@ -8,11 +8,13 @@ pub() {
     done
 }
 
-mkdir -p out && \
+rm -rf out && \
+mkdir -p out/bundle && \
 naga src/shader.wgsl out/shader.spv && \
-nelua --cc="$WASI_SDK/bin/clang" --add-path src -o out/walk.wasm --release \
-    src/main.nelua && \
-lz4 -f9 out/walk.wasm out/walk.taca && \
+nelua --cc="$WASI_SDK/bin/clang" --add-path src --release \
+    -o out/bundle/app.wasm src/main.nelua && \
+(cd out/bundle && zip -r ../walk.taca .) && \
+ls -l out/*.taca && \
 pub out/walk.taca nelua
 
 # Inspection

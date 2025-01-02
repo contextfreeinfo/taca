@@ -8,7 +8,6 @@ bytemuck = "1.16.1"
 clap = { version = "4.5.8", features = ["derive"] }
 glyphon = { git = "https://github.com/grovesNL/glyphon.git", rev = "9def85304266605d2bd93fc4bf33a294db67f3d3" }
 kira = "0.9.5"
-lz4_flex = "0.11.3"
 pollster = "0.3.0"
 wasmer = "4.3.2"
 wasmer-types = "4.3.2"

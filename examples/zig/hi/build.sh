@@ -4,9 +4,11 @@ build-shader() {
 }
 
 finish-wasm() {
-    wasm-opt -Os zig-out/bin/$1.wasm -o zig-out/bin/$1.opt.wasm && \
-    lz4 -f9 zig-out/bin/$1.opt.wasm zig-out/bin/$1.taca && \
-    pub zig-out/bin/$1.taca zig
+    rm -rf out$1 && \
+    mkdir -p out/$1 && \
+    wasm-opt -Os zig-out/bin/$1.wasm -o out/$1/app.wasm && \
+    (cd out/$1 && zip -r ../$1.taca .) && \
+    pub out/$1.taca zig
 }
 
 pub() {
@@ -19,4 +21,5 @@ pub() {
 
 build-shader shader && build-shader shader2 && \
     zig build && \
-    finish-wasm hi && finish-wasm hi2
+    finish-wasm hi && finish-wasm hi2 && \
+    ls -l out/*.taca
