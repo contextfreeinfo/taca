@@ -6,8 +6,11 @@ pub() {
     done
 }
 
-mkdir -p out && \
+rm -rf out && \
+mkdir -p out/bundle && \
 naga src/shader.wgsl out/shader.spv && \
 nimble build -d:release && \
-lz4 -f9 out/textbox.wasm out/textbox.taca && \
+cp out/textbox.wasm out/bundle/app.wasm && \
+(cd out/bundle && zip -r ../textbox.taca .) && \
+ls -l out/*.taca && \
 pub out/textbox.taca nim

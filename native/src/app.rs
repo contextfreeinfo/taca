@@ -17,7 +17,6 @@ use kira::{
     sound::PlaybackRate,
     StartTime, Volume,
 };
-use lz4_flex::frame::FrameDecoder;
 use wasmer::{
     imports, Extern, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module,
     Store, Value, ValueType, WasmPtr, WasmRef,
@@ -240,14 +239,6 @@ impl App {
             }
             bufs
         } else {
-            if buf[0] == 0x04 {
-                // Presume lz4 compressed since wasm starts with 0x00.
-                let mut dest = vec![0u8; 0];
-                FrameDecoder::new(&buf as &[u8])
-                    .read_to_end(&mut dest)
-                    .unwrap();
-                buf = dest;
-            }
             vec![buf]
         };
         App::init(bufs, display)
