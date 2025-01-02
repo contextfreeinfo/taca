@@ -102,7 +102,7 @@ const Uniforms = extern struct {
     aspect: [2]f32,
     pointer: [2]f32,
     count: f32,
-    pad: f32 = 0,
+    pad: [3]f32 = .{ 0, 0, 0 },
 };
 
 const Vertex = extern struct {

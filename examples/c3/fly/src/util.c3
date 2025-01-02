@@ -23,7 +23,7 @@ fn MeshBuf buf_mesh(glb::Mesh mesh, usz limit = 1) {
 }
 
 fn void buf_mesh_bindings_apply(MeshBuf* buf, Uniforms* uniforms) {
-    taca::buffer_update(buf.bindings.buffer, value_as_slice(char, uniforms));
+    taca::buffer_update(buf.bindings.buffer, value_as_slice(char, *uniforms));
     taca::bindings_apply(buf.bindings.bindings);
 }
 

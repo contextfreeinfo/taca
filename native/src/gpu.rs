@@ -194,6 +194,7 @@ pub struct VertexBufferLayout {
 }
 
 pub fn bindings_apply(system: &mut System, bindings: u32) {
+    pipelined_ensure(system);
     let Some(frame) = system.frame.as_mut() else {
         return;
     };
