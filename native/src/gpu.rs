@@ -873,51 +873,6 @@ fn step_mode_translate(step: u32) -> wgpu::VertexStepMode {
     }
 }
 
-pub fn uniforms_apply(system: &mut System, bytes: &[u8]) {
-    pipelined_ensure(system);
-    let MaybeGraphics::Graphics(gfx) = &mut system.display.graphics else {
-        panic!();
-    };
-    let Some(frame) = system.frame.as_mut() else {
-        return;
-    };
-    let device = &gfx.device;
-    let pipeline = &mut system.pipelines[frame.pipeline - 1];
-    // Make a new bind group if we need one.
-    // TODO Once we have textures involved, will we need to group all that together???
-    if pipeline.bind_group_index >= pipeline.bind_groups.len() {
-        let uniform_buffer = device.create_buffer(&BufferDescriptor {
-            label: None,
-            size: bytes.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let layout = pipeline.pipeline.get_bind_group_layout(0);
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &layout,
-            // TODO Textures also go in here!
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-            label: None,
-        });
-        pipeline.bind_groups.push(PipelineBindGroup {
-            bind_group,
-            uniform_buffer,
-        });
-        // dbg!(pipeline.bind_groups.len());
-    }
-    let bind_group = &pipeline.bind_groups[pipeline.bind_group_index];
-    pipeline.bind_group_index += 1;
-    gfx.queue.write_buffer(&bind_group.uniform_buffer, 0, bytes);
-    let Some(pass) = &mut frame.pass else {
-        return;
-    };
-    pass.set_bind_group(0, &bind_group.bind_group, &[]);
-    frame.bound = true;
-}
-
 fn vertex_buffer_layouts_build(
     system: &System,
     info: PipelineInfo,
