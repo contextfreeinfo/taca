@@ -12,6 +12,7 @@ import {
   TexturePipeline,
   fragmentMunge,
   imageDecode,
+  shaderMunge,
   shaderProgramBuild,
 } from "./drawing";
 import { BindGroupLayout, findBindGroups } from "./gpu";
@@ -202,6 +203,7 @@ class App {
         }
       }
     }
+    this.bound = true;
   }
 
   bindingsNew(part: Part, info: number) {
@@ -223,6 +225,8 @@ class App {
     this.bindGroups.push(bindGroup);
     return this.bindGroups.length;
   }
+
+  bound = false;
 
   buffersApply(part: Part, buffersPtr: number) {
     const { buffers } = this;
@@ -332,6 +336,9 @@ class App {
         this.boundBuffers = boundBuffersDefault;
       }
       this.#buffersBind();
+    }
+    if (!this.bound && this.bindGroups.length) {
+      this.bindingsApply(1);
     }
   }
 
@@ -452,7 +459,7 @@ class App {
   }
 
   frameCommit() {
-    this.buffered = this.passBegun = false;
+    this.bound = this.buffered = this.passBegun = false;
     this.boundBuffers = this.pipeline = null;
   }
 
@@ -590,9 +597,11 @@ class App {
     const { gl, pipelines, shaders } = this;
     const shaderMake = (info: ShaderInfo, stage: ShaderStage) =>
       shaderToGlsl(shaders[info.shader - 1], stage, info.entry);
-    const vertex = shaderMake(pipelineInfo.vertex, ShaderStage.Vertex);
-    const fragment = fragmentMunge(
-      shaderMake(pipelineInfo.fragment, ShaderStage.Fragment)
+    const vertex = shaderMunge(
+      shaderMake(pipelineInfo.vertex, ShaderStage.Vertex)
+    );
+    const fragment = shaderMunge(
+      fragmentMunge(shaderMake(pipelineInfo.fragment, ShaderStage.Fragment))
     );
     // console.log(vertex);
     // console.log(fragment);
@@ -881,30 +890,6 @@ class App {
 
   textures: Texture[] = [];
 
-  uniformsApply(part: Part, uniforms: number) {
-    this.#pipelinedEnsure();
-    const { gl } = this;
-    if (!this.uniformsBuffer) {
-      // TODO Per pipeline!
-      const { pipeline } = this;
-      const uniformsBuffer = gl.createBuffer() ?? fail();
-      const { uniforms } = pipeline!;
-      gl.bindBuffer(gl.UNIFORM_BUFFER, uniformsBuffer);
-      gl.bufferData(gl.UNIFORM_BUFFER, uniforms.size, gl.STREAM_DRAW);
-      for (let i = 0; i < uniforms.count; i += 1) {
-        if (i != uniforms.tacaIndex) {
-          gl.bindBufferBase(gl.UNIFORM_BUFFER, i + 1, uniformsBuffer);
-        }
-      }
-      this.uniformsBuffer = uniformsBuffer;
-    }
-    const uniformsBytes = part.readBytes(uniforms);
-    gl.bindBuffer(gl.UNIFORM_BUFFER, this.uniformsBuffer);
-    gl.bufferSubData(gl.UNIFORM_BUFFER, 0, uniformsBytes);
-  }
-
-  uniformsBuffer: WebGLBuffer | null = null;
-
   #uniformsBuild(program: WebGLProgram): Uniforms {
     const { gl } = this;
     const count = gl.getProgramParameter(program, gl.ACTIVE_UNIFORM_BLOCKS);
@@ -1163,9 +1148,6 @@ function makeAppEnv(app: App, part: Part) {
     taca_title_update(title: number) {
       // TODO Abstract to provide callbacks for these things?
       document.title = part.readString(title);
-    },
-    taca_uniforms_apply(uniforms: number) {
-      app.uniformsApply(part, uniforms);
     },
     taca_window_state(result: number) {
       app.windowState(part, result);

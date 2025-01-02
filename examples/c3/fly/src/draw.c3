@@ -36,14 +36,14 @@ fn void update_frame(Game* game) {
     // Objects
     draw_light(game, &uniforms);
     uniforms.color = { 0.3, 0.3, 0.4 };
-    taca::uniforms_update(value_as_slice(char, uniforms));
+    buf_mesh_bindings_apply(&game.dangers.buf, &uniforms);
     draw_multi(game.dangers);
     uniforms.color = { 0.7, 1, 0.2 };
-    taca::uniforms_update(value_as_slice(char, uniforms));
+    buf_mesh_bindings_apply(&game.targets.buf, &uniforms);
     draw_multi(game.targets);
     // Ship
     uniforms.color = { 0.6, 0.7, 1 };
-    taca::uniforms_update(value_as_slice(char, uniforms));
+    buf_mesh_bindings_apply(&game.ship, &uniforms);
     taca::buffers_apply({
         .index_buffer = game.ship.idx,
         .vertex_buffers = { game.ship.pos, game.ship.norm, game.ship.offset },
@@ -88,7 +88,7 @@ fn void draw_light(Game* game, Uniforms* uniforms) {
     });
     float[3] pos_array = pos;
     taca::buffer_update(game.light.offset, value_as_slice(char, pos_array));
-    taca::uniforms_update(value_as_slice(char, *uniforms));
+    buf_mesh_bindings_apply(&game.light, uniforms);
     taca::draw(0, game.light.idx_len, 1);
     uniforms.light = pos;
     uniforms.lit = 0.5;

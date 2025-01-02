@@ -44,11 +44,17 @@ export fn start() void {
         },
         // .instance_buffers = ...
     });
+    const uniforms = ctx.newBuffer(.{
+        .kind = .uniform,
+        .slice = taca.BufferSlice.newSized(@sizeOf(Uniforms)),
+    });
+    _ = ctx.newBindings(.{ .buffers = &[_]*taca.Buffer{uniforms} });
     // App state.
     stage = .{
         .decor_index = decor_index,
         .decor_pipeline = decor_pipeline,
         .decor_vertex = decor_vertex,
+        .uniforms = uniforms,
     };
 }
 
@@ -57,11 +63,11 @@ export fn update(event: taca.EventKind) void {
     const state = window.state();
     const size = state.size;
     const aspect = size[0] / size[1];
-    ctx.applyUniforms(&Uniforms{
+    ctx.updateBuffer(stage.?.uniforms, &[_]Uniforms{.{
         .aspect = if (aspect < 1) .{ 1 / aspect, 1 } else .{ 1, aspect },
         .count = @floatFromInt(stage.?.count),
         .pointer = state.pointer,
-    });
+    }}, 0);
     // Triangle
     ctx.draw(0, 3, 1);
     // Decor
@@ -87,13 +93,14 @@ const Stage = struct {
     decor_index: *taca.Buffer,
     decor_pipeline: *taca.Pipeline,
     decor_vertex: *taca.Buffer,
+    uniforms: *taca.Buffer,
 };
 
 const Uniforms = extern struct {
     aspect: [2]f32,
     pointer: [2]f32,
     count: f32,
-    pad: f32 = 0,
+    pad: [3]f32 = .{ 0, 0, 0 },
 };
 
 const Vertex = extern struct {

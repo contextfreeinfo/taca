@@ -30,10 +30,10 @@ use crate::{
     gpu::{
         bindings_apply, bindings_new, bound_ensure, buffer_update, buffered_ensure, buffers_apply,
         create_buffer, create_pipeline, frame_commit, image_decode, image_to_texture, pass_ensure,
-        pipeline_apply, pipelined_ensure, shader_create, sound_decode, uniforms_apply, Bindings,
-        BindingsInfo, BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo,
-        GpuBuffer, MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader,
-        Span, Texture, TextureInfoExtern,
+        pipeline_apply, pipelined_ensure, shader_create, sound_decode, Bindings, BindingsInfo,
+        BufferSlice, ExternBindingsInfo, ExternMeshBuffers, ExternPipelineInfo, GpuBuffer,
+        MeshBuffers, Pipeline, PipelineInfo, PipelineShaderInfo, RenderFrame, Shader, Span,
+        Texture, TextureInfoExtern,
     },
     key::{KeyEvent, TextEvent},
     sound::{Sound, SoundPlayInfoExtern},
@@ -116,7 +116,6 @@ impl App {
                         "taca_text_event" => Function::new_typed_with_env(&mut store, &env, taca_text_event),
                         "taca_texture_info" => Function::new_typed_with_env(&mut store, &env, taca_texture_info),
                         "taca_title_update" => Function::new_typed_with_env(&mut store, &env, taca_title_update),
-                        "taca_uniforms_apply" => Function::new_typed_with_env(&mut store, &env, taca_uniforms_apply),
                         "taca_window_state" => Function::new_typed_with_env(&mut store, &env, taca_window_state),
                     },
                     "wasi_snapshot_preview1" => {
@@ -816,15 +815,6 @@ fn taca_title_update(mut env: FunctionEnvMut<PartData>, text: u32) {
     let title = WasmPtr::<Span>::new(text).read(&view).unwrap();
     let title = read_string(&view, title);
     gfx.window.as_ref().set_title(&title);
-}
-
-fn taca_uniforms_apply(mut env: FunctionEnvMut<PartData>, bytes: u32) {
-    let (part, store) = env.data_and_store_mut();
-    let mut system = part.system.lock().unwrap();
-    let view = part.memory.as_ref().unwrap().view(&store);
-    let uniforms = WasmPtr::<Span>::new(bytes).read(&view).unwrap();
-    let uniforms = read_span::<u8>(&view, uniforms);
-    uniforms_apply(&mut system, &uniforms);
 }
 
 fn taca_window_state(mut env: FunctionEnvMut<PartData>, result: u32) {

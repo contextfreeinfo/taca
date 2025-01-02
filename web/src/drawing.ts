@@ -159,6 +159,16 @@ export function imageDecode(
   return lazyTexture;
 }
 
+export function shaderMunge(glsl: string) {
+  // TODO Check both vertex & fragment at the same time to see if they match?
+  glsl = glsl.replace(
+    /^(uniform \S+\d+)(?:Vertex|Fragment)( \{ \S+ _group_\d+_binding_\d+)/m,
+    "$1VertexFragment$2"
+  );
+  glsl = glsl.replaceAll(/\b(_group_\d+_binding_\d+_)[vf]s\b/g, "$1vfs");
+  return glsl;
+}
+
 export function shaderProgramBuild(
   gl: WebGL2RenderingContext,
   vertex: string,

@@ -16,6 +16,7 @@ extern fn Buffer buffer_new(
     char[] bytes,
 ) @extern("taca_buffer_new");
 
+// TODO Allowed at most once per bindings per frame? No op after?
 extern fn void buffer_update(
     Buffer buffer,
     char[] bytes,
@@ -74,12 +75,6 @@ extern fn void title_set(
     char[] title,
 ) @extern("taca_title_update");
 
-// TODO Allowed at most once per bindings per frame? No op after?
-extern fn void uniforms_update(
-    // TODO ??? usz binding, // Or always just one?
-    char[] bytes,
-) @extern("taca_uniforms_apply");
-
 extern fn WindowState window_state(
     // Nothing
 ) @extern("taca_window_state");
@@ -112,6 +107,8 @@ struct BufferInfo {
 enum BufferKind : uint {
     VERTEX,
     INDEX,
+    UNIFORM,
+    CPU,
 }
 
 struct BufferUpdate {
