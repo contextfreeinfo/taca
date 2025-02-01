@@ -167,7 +167,6 @@ class App {
   }[];
 
   bindingsApply(bindings: number) {
-    if (!this.passBegun) this.passBegin();
     this.commands.push(() => this.bindingsApplyNow(bindings));
   }
 
@@ -233,7 +232,6 @@ class App {
   bound = false;
 
   buffersApply(part: Part, buffersPtr: number) {
-    if (!this.passBegun) this.passBegin();
     this.commands.push(() => this.buffersApplyNow(part, buffersPtr));
   }
 
@@ -399,7 +397,7 @@ class App {
   config: AppConfig;
 
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
-    if (!this.passBegun) this.passBegin();
+    this.passNeeded = true;
     this.commands.push(() => this.drawNow(itemBegin, itemCount, instanceCount));
   }
 
@@ -480,14 +478,14 @@ class App {
       command();
     }
     this.commands.length = 0;
-    this.bound = this.buffered = this.passBegun = false;
+    this.bound = this.buffered = this.passBegun = this.passNeeded = false;
     this.boundBuffers = this.pipeline = null;
   }
 
   frameCount: number = 0;
 
   frameEnd() {
-    if (this.passBegun) {
+    if (this.passBegun || this.passNeeded) {
       this.frameCommit();
     }
     const frameWrap = 1000;
@@ -600,11 +598,11 @@ class App {
   }
 
   passBegun = false;
+  passNeeded = false;
 
   pipeline: Pipeline | null = null;
 
   pipelineApply(pipelinePtr: number) {
-    if (!this.passBegun) this.passBegin();
     this.commands.push(() => this.pipelineApplyNow(pipelinePtr));
   }
 
