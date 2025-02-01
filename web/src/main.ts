@@ -167,6 +167,11 @@ class App {
   }[];
 
   bindingsApply(bindings: number) {
+    if (!this.passBegun) this.passBegin();
+    this.commands.push(() => this.bindingsApplyNow(bindings));
+  }
+
+  bindingsApplyNow(bindings: number) {
     this.#pipelinedEnsure();
     const { bindGroups, buffers, gl, pipeline, textures } = this;
     // TODO Assert pipeline.
@@ -228,6 +233,11 @@ class App {
   bound = false;
 
   buffersApply(part: Part, buffersPtr: number) {
+    if (!this.passBegun) this.passBegin();
+    this.commands.push(() => this.buffersApplyNow(part, buffersPtr));
+  }
+
+  buffersApplyNow(part: Part, buffersPtr: number) {
     const { buffers } = this;
     // Minimize allocations because this is in the draw loop.
     const view = part.memoryView();
@@ -383,9 +393,17 @@ class App {
 
   canvas: HTMLCanvasElement;
 
+  // Some dense ArrayBuffer representation?
+  commands: (() => void)[] = [];
+
   config: AppConfig;
 
   draw(itemBegin: number, itemCount: number, instanceCount: number) {
+    if (!this.passBegun) this.passBegin();
+    this.commands.push(() => this.drawNow(itemBegin, itemCount, instanceCount));
+  }
+
+  drawNow(itemBegin: number, itemCount: number, instanceCount: number) {
     // console.log(`draw(${itemBegin}, ${itemCount}, ${instanceCount})`);
     this.#bufferedEnsure();
     const { gl } = this;
@@ -458,6 +476,10 @@ class App {
   }
 
   frameCommit() {
+    for (let command of this.commands) {
+      command();
+    }
+    this.commands.length = 0;
     this.bound = this.buffered = this.passBegun = false;
     this.boundBuffers = this.pipeline = null;
   }
@@ -582,6 +604,11 @@ class App {
   pipeline: Pipeline | null = null;
 
   pipelineApply(pipelinePtr: number) {
+    if (!this.passBegun) this.passBegin();
+    this.commands.push(() => this.pipelineApplyNow(pipelinePtr));
+  }
+
+  pipelineApplyNow(pipelinePtr: number) {
     let { gl, pipelines } = this;
     const pipeline = (this.pipeline = pipelines[pipelinePtr - 1] ?? fail());
     (pipeline.depthTest ? gl.enable : gl.disable).call(gl, gl.DEPTH_TEST);
@@ -631,7 +658,7 @@ class App {
     if (!this.pipeline) {
       this.#pipelineEnsure();
       if (!this.passBegun) this.passBegin();
-      if (this.pipelines.length > 0) this.pipelineApply(1);
+      if (this.pipelines.length > 0) this.pipelineApplyNow(1);
     }
   }
 
