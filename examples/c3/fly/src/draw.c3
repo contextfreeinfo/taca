@@ -39,11 +39,11 @@ fn void update_frame(Game* game) {
     buf_mesh_bindings_apply(&game.dangers.buf, &uniforms);
     draw_multi(game.dangers);
     uniforms.color = { 0.7, 1, 0.2 };
-    buf_mesh_bindings_apply(&game.targets.buf, &uniforms);
+    buf_mesh_bindings_apply(&game.dangers.buf, &uniforms);
     draw_multi(game.targets);
     // Ship
     uniforms.color = { 0.6, 0.7, 1 };
-    buf_mesh_bindings_apply(&game.ship, &uniforms);
+    buf_mesh_bindings_apply(&game.dangers.buf, &uniforms);
     taca::buffers_apply({
         .index_buffer = game.ship.idx,
         .vertex_buffers = { game.ship.pos, game.ship.norm, game.ship.offset },
