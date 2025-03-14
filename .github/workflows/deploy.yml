@@ -12,6 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container: ghcr.io/contextfreeinfo/taca-dev:latest
+    env:
+      TACA_PRIVATE_KEY: ${{ secrets.TACA_PRIVATE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -84,7 +84,6 @@ Or build more optimized:
 cargo run --bin taca --release -- run web/public/apps/zig/hi.taca
 ```
 
-
 ### Web runtime
 
 Look at package.json under web for web versions:
@@ -114,3 +113,40 @@ Demo links:
 
 - Dev: http://localhost:5173/?app=apps/zig/hi.taca
 - Dist: http://localhost:4173/?app=apps/zig/hi.taca
+
+### Signing apps
+
+NOTE: Signing isn't yet implemented, but this is one idea for it.
+
+Make a private and public key, for example, run this in some private area
+*outside* your project source:
+
+```sh
+# WARNING!!! Don't share this.
+openssl ecparam -name prime256v1 -genkey -noout -out taca-private-key.pem
+```
+
+Also make a public key handy:
+
+```sh
+openssl ec -in taca-private-key.pem -pubout -out taca-public-key.pem
+```
+
+Build a zip with an app.json inside:
+
+```json
+{
+    "id": "can-namespace-if-wanted/app-id",
+    "owner": "some-kind-of/namespace/but-keep-same-for-same-key",
+    "publicKey": "<key hex content goes here>"
+}
+```
+
+Sign your app:
+
+```sh
+openssl dgst -sha256 -sign path/to/taca-private-key.pem \
+    -out app-signature.bin app.zip
+echo "taca sign $(base64 -w 0 app-signature.bin)" > app.taca
+cat app.zip >> app.taca
+```
