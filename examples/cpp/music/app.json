@@ -1,0 +1,8 @@
+{
+    "id": "examples/cpp/music",
+    "owner": "contextfreeinfo/taca",
+    "key": {
+        "algorithm": "ECDSA",
+        "public": "BEfIanymH41v2hxol4kd+9//P57qYyLEROkN65ez9e+UZFxaNkLZcuww/+CHviVabYlWEI6UkRravQ9M9TD5wrI="
+    }
+}

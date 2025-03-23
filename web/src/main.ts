@@ -5,7 +5,7 @@ import {
   shaderToGlsl,
   ShaderStage,
 } from "../pkg/cana";
-import { Part, textEncoder } from "./part";
+import { Part, textDecoder, textEncoder } from "./part";
 import {
   Texture,
   TexturePipeline,
@@ -993,7 +993,17 @@ async function loadApp(config: AppConfig) {
   const appData = config.code as ArrayBuffer;
   config.code = undefined;
   // Read wasm buffers.
-  const appBytes = new Uint8Array(appData);
+  let appBytes = new Uint8Array(appData);
+  const tacaMagic = textDecoder.decode(appBytes.slice(0, 4));
+  if (tacaMagic == "taca") {
+    let newlineIndex = appBytes.indexOf(0x0a);
+    if (newlineIndex == -1) {
+      newlineIndex = appBytes.length;
+    }
+    const meta = textDecoder.decode(appBytes.slice(0, newlineIndex)).trimEnd();
+    appBytes = appBytes.slice(newlineIndex + 1);
+    console.log(meta);
+  }
   const wasmBuffers = appBytes[0] == 0x50 ? zipRead(appBytes) : [appData];
   // Instantiate extensions.
   // TODO Recursive dependencies.

@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{Cursor, Read},
+    str::from_utf8,
     sync::{
         mpsc::{channel, Sender},
         Arc, Mutex,
@@ -215,6 +216,12 @@ impl App {
             .expect("Bad open")
             .read_to_end(&mut buf)
             .expect("Bad read");
+        if buf.len() >= 4 && &buf[0..4] == b"taca" {
+            let newline_index = buf.iter().position(|&x| x == 0x0a).unwrap_or(buf.len());
+            let meta = from_utf8(&buf[..newline_index]).unwrap().trim_end();
+            dbg!(meta);
+            buf.drain(0..newline_index + 1);
+        }
         let bufs = if buf[0] == 0x50 {
             let mut bufs: Vec<Vec<u8>> = vec![];
             let mut zip = ZipArchive::new(Cursor::new(buf)).unwrap();

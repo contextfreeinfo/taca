@@ -132,13 +132,15 @@ Also make a public key handy:
 openssl ec -in taca-private-key.pem -pubout -out taca-public-key.pem
 ```
 
-Build a zip with an app.json inside:
+Build a zip with an app.json inside, where "id" and "space" are relative to
+owner:
 
 ```json
 {
     "id": "can-namespace-if-wanted/app-id",
     "owner": "some-kind-of/namespace/but-keep-same-for-same-key",
-    "publicKey": "<key hex content goes here>"
+    "publicKey": "<key hex content goes here>",
+    "space": "namespace-for/storage/else-use-id"
 }
 ```
 

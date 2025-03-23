@@ -20,10 +20,17 @@ shader-build shader.frag && \
 shader-build shader.vert && \
 xxd -i src/musicbox.ogg > out/musicbox-data.c && \
 "$WASI_SDK/bin/clang++" --std=c++23 -Os -s -Wall -Wextra -Werror -Isrc -Iout \
-     -Wno-missing-field-initializers -Wno-unused-variable \
-     -Wno-unused-parameter -fno-exceptions \
-     -o out/bundle/app.wasm src/main.cpp && \
-(cd out/bundle && zip -r ../music.taca .) && \
+    -Wno-missing-field-initializers -Wno-unused-variable \
+    -Wno-unused-parameter -fno-exceptions \
+    -o out/bundle/app.wasm src/main.cpp && \
+cp app.json out/bundle && \
+(cd out/bundle && zip -r ../music.zip .) && \
+(cd out && \
+    openssl dgst -sha256 -sign <(echo "$TACA_PRIVATE_KEY") \
+        -out sig.bin music.zip && \
+    echo "taca sign sha256 $(base64 -w 0 sig.bin)" > music.taca && \
+    cat music.zip >> music.taca \
+) && \
 ls -l out/*.taca && \
 pub out/music.taca cpp
 
