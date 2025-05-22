@@ -16,6 +16,8 @@ struct State {
     surface_format: wgpu::TextureFormat,
 }
 
+mod wasm;
+
 impl State {
     async fn new(window: Arc<Window>) -> State {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
@@ -168,6 +170,7 @@ fn main() {
     // To change the log level, set the `RUST_LOG` environment variable. See the `env_logger`
     // documentation for more information.
     env_logger::init();
+    wasm::run().unwrap();
 
     let event_loop = EventLoop::new().unwrap();
 

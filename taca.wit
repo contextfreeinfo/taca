@@ -1,0 +1,40 @@
+package taca:taca@0.0.1;
+
+interface console {
+  print: func(text: string);
+}
+
+interface key {
+  get-event: func() -> event;
+
+  enum code {
+    none,
+    arrow-up,
+    arrow-down,
+    arrow-left,
+    arrow-right,
+    space,
+    escape,
+  }
+
+  record event {
+    code: code,
+    pressed: bool,
+  }
+}
+
+interface app {
+  update: func(event-kind: event-kind);
+
+  enum event-kind {
+    frame,
+    key,
+    tasks-done,
+  }
+}
+
+world taca-api {
+  export app;
+  import console;
+  import key;
+}
