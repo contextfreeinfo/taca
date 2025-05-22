@@ -28,7 +28,7 @@ cp app.json out/bundle && \
 (cd out && \
     openssl dgst -sha256 -sign <(echo "$TACA_PRIVATE_KEY") \
         -out sig.bin music.zip && \
-    echo "taca sign sha256 $(base64 -w 0 sig.bin)" > music.taca && \
+    echo "taca sha256 $(base64 -w 0 sig.bin)" > music.taca && \
     cat music.zip >> music.taca \
 ) && \
 ls -l out/*.taca && \

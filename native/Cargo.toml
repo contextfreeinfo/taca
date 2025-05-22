@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+base64 = "0.22.1"
 bytemuck = "1.16.1"
 clap = { version = "4.5.8", features = ["derive"] }
 glyphon = { git = "https://github.com/grovesNL/glyphon.git", rev = "9def85304266605d2bd93fc4bf33a294db67f3d3" }

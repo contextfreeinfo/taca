@@ -36,6 +36,7 @@ use crate::{
         Texture, TextureInfoExtern,
     },
     key::{KeyEvent, TextEvent},
+    sig::Sig,
     sound::{Sound, SoundPlayInfoExtern},
     text::{to_text_align_x, to_text_align_y, TextEngine},
     wasi,
@@ -216,15 +217,25 @@ impl App {
             .expect("Bad open")
             .read_to_end(&mut buf)
             .expect("Bad read");
-        if buf.len() >= 4 && &buf[0..4] == b"taca" {
-            let newline_index = buf.iter().position(|&x| x == 0x0a).unwrap_or(buf.len());
-            let meta = from_utf8(&buf[..newline_index]).unwrap().trim_end();
-            dbg!(meta);
-            buf.drain(0..newline_index + 1);
-        }
+        let sig = match () {
+            _ if buf.len() >= 4 && &buf[0..4] == b"taca" => {
+                let newline_index = buf.iter().position(|&x| x == 0x0a).unwrap_or(buf.len());
+                let sig_bytes = buf.drain(0..newline_index + 1);
+                let sig = from_utf8(sig_bytes.as_slice()).unwrap().trim_end();
+                Some(Sig::parse(sig).unwrap()) // yes, unwrap then Some
+            }
+            _ => None,
+        };
+        // TODO Check the sig against the app bytes.
         let bufs = if buf[0] == 0x50 {
             let mut bufs: Vec<Vec<u8>> = vec![];
             let mut zip = ZipArchive::new(Cursor::new(buf)).unwrap();
+            // Read meta.
+            if let Ok(mut file) = zip.by_name("app.json") {
+                let mut buf = Vec::new();
+                file.read_to_end(&mut buf).unwrap();
+                String::from_utf8(buf).unwrap();
+            }
             // Read extensions.
             for i in 0..zip.len() {
                 let mut file = zip.by_index(i).unwrap();
