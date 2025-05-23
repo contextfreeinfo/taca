@@ -1,4 +1,14 @@
-package taca:taca@0.0.1;
+package taca:core@0.0.1;
+
+interface app {
+  update: func(event-kind: event-kind);
+
+  enum event-kind {
+    frame,
+    key,
+    tasks-done,
+  }
+}
 
 interface console {
   print: func(text: string);
@@ -23,17 +33,7 @@ interface key {
   }
 }
 
-interface app {
-  update: func(event-kind: event-kind);
-
-  enum event-kind {
-    frame,
-    key,
-    tasks-done,
-  }
-}
-
-world taca-api {
+world taca {
   export app;
   import console;
   import key;

@@ -1,11 +1,11 @@
 wit_bindgen::generate!({
     path: "../../../taca.wit",
-    world: "taca-api",
+    world: "taca",
 });
 
-use exports::taca::taca::app::{EventKind, Guest};
-use taca::taca::console;
-use taca::taca::key;
+use exports::taca::core::app::{EventKind, Guest};
+use taca::core::console;
+use taca::core::key;
 
 struct TacaApp;
 export!(TacaApp);
