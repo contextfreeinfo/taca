@@ -7,7 +7,7 @@ wit-bindgen c ../../../taca.wit --out-dir out && \
     -mexec-model=reactor \
     -Iout -Isrc out/taca.c src/app.c out/taca_component_type.o \
     -o out/hi.wasm && \
-wasm-tools component new out/hi.wasm -o out/hi-component.wasm # --adapt ../../../ignore/wasi_snapshot_preview1.command.wasm
+wasm-tools component new out/hi.wasm -o out/hi-component.wasm # --adapt ../../../ignore/wasi_snapshot_preview1.reactor.wasm
 
 # wit-bindgen c ../../../taca.wit --out-dir out --no-object-file && \
 # wasm-tools parse ignore/taca_component_type.o -t

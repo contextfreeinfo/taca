@@ -34,41 +34,41 @@ struct MyState {
     // These two are required basically as a standard way to enable the impl of IoView and
     // WasiView.
     // impl of WasiView is required by [`wasmtime_wasi::p2::add_to_linker_sync`]
-    pub resource_table: ResourceTable,
-    pub wasi_ctx: WasiCtx,
+    // pub resource_table: ResourceTable,
+    // pub wasi_ctx: WasiCtx,
     // You can add other custom host states if needed
 }
 
-impl IoView for MyState {
-    fn table(&mut self) -> &mut ResourceTable {
-        &mut self.resource_table
-    }
-}
+// impl IoView for MyState {
+//     fn table(&mut self) -> &mut ResourceTable {
+//         &mut self.resource_table
+//     }
+// }
 
-impl WasiView for MyState {
-    fn ctx(&mut self) -> &mut WasiCtx {
-        &mut self.wasi_ctx
-    }
-}
+// impl WasiView for MyState {
+//     fn ctx(&mut self) -> &mut WasiCtx {
+//         &mut self.wasi_ctx
+//     }
+// }
 
 pub fn run() -> Result<()> {
     // See: https://github.com/bytecodealliance/wasmtime/blob/main/examples/wasip2/main.rs
     // See: https://github.com/bytecodealliance/wasmtime/blob/main/examples/wasip1/main.rs
     let engine = Engine::new(Config::new().wasm_component_model(true))?;
-    let wasi_ctx = WasiCtxBuilder::new()
-        .allow_tcp(false)
-        .allow_udp(false)
-        .build();
+    // let wasi_ctx = WasiCtxBuilder::new()
+    //     .allow_tcp(false)
+    //     .allow_udp(false)
+    //     .build();
     let mut store = Store::new(
         &engine,
         MyState {
             host: HostComponent {},
-            resource_table: ResourceTable::new(),
-            wasi_ctx,
+            // resource_table: ResourceTable::new(),
+            // wasi_ctx,
         },
     );
     let mut linker = Linker::new(&engine);
-    wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
+    // wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
     console::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
     key::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
     let component_c: &[u8] = include_bytes!("../../examples/c/hi/out/hi-component.wasm");
