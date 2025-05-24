@@ -1,6 +1,9 @@
 use anyhow::Context;
 use exports::taca::core::app;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use taca::core::{console, key};
 use wasmtime::{
     Config, Engine, Result, Store,
@@ -51,7 +54,7 @@ struct MyState {
 //     }
 // }
 
-pub fn run() -> Result<()> {
+pub fn run(path: &PathBuf) -> Result<()> {
     // See: https://github.com/bytecodealliance/wasmtime/blob/main/examples/wasip2/main.rs
     // See: https://github.com/bytecodealliance/wasmtime/blob/main/examples/wasip1/main.rs
     let engine = Engine::new(Config::new().wasm_component_model(true))?;
