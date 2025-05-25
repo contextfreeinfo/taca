@@ -1,17 +1,26 @@
 use crate::Cli;
 use anyhow::Result;
-use ed25519_dalek::{Signature, SigningKey};
+use base64::engine::{Engine, general_purpose};
+use ed25519_dalek::SigningKey;
 use rand::rngs::OsRng;
+use serde::Serialize;
+use serde_json::{Value, json};
 use sha2::{Digest, Sha512};
 use std::fs::{self, File};
-use std::io::{Read, Seek, Write};
+use std::io::{Cursor, Read, Seek, Write};
 use std::path::Path;
 use zip::{ZipWriter, write::SimpleFileOptions};
 
 struct Bundler<'a> {
-    sigs: Vec<(String, Signature)>,
+    entries: Vec<Entry>,
     root: &'a Path,
-    signing_key: SigningKey,
+    signing_key: &'a SigningKey,
+}
+
+#[derive(Debug)]
+struct Entry {
+    name: String,
+    hash: Vec<u8>,
 }
 
 pub fn build(cli: Cli) {
@@ -19,21 +28,25 @@ pub fn build(cli: Cli) {
 }
 
 fn bundle(src: &Path) -> Result<()> {
-    // TODO Delete if already present?
     let dest = src.with_extension("taca");
+    // Overwrites if present.
     let zip_file = File::create(dest)?;
     let mut zip = ZipWriter::new(zip_file);
     let mut secure_rng = OsRng;
     let signing_key = SigningKey::generate(&mut secure_rng);
+    // TODO Reuse or store key in private file.
+    // TODO Store creation date with key, and store in app.json.
+    // TODO Option to export/import key with strength-checked passphrase.
     let mut bundler = Bundler {
-        sigs: vec![],
+        entries: vec![],
         root: src,
-        signing_key,
+        signing_key: &signing_key,
     };
     // TODO Verify required contents.
     add_dir_to_zip(&mut bundler, &mut zip, src)?;
+    write_list_signed(&bundler, &mut zip)?;
     zip.finish()?;
-    dbg!(&bundler.sigs);
+    // dbg!(&bundler.entries);
     Ok(())
 }
 
@@ -46,41 +59,136 @@ fn add_dir_to_zip<W: Seek + Write>(
         let entry = entry?;
         let path = entry.path();
         let name = path.strip_prefix(bundler.root).unwrap().to_str().unwrap();
-        if path.is_file() {
-            // TODO Specially process some files like app.json.
-            // TODO Automate things like public key.
-            // TODO Sign individual file contents instead of all at end?
-            // TODO Automate componentization?
-            let sig = add_signed_file(zip, name, &path, &bundler.signing_key)?;
-            bundler.sigs.push((name.to_string(), sig));
-        } else if path.is_dir() {
-            zip.add_directory(name.to_string() + "/", SimpleFileOptions::default())?;
-            add_dir_to_zip(bundler, zip, &path)?;
+        match name {
+            "app.json" => {
+                add_pubkey_to_json(bundler, zip, &path)?;
+            }
+            _ if path.is_file() => {
+                // TODO Specially process some files like app.json.
+                // TODO Automate things like public key.
+                // TODO Sign individual file contents instead of all at end?
+                // TODO Automate componentization?
+                let file = File::open(&path)?;
+                add_signed_file(bundler, zip, name, file)?;
+            }
+            _ if path.is_dir() => {
+                zip.add_directory(name.to_string() + "/", zip_options())?;
+                add_dir_to_zip(bundler, zip, &path)?;
+            }
+            _ => panic!(),
         }
     }
     Ok(())
 }
 
-fn add_signed_file<W: Seek + Write>(
+fn add_pubkey_to_json<W: Seek + Write>(
+    bundler: &mut Bundler,
+    zip: &mut ZipWriter<W>,
+    path: &Path,
+) -> Result<()> {
+    let json_str = fs::read_to_string(path)?;
+    let mut value: Value = serde_json::from_str(&json_str)?;
+    let pubkey_bytes = bundler.signing_key.verifying_key().to_bytes();
+    let pubkey_b64 = general_purpose::STANDARD.encode(pubkey_bytes);
+    // TODO Also key creation date?
+    if let Value::Object(map) = &mut value {
+        map.insert("publicKey".to_string(), json!(pubkey_b64));
+    }
+    let content = serde_json::to_string_pretty(&value)?;
+    let cursor = Cursor::new(content.as_bytes());
+    add_signed_file(bundler, zip, "app.json", cursor)?;
+    Ok(())
+}
+
+fn add_signed_file<R: Read, W: Seek + Write>(
+    bundler: &mut Bundler,
     zip: &mut zip::ZipWriter<W>,
     name: &str,
-    path: &Path,
-    signing_key: &SigningKey,
-) -> Result<Signature> {
-    zip.start_file(name, SimpleFileOptions::default())?;
-    let mut file = File::open(path)?;
+    mut reader: R,
+) -> Result<()> {
+    zip.start_file(name, zip_options())?;
     let mut hasher = Sha512::new();
     let mut buf = [0u8; 8192];
     loop {
-        let len = file.read(&mut buf)?;
+        let len = reader.read(&mut buf)?;
         if len == 0 {
             break;
         }
         hasher.update(&buf[..len]);
         zip.write_all(&buf[..len])?;
     }
-    // let hash = hasher.finalize();
-    Ok(signing_key.sign_prehashed(hasher, Some(TACA_RUNTIME_SIGNING_CONTEXT))?)
+    let hash = hasher.finalize().to_vec();
+    bundler.entries.push(Entry {
+        name: name.to_string(),
+        hash,
+    });
+    Ok(())
+}
+
+fn zip_options() -> SimpleFileOptions {
+    SimpleFileOptions::default()
+}
+
+// fn key_path_for(owner: &str) -> PathBuf {
+//     let mut path = dirs::data_local_dir().unwrap_or_else(|| ".".into());
+//     path.push("myapp");
+//     fs::create_dir_all(&path).unwrap();
+//     path.push(owner.replace('/', "_") + ".key");
+//     path
+// }
+
+// fn save_key(owner: &str, key: &SigningKey) -> std::io::Result<()> {
+//     let path = key_path_for(owner);
+//     fs::write(path, key.to_bytes())
+// }
+
+#[derive(Serialize)]
+struct JsonEntry(String, String);
+
+fn write_list(bundler: &Bundler, out: &mut impl Write) -> Result<()> {
+    for entry in &bundler.entries {
+        let json_entry = JsonEntry(
+            entry.name.clone(),
+            general_purpose::STANDARD.encode(&entry.hash),
+        );
+        let line = serde_json::to_string(&json_entry).unwrap();
+        writeln!(out, "{}", line)?;
+    }
+    Ok(())
+}
+
+fn write_list_signed<W: Seek + Write>(
+    bundler: &Bundler,
+    zip: &mut zip::ZipWriter<W>,
+) -> Result<()> {
+    zip.start_file("list.jsonl", zip_options())?;
+    let mut hasher = Sha512::new();
+    let mut tee = HashTee {
+        writer: zip,
+        hasher: &mut hasher,
+    };
+    write_list(bundler, &mut tee)?;
+    let sig = bundler
+        .signing_key
+        .sign_prehashed(hasher, Some(TACA_RUNTIME_SIGNING_CONTEXT))?;
+    zip.start_file("list.sig", zip_options())?;
+    writeln!(zip, "{}", general_purpose::STANDARD.encode(sig.to_bytes()))?;
+    Ok(())
+}
+
+struct HashTee<'a, W: std::io::Write, H: Digest> {
+    writer: &'a mut W,
+    hasher: &'a mut H,
+}
+
+impl<W: std::io::Write, H: Digest> std::io::Write for HashTee<'_, W, H> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.hasher.update(buf);
+        self.writer.write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.writer.flush()
+    }
 }
 
 const TACA_RUNTIME_SIGNING_CONTEXT: &[u8] = b"TacaRuntimeApp";

@@ -3097,11 +3097,14 @@ name = "taca"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "clap",
  "ed25519-dalek",
  "env_logger",
  "pollster",
  "rand",
+ "serde",
+ "serde_json",
  "sha2",
  "wasmtime",
  "wasmtime-wasi",
