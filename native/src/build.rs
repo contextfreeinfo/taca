@@ -1,6 +1,6 @@
 use crate::Cli;
 use anyhow::Result;
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier};
+use ed25519_dalek::{Signature, SigningKey};
 use rand::rngs::OsRng;
 use sha2::{Digest, Sha512};
 use std::fs::{self, File};
@@ -25,19 +25,20 @@ fn bundle(src: &Path) -> Result<()> {
     let mut zip = ZipWriter::new(zip_file);
     let mut secure_rng = OsRng;
     let signing_key = SigningKey::generate(&mut secure_rng);
-    let bundler = Bundler {
+    let mut bundler = Bundler {
         sigs: vec![],
         root: src,
         signing_key,
     };
     // TODO Verify required contents.
-    add_dir_to_zip(&bundler, &mut zip, &src)?;
+    add_dir_to_zip(&mut bundler, &mut zip, src)?;
     zip.finish()?;
+    dbg!(&bundler.sigs);
     Ok(())
 }
 
 fn add_dir_to_zip<W: Seek + Write>(
-    bundler: &Bundler,
+    bundler: &mut Bundler,
     zip: &mut ZipWriter<W>,
     path: &Path,
 ) -> Result<()> {
@@ -50,7 +51,8 @@ fn add_dir_to_zip<W: Seek + Write>(
             // TODO Automate things like public key.
             // TODO Sign individual file contents instead of all at end?
             // TODO Automate componentization?
-            add_signed_file(zip, name, &path, &bundler.signing_key)?;
+            let sig = add_signed_file(zip, name, &path, &bundler.signing_key)?;
+            bundler.sigs.push((name.to_string(), sig));
         } else if path.is_dir() {
             zip.add_directory(name.to_string() + "/", SimpleFileOptions::default())?;
             add_dir_to_zip(bundler, zip, &path)?;
