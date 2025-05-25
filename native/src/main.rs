@@ -30,15 +30,17 @@ struct Cli {
 fn main() {
     env_logger::init();
     let cli = Cli::parse();
-    if cli.build.is_some() {
-        build::build(cli);
-        return;
+    match () {
+        _ if cli.build.is_some() => build::build(cli),
+        _ => {
+            wasm::run(
+                cli.run_path
+                    .as_ref()
+                    .unwrap_or_else(|| cli.run.as_ref().unwrap()),
+            )
+            .unwrap();
+            // TODO Only if display wanted?
+            display::run();
+        }
     }
-    wasm::run(
-        cli.run_path
-            .as_ref()
-            .unwrap_or_else(|| cli.run.as_ref().unwrap()),
-    )
-    .unwrap();
-    display::run();
 }
