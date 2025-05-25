@@ -1,6 +1,7 @@
 use clap::{ArgGroup, Args, Parser, ValueEnum};
 use std::path::PathBuf;
 
+mod build;
 mod display;
 mod wasm;
 
@@ -27,14 +28,12 @@ struct Cli {
 }
 
 fn main() {
-    // wgpu uses `log` for all of our logging, so we initialize a logger with the `env_logger` crate.
-    //
-    // To change the log level, set the `RUST_LOG` environment variable. See the `env_logger`
-    // documentation for more information.
     env_logger::init();
     let cli = Cli::parse();
-    // TODO Build.
-    assert!(cli.build.is_none());
+    if cli.build.is_some() {
+        build::build(cli);
+        return;
+    }
     wasm::run(
         cli.run_path
             .as_ref()

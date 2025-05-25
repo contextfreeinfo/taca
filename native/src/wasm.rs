@@ -74,6 +74,7 @@ pub fn run(path: &PathBuf) -> Result<()> {
     // wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
     console::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
     key::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
+    // Use provided file.
     let component_c: &[u8] = include_bytes!("../../examples/c/hi/out/hi-component.wasm");
     let component_c = Component::from_binary(&engine, &component_c)?;
     let taca_c = Taca::instantiate(&mut store, &component_c, &linker)?;

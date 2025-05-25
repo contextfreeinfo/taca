@@ -1,4 +1,4 @@
-mkdir -p out && \
+mkdir -p out/hi && \
 wit-bindgen c ../../../taca.wit --out-dir out && \
 "$WASI_SDK/bin/clang" \
     -Os -s -Wall -Wextra -Werror \
@@ -7,8 +7,10 @@ wit-bindgen c ../../../taca.wit --out-dir out && \
     -mexec-model=reactor \
     -Iout -Isrc out/taca.c src/app.c out/taca_component_type.o \
     -o out/hi.wasm && \
-wasm-tools component new out/hi.wasm -o out/hi-component.wasm # --adapt ../../../ignore/wasi_snapshot_preview1.reactor.wasm
+wasm-tools component new out/hi.wasm -o out/hi/app.wasm && \
+cp app.json out/hi/
 
+# wasm-tools component new out/hi.wasm -o out/bundle/app.wasm --adapt ../../../ignore/wasi_snapshot_preview1.reactor.wasm
 # wit-bindgen c ../../../taca.wit --out-dir out --no-object-file && \
 # wasm-tools parse ignore/taca_component_type.o -t
 # wasm-tools component wit ignore/taca_component_type.o
