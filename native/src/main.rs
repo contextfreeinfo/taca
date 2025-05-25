@@ -30,6 +30,7 @@ struct Cli {
 fn main() {
     env_logger::init();
     let cli = Cli::parse();
+    // TODO Extract core features to `fly` and make `taca` specifically multimedia?
     match () {
         _ if cli.build.is_some() => build::build(cli),
         _ => {
