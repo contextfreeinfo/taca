@@ -9,6 +9,7 @@ base64 = "0.22.1"
 clap = { version = "4.5.38", features = ["derive"] }
 ed25519-dalek = { version = "2.1.1", features = ["digest", "rand_core"] }
 env_logger = "0.11.8"
+jiff = { version = "0.2.14", features = ["serde"] }
 pollster = "0.4.0"
 # Old rand because conflict, from wasmtime-wasi > cap-rand > rand
 rand = "0.8.5"
