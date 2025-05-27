@@ -1,27 +1,46 @@
 use crate::Cli;
-use anyhow::Result;
+use anyhow::{Context, Result, anyhow};
 use base64::engine::{Engine, general_purpose};
+use directories::ProjectDirs;
 use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, TimestampRound, Unit};
+use log::info;
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
-use std::fs::{self, File};
+use std::fs::{
+    self, {DirBuilder, File, OpenOptions},
+};
 use std::io::{Read, Seek, Write};
+#[cfg(unix)]
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::Path;
 use zip::{ZipWriter, write::SimpleFileOptions};
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppInfo {
+    id: String,
+    owner: String,
+}
+
 struct Bundler<'a> {
+    app_info: &'a AppInfo,
     entries: Vec<Entry>,
     root: &'a Path,
-    signing_key: &'a SigningKey,
-    signing_key_created_at: Timestamp,
+    signing_key_info: &'a SigningKeyInfo,
 }
 
 #[derive(Debug)]
 struct Entry {
     name: String,
     hash: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct SigningKeyInfo {
+    signing_key: SigningKey,
+    created_at: Timestamp,
 }
 
 pub fn build(cli: Cli) {
@@ -33,21 +52,23 @@ fn bundle(src: &Path) -> Result<()> {
     // Overwrites if present.
     let zip_file = File::create(dest)?;
     let mut zip = ZipWriter::new(zip_file);
-    let mut secure_rng = OsRng;
+    // Get some app info.
+    let app_info: AppInfo = {
+        let file = File::open(src.join("app.json"))?;
+        serde_json::from_reader(file)?
+    };
+    let signing_key_info = ensure_private_key(&app_info)?;
     // TODO Reuse or store key in private file, with created timestamp.
-    let signing_key = SigningKey::generate(&mut secure_rng);
-    let signing_key_created_at =
-        Timestamp::now().round(TimestampRound::new().smallest(Unit::Millisecond))?;
     // TODO Option to export/import key with strength-checked passphrase.
     let mut bundler = Bundler {
+        app_info: &app_info,
         entries: vec![],
         root: src,
-        signing_key: &signing_key,
-        signing_key_created_at,
+        signing_key_info: &signing_key_info,
     };
     // TODO Verify required contents.
     add_dir_to_zip(&mut bundler, &mut zip, src)?;
-    write_list_signed(&bundler, &mut zip)?;
+    write_seal_signed(&bundler, &mut zip)?;
     zip.finish()?;
     // dbg!(&bundler.entries);
     Ok(())
@@ -84,26 +105,6 @@ fn add_dir_to_zip<W: Seek + Write>(
     Ok(())
 }
 
-// fn add_pubkey_to_json<W: Seek + Write>(
-//     bundler: &mut Bundler,
-//     zip: &mut ZipWriter<W>,
-//     path: &Path,
-// ) -> Result<()> {
-//     let json_str = fs::read_to_string(path)?;
-//     let mut value: Value = serde_json::from_str(&json_str)?;
-//     let pubkey_bytes = bundler.signing_key.verifying_key().to_bytes();
-//     let pubkey_b64 = general_purpose::STANDARD.encode(pubkey_bytes);
-//     // TODO Also key creation date?
-//     // TODO As sub object with value, createdAt, and maybe algo?
-//     if let Value::Object(map) = &mut value {
-//         map.insert("publicKey".to_string(), json!(pubkey_b64));
-//     }
-//     let content = serde_json::to_string_pretty(&value)?;
-//     let cursor = Cursor::new(content.as_bytes());
-//     add_signed_file(bundler, zip, "app.json", cursor)?;
-//     Ok(())
-// }
-
 fn add_signed_file<R: Read, W: Seek + Write>(
     bundler: &mut Bundler,
     zip: &mut zip::ZipWriter<W>,
@@ -133,23 +134,84 @@ fn zip_options() -> SimpleFileOptions {
     SimpleFileOptions::default()
 }
 
-// fn key_path_for(owner: &str) -> PathBuf {
-//     let mut path = dirs::data_local_dir().unwrap_or_else(|| ".".into());
-//     path.push("myapp");
-//     fs::create_dir_all(&path).unwrap();
-//     path.push(owner.replace('/', "_") + ".key");
-//     path
-// }
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PrivateKeyInfo {
+    owner: String,
+    /// Explicit naming to ensure we think about it while handling it.
+    private: String,
+    created_at: Timestamp,
+}
 
-// fn save_key(owner: &str, key: &SigningKey) -> std::io::Result<()> {
-//     let path = key_path_for(owner);
-//     fs::write(path, key.to_bytes())
-// }
+fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
+    let dirs = ProjectDirs::from("", "", "Taca").ok_or_else(|| anyhow!("no data dir"))?;
+    // Make private keys dir.
+    let mut path = dirs.data_local_dir().join("keys");
+    let mut builder = DirBuilder::new();
+    // For now on windows, rely on local data dir being available only to user.
+    // TODO Use windows crate and ACLs to ensure?
+    #[cfg(not(windows))]
+    {
+        builder.mode(0o700);
+    }
+    builder.recursive(true).create(&path)?;
+    // Read or write private key file.
+    path.push(format!("{}.json", app_info.owner.replace('/', "%")));
+    let key_info = match () {
+        _ if path.exists() => {
+            // Read the locally saved key for this owner.
+            let file = File::open(&path)?;
+            let save_key_info: PrivateKeyInfo = serde_json::from_reader(file)?;
+            assert_eq!(&app_info.owner, &save_key_info.owner);
+            let bytes = general_purpose::STANDARD.decode(save_key_info.private)?;
+            let signing_key = SigningKey::from_bytes(<&[u8; 32]>::try_from(&bytes[..])?);
+            SigningKeyInfo {
+                signing_key,
+                created_at: save_key_info.created_at,
+            }
+        }
+        _ => {
+            // Make a new key for this owner.
+            // TODO If network connected, see if a known public key already exists?
+            let mut secure_rng = OsRng;
+            let signing_key = SigningKey::generate(&mut secure_rng);
+            let created_at =
+                Timestamp::now().round(TimestampRound::new().smallest(Unit::Millisecond))?;
+            let private = general_purpose::STANDARD.encode(signing_key.to_bytes());
+            let save_key_info = PrivateKeyInfo {
+                owner: app_info.owner.clone(),
+                private,
+                created_at,
+            };
+            let mut builder = OpenOptions::new();
+            #[cfg(not(windows))]
+            {
+                builder.mode(0o600);
+            }
+            let file = builder
+                .create_new(true)
+                .write(true)
+                .open(&path)
+                .with_context(|| format!("couldn't write: {}", path.display()))?;
+            serde_json::to_writer_pretty(file, &save_key_info)?;
+            info!("Writing new key for {} at: {:?}", &app_info.owner, &path);
+            SigningKeyInfo {
+                signing_key,
+                created_at,
+            }
+        }
+    };
+    Ok(key_info)
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Seal {
-    sealed_at: Timestamp,
+    // If we don't timestamp, we get the same seal file and sig for same content and key.
+    // sealed_at: Timestamp,
+    id: String,
+    // TODO Version number.
+    owner: String,
     key: SealKeyInfo,
     entries: Vec<SealEntry>,
 }
@@ -160,17 +222,23 @@ struct SealEntry(String, String);
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SealKeyInfo {
-    created_at: Timestamp,
     public: String,
+    created_at: Timestamp,
 }
 
-fn write_list(bundler: &Bundler, out: &mut impl Write) -> Result<()> {
-    let public = bundler.signing_key.verifying_key().to_bytes();
+fn write_seal(bundler: &Bundler, out: &mut impl Write) -> Result<()> {
+    let public = bundler
+        .signing_key_info
+        .signing_key
+        .verifying_key()
+        .to_bytes();
     let public = general_purpose::STANDARD.encode(public);
     let seal = Seal {
-        sealed_at: Timestamp::now().round(TimestampRound::new().smallest(Unit::Millisecond))?,
+        // sealed_at: Timestamp::now().round(TimestampRound::new().smallest(Unit::Millisecond))?,
+        id: bundler.app_info.id.clone(),
+        owner: bundler.app_info.owner.clone(),
         key: SealKeyInfo {
-            created_at: bundler.signing_key_created_at,
+            created_at: bundler.signing_key_info.created_at,
             public,
         },
         entries: bundler
@@ -188,7 +256,7 @@ fn write_list(bundler: &Bundler, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
-fn write_list_signed<W: Seek + Write>(
+fn write_seal_signed<W: Seek + Write>(
     bundler: &Bundler,
     zip: &mut zip::ZipWriter<W>,
 ) -> Result<()> {
@@ -198,8 +266,9 @@ fn write_list_signed<W: Seek + Write>(
         writer: zip,
         hasher: &mut hasher,
     };
-    write_list(bundler, &mut tee)?;
+    write_seal(bundler, &mut tee)?;
     let sig = bundler
+        .signing_key_info
         .signing_key
         .sign_prehashed(hasher, Some(TACA_RUNTIME_SIGNING_CONTEXT))?;
     zip.start_file("seal.sig", zip_options())?;
