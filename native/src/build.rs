@@ -1,12 +1,13 @@
 use crate::Cli;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Result, anyhow};
 use base64::engine::{Engine, general_purpose};
 use directories::ProjectDirs;
 use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, TimestampRound, Unit};
-use log::info;
 use rand::rngs::OsRng;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use serde_rusqlite::{from_row, to_params_named};
 use sha2::{Digest, Sha512};
 use std::fs::{
     self, {DirBuilder, File, OpenOptions},
@@ -143,10 +144,18 @@ struct PrivateKeyInfo {
     created_at: Timestamp,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct PrivateKeyRow {
+    owner: String,
+    /// Explicit naming to ensure we think about it while handling it.
+    private_key_bytes: Vec<u8>,
+    created_at: Timestamp,
+}
+
 fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
     let dirs = ProjectDirs::from("", "", "Taca").ok_or_else(|| anyhow!("no data dir"))?;
-    // Make private keys dir.
-    let mut path = dirs.data_local_dir().join("keys");
+    // Make a private dir for anything private.
+    let mut path = dirs.data_local_dir().join("secret");
     let mut builder = DirBuilder::new();
     // For now on windows, rely on local data dir being available only to user.
     // TODO Use windows crate and ACLs to ensure?
@@ -155,54 +164,87 @@ fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
         builder.mode(0o700);
     }
     builder.recursive(true).create(&path)?;
-    // Read or write private key file.
-    path.push(format!("{}.json", app_info.owner.replace('/', "%")));
-    let key_info = match () {
-        _ if path.exists() => {
-            // Read the locally saved key for this owner.
-            let file = File::open(&path)?;
-            let save_key_info: PrivateKeyInfo = serde_json::from_reader(file)?;
-            assert_eq!(&app_info.owner, &save_key_info.owner);
-            let bytes = general_purpose::STANDARD.decode(save_key_info.private)?;
-            let signing_key = SigningKey::from_bytes(<&[u8; 32]>::try_from(&bytes[..])?);
-            SigningKeyInfo {
-                signing_key,
-                created_at: save_key_info.created_at,
-            }
-        }
-        _ => {
+    // And make a file for storing private keys.
+    path.push("private-taca-keys-keep-secret.sqlite");
+    let mut builder = OpenOptions::new();
+    #[cfg(not(windows))]
+    {
+        builder.mode(0o600);
+    }
+    builder.create(true).write(true).open(&path)?;
+    let conn = Connection::open(&path)?;
+    // Be very explicit in naming to remember things are private/secret.
+    // TODO Another table to store multiple public key URLs per owner?
+    // TODO But that part's not secret.
+    conn.execute(
+        "create table if not exists private_key (
+            owner text primary key not null,
+            private_key_bytes blob not null unique,
+            created_at text not null
+        )",
+        [],
+    )?;
+    let key_info = conn
+        .query_row_and_then(
+            "select * from private_key where owner = ?1",
+            [&app_info.owner],
+            from_row::<PrivateKeyRow>,
+        )
+        .optional()?;
+    let key_info = match key_info {
+        Some(key_info) => key_info,
+        None => {
             // Make a new key for this owner.
             // TODO If network connected, see if a known public key already exists?
             let mut secure_rng = OsRng;
             let signing_key = SigningKey::generate(&mut secure_rng);
             let created_at =
                 Timestamp::now().round(TimestampRound::new().smallest(Unit::Millisecond))?;
-            let private = general_purpose::STANDARD.encode(signing_key.to_bytes());
-            let save_key_info = PrivateKeyInfo {
+            let private_key_bytes: Vec<u8> = signing_key.to_bytes().to_vec();
+            let key_info = PrivateKeyRow {
                 owner: app_info.owner.clone(),
-                private,
+                private_key_bytes,
                 created_at,
             };
-            let mut builder = OpenOptions::new();
-            #[cfg(not(windows))]
-            {
-                builder.mode(0o600);
-            }
-            let file = builder
-                .create_new(true)
-                .write(true)
-                .open(&path)
-                .with_context(|| format!("couldn't write: {}", path.display()))?;
-            serde_json::to_writer_pretty(file, &save_key_info)?;
-            info!("Writing new key for {} at: {:?}", &app_info.owner, &path);
-            SigningKeyInfo {
-                signing_key,
-                created_at,
-            }
+            conn.execute(
+                "insert into private_key (owner, private_key_bytes, created_at)
+                    values (:owner, :private_key_bytes, :created_at)
+                ",
+                to_params_named(&key_info)?.to_slice().as_slice(),
+            )?;
+            key_info
         }
     };
-    Ok(key_info)
+    Ok(SigningKeyInfo {
+        signing_key: SigningKey::from_bytes(<&[u8; 32]>::try_from(
+            &key_info.private_key_bytes[..],
+        )?),
+        created_at: key_info.created_at,
+    })
 }
+
+pub trait SerdeOptionalExtension<T> {
+    fn optional(self) -> Result<Option<T>, serde_rusqlite::error::Error>;
+}
+
+impl<T> SerdeOptionalExtension<T> for Result<T, serde_rusqlite::error::Error> {
+    fn optional(self) -> Result<Option<T>, serde_rusqlite::error::Error> {
+        match self {
+            Ok(v) => Ok(Some(v)),
+            Err(serde_rusqlite::error::Error::Rusqlite(rusqlite::Error::QueryReturnedNoRows)) => {
+                Ok(None)
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
+// fn serde_to_rusqlite(err: serde_rusqlite::error::Error) -> rusqlite::Error {
+//     match err {
+//         serde_rusqlite::error::Error::Rusqlite(e) => e,
+//         other => rusqlite::Error::UserFunctionError(Box::new(other)),
+//     }
+// }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
