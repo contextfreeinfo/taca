@@ -88,6 +88,7 @@ fn add_dir_to_zip<W: Seek + Write>(
             // "app.json" => {
             //     add_pubkey_to_json(bundler, zip, &path)?;
             // }
+            // TODO Reject .is_symlink() cases?
             _ if path.is_file() => {
                 // TODO Specially process some files like app.json.
                 // TODO Automate things like public key.
@@ -176,6 +177,7 @@ fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
     // Be very explicit in naming to remember things are private/secret.
     // TODO Another table to store multiple public key URLs per owner?
     // TODO But that part's not secret.
+    // TODO Also track revoked public keys elsewhere.
     conn.execute(
         "create table if not exists private_key (
             owner text primary key not null,

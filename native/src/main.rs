@@ -1,8 +1,10 @@
+use anyhow::Result;
 use clap::{ArgGroup, Parser};
 use std::path::PathBuf;
 
 mod build;
 mod display;
+mod part;
 mod wasm;
 
 #[derive(Parser)]
@@ -27,21 +29,22 @@ struct Cli {
     run: Option<PathBuf>,
 }
 
-fn main() {
+fn main() -> Result<()> {
     env_logger::init();
     let cli = Cli::parse();
     // TODO Extract core features to `fly` and make `taca` specifically multimedia?
     match () {
         _ if cli.build.is_some() => build::build(cli),
         _ => {
-            wasm::run(
-                cli.run_path
-                    .as_ref()
-                    .unwrap_or_else(|| cli.run.as_ref().unwrap()),
-            )
-            .unwrap();
-            // TODO Only if display wanted?
+            let path = cli
+                .run_path
+                .as_ref()
+                .unwrap_or_else(|| cli.run.as_ref().unwrap());
+            let part = part::Part::from_path(path)?;
+            wasm::run(part).unwrap();
+            // TODO Open window only if wanted?
             display::run();
         }
     }
+    Ok(())
 }
