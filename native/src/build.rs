@@ -15,7 +15,7 @@ use std::fs::{
 use std::io::{Read, Seek, Write};
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -154,30 +154,19 @@ struct PrivateKeyRow {
 }
 
 fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
-    let dirs = ProjectDirs::from("", "", "Taca").ok_or_else(|| anyhow!("no data dir"))?;
-    // Make a private dir for anything private.
-    let mut path = dirs.data_local_dir().join("secret");
-    let mut builder = DirBuilder::new();
-    // For now on windows, rely on local data dir being available only to user.
-    // TODO Use windows crate and ACLs to ensure?
-    #[cfg(not(windows))]
-    {
-        builder.mode(0o700);
-    }
-    builder.recursive(true).create(&path)?;
-    // And make a file for storing private keys.
+    // Make a secrets dir and a file for storing private keys.
+    let mut path = user_data_dir_ensure("secret")?;
     path.push("private-taca-keys-keep-secret.sqlite");
-    let mut builder = OpenOptions::new();
-    #[cfg(not(windows))]
-    {
-        builder.mode(0o600);
-    }
-    builder.create(true).write(true).open(&path)?;
+    user_data_file_write(&path)?;
+    // And reopen from scratch for connection.
     let conn = Connection::open(&path)?;
     // Be very explicit in naming to remember things are private/secret.
     // TODO Another table to store multiple public key URLs per owner?
     // TODO But that part's not secret.
     // TODO Also track revoked public keys elsewhere.
+    // TODO Keep old private keys in case someone wants to revert?
+    // TODO Name private keys?
+    // TODO See https://crates.io/crates/rusqlite_migration eventually?
     conn.execute(
         "create table if not exists private_key (
             owner text primary key not null,
@@ -186,14 +175,14 @@ fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
         )",
         [],
     )?;
-    let key_info = conn
+    let key_info = match conn
         .query_row_and_then(
             "select * from private_key where owner = ?1",
             [&app_info.owner],
             from_row::<PrivateKeyRow>,
         )
-        .optional()?;
-    let key_info = match key_info {
+        .optional()?
+    {
         Some(key_info) => key_info,
         None => {
             // Make a new key for this owner.
@@ -225,6 +214,31 @@ fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
     })
 }
 
+pub fn user_data_dir_ensure(name: &str) -> Result<PathBuf> {
+    let dirs = ProjectDirs::from("", "", "Taca").ok_or_else(|| anyhow!("no data dir"))?;
+    let path = dirs.data_local_dir().join(name);
+    let mut builder = DirBuilder::new();
+    // For now on windows, rely on local data dir being available only to user.
+    // TODO Use windows crate and ACLs to ensure?
+    #[cfg(not(windows))]
+    {
+        builder.mode(0o700);
+    }
+    builder.recursive(true).create(&path)?;
+    Ok(path)
+}
+
+pub fn user_data_file_write(path: &Path) -> Result<File> {
+    let mut builder = OpenOptions::new();
+    // For now on windows, rely on local data dir being available only to user.
+    // TODO Use windows crate and ACLs to ensure?
+    #[cfg(not(windows))]
+    {
+        builder.mode(0o600);
+    }
+    Ok(builder.create(true).write(true).open(path)?)
+}
+
 pub trait SerdeOptionalExtension<T> {
     fn optional(self) -> Result<Option<T>, serde_rusqlite::error::Error>;
 }
@@ -250,24 +264,24 @@ impl<T> SerdeOptionalExtension<T> for Result<T, serde_rusqlite::error::Error> {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Seal {
+pub struct Seal {
     // If we don't timestamp, we get the same seal file and sig for same content and key.
     // sealed_at: Timestamp,
-    id: String,
+    pub id: String,
     // TODO Version number.
-    owner: String,
-    key: SealKeyInfo,
-    entries: Vec<SealEntry>,
+    pub owner: String,
+    pub key: SealKeyInfo,
+    pub entries: Vec<SealEntry>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct SealEntry(String, String);
+pub struct SealEntry(pub String, pub String);
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SealKeyInfo {
-    public: String,
-    created_at: Timestamp,
+pub struct SealKeyInfo {
+    pub public: String,
+    pub created_at: Timestamp,
 }
 
 fn write_seal(bundler: &Bundler, out: &mut impl Write) -> Result<()> {
@@ -335,4 +349,4 @@ impl<W: std::io::Write, H: Digest> std::io::Write for HashTee<'_, W, H> {
     }
 }
 
-const TACA_RUNTIME_SIGNING_CONTEXT: &[u8] = b"TacaRuntimeApp";
+pub const TACA_RUNTIME_SIGNING_CONTEXT: &[u8] = b"TacaRuntimeApp";
