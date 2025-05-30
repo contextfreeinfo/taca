@@ -25,10 +25,12 @@ enum Task {
 
 struct StorageGet {
     value: Arc<Mutex<dyn Any>>,
+    task: Resource<task::Task>,
 }
 
 struct StoragePut {
     value: Arc<Mutex<bool>>,
+    task: Resource<task::Task>,
 }
 
 impl archive::Host for TacaCoreHost {

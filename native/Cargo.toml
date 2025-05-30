@@ -3,6 +3,13 @@ name = "taca"
 version = "0.1.0"
 edition = "2024"
 
+# I want this to apply just to wasm-pack, but how to do that?
+[profile.release-lto]
+inherits = "release"
+codegen-units = 1
+lto = true
+opt-level = "s"
+
 [dependencies]
 anyhow = "1.0.98"
 base64 = "0.22.1"
