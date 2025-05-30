@@ -1,4 +1,4 @@
-use crate::part::Part;
+use crate::archive::Archive;
 use exports::taca::core::app;
 use std::any::Any;
 use std::sync::{Arc, Mutex};
@@ -14,7 +14,7 @@ use wasmtime::{
 bindgen!("taca" in "../taca.wit");
 
 struct TacaCoreHost {
-    archive: Part,
+    archive: Archive,
     table: ResourceTable,
 }
 
@@ -138,7 +138,7 @@ struct TacaState {
 //     }
 // }
 
-pub fn run(archive: Part) -> Result<()> {
+pub fn run(archive: Archive) -> Result<()> {
     let component_bytes = archive.read_bytes("app.wasm")?;
     // See: https://github.com/bytecodealliance/wasmtime/blob/main/examples/wasip2/main.rs
     // See: https://github.com/bytecodealliance/wasmtime/blob/main/examples/wasip1/main.rs

@@ -17,22 +17,22 @@ use std::path::{self, Path};
 use zip::{ZipArchive, read::ZipFile};
 
 /// Abstracted to allow flexible representation in the future.
-pub struct Part {
+pub struct Archive {
     archive: RefCell<ZipArchive<Box<dyn ReadSeek>>>,
 }
 
 pub trait ReadSeek: Read + Seek {}
 impl<T: Read + Seek + ?Sized> ReadSeek for T {}
 
-impl Part {
-    pub fn from_path(path: &Path) -> Result<Part> {
+impl Archive {
+    pub fn from_path(path: &Path) -> Result<Archive> {
         let file = File::open(path)?;
         // BufReader internally delegates on read_to_end, so wrapping is cheap.
         let reader: Box<dyn ReadSeek> = Box::new(BufReader::new(file));
         let archive = RefCell::new(ZipArchive::new(reader)?);
-        let part = Part { archive };
-        part.verify()?;
-        Ok(part)
+        let archive = Archive { archive };
+        archive.verify()?;
+        Ok(archive)
     }
 
     // /// Includes only files with legal names.
@@ -49,7 +49,7 @@ impl Part {
     //     }
     // }
 
-    /// TODO How does this relate to large subparts?
+    /// TODO How does this relate to large subarchives?
     pub fn read_bytes(&self, name: &str) -> Result<Vec<u8>> {
         let mut archive = self.archive.borrow_mut();
         let mut file = archive.by_name(name)?;

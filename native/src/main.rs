@@ -2,9 +2,9 @@ use anyhow::Result;
 use clap::{ArgGroup, Parser};
 use std::path::PathBuf;
 
+mod archive;
 mod build;
 mod display;
-mod part;
 mod wasm;
 
 #[derive(Parser)]
@@ -40,8 +40,8 @@ fn main() -> Result<()> {
                 .run_path
                 .as_ref()
                 .unwrap_or_else(|| cli.run.as_ref().unwrap());
-            let part = part::Part::from_path(path)?;
-            wasm::run(part).unwrap();
+            let archive = archive::Archive::from_path(path)?;
+            wasm::run(archive).unwrap();
             // TODO Open window only if wanted?
             display::run();
         }
