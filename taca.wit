@@ -1,40 +1,78 @@
 package taca:core@0.0.1;
 
 interface app {
-  update: func(event-kind: event-kind);
+    use key.{event as key-event};
+    use task.{task};
 
-  enum event-kind {
-    frame,
-    key,
-    tasks-done,
-  }
+    update: func(event: event);
+
+    variant event {
+        none,
+
+        // Time delta in seconds.
+        frame(f32),
+
+        key(key-event),
+
+        tasks-all-done,
+
+        task-done(borrow<task>),
+    }
+}
+
+interface archive {
+    get-bytes: func(name: string) -> option<list<u8>>;
+    get-text: func(name: string) -> option<string>;
 }
 
 interface console {
-  print: func(text: string);
+    print: func(text: string);
 }
 
 interface key {
-  get-event: func() -> event;
+    enum code {
+        none,
+        arrow-up,
+        arrow-down,
+        arrow-left,
+        arrow-right,
+        space,
+        escape,
+    }
 
-  enum code {
-    none,
-    arrow-up,
-    arrow-down,
-    arrow-left,
-    arrow-right,
-    space,
-    escape,
-  }
+    record event {
+        code: code,
+        pressed: bool,
+    }
+}
 
-  record event {
-    code: code,
-    pressed: bool,
-  }
+interface storage {
+    use task.{task};
+
+    resource store;
+
+    // TODO Returns none if access not granted.
+    // access: func(owner: string, app: string, db: string) -> result<store>;
+
+    get: func(store: option<store>, key: string) -> task;
+    get-bytes: func(task: borrow<task>) -> option<list<u8>>;
+    get-text: func(task: borrow<task>) -> option<string>;
+
+    // Operations return an id for checking status.
+    put-bytes: func(store: option<store>, key: string, value: list<u8>) -> task;
+    put-text: func(store: option<store>, key: string, value: string) -> task;
+}
+
+interface task {
+    resource task {
+        finished: func() -> bool;
+    }
 }
 
 world taca {
-  export app;
-  import console;
-  import key;
+    export app;
+    import archive;
+    import console;
+    import key;
+    import storage;
 }

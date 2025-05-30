@@ -1,12 +1,12 @@
 use crate::part::Part;
 use exports::taca::core::app;
-use taca::core::{console, key};
+use taca::core::{archive, console, storage, task};
 use wasmtime::{
     Config,
     Engine,
     Result,
     Store,
-    component::{Component, Linker, bindgen},
+    component::{Component, Linker, Resource, bindgen},
     // TODO Feature gate wasi access?
     // component::ResourceTable,
 };
@@ -18,18 +18,88 @@ bindgen!("taca" in "../taca.wit");
 
 struct HostComponent;
 
+impl archive::Host for HostComponent {
+    fn get_bytes(&mut self, name: String) -> Option<Vec<u8>> {
+        let _ = name;
+        None
+    }
+
+    fn get_text(&mut self, name: String) -> Option<String> {
+        let _ = name;
+        None
+    }
+}
+
 impl console::Host for HostComponent {
     fn print(&mut self, text: String) {
         println!("{text}");
     }
 }
 
-impl key::Host for HostComponent {
-    fn get_event(&mut self) -> key::Event {
-        key::Event {
-            code: key::Code::None,
-            pressed: false,
-        }
+impl storage::Host for HostComponent {
+    fn get(
+        &mut self,
+        store: Option<Resource<storage::Store>>,
+        key: String,
+    ) -> Resource<task::Task> {
+        let _ = store;
+        let _ = key;
+        panic!()
+    }
+
+    fn get_bytes(&mut self, task: Resource<task::Task>) -> Option<Vec<u8>> {
+        let _ = task;
+        None
+    }
+
+    fn get_text(&mut self, task: Resource<task::Task>) -> Option<String> {
+        let _ = task;
+        None
+    }
+
+    fn put_bytes(
+        &mut self,
+        store: Option<Resource<storage::Store>>,
+        key: String,
+        value: Vec<u8>,
+    ) -> Resource<task::Task> {
+        let _ = store;
+        let _ = key;
+        let _ = value;
+        panic!()
+    }
+
+    fn put_text(
+        &mut self,
+        store: Option<Resource<storage::Store>>,
+        key: String,
+        value: String,
+    ) -> Resource<task::Task> {
+        let _ = store;
+        let _ = key;
+        let _ = value;
+        panic!()
+    }
+}
+
+impl storage::HostStore for HostComponent {
+    fn drop(&mut self, rep: Resource<storage::Store>) -> Result<()> {
+        let _ = rep;
+        Ok(())
+    }
+}
+
+impl task::Host for HostComponent {}
+
+impl task::HostTask for HostComponent {
+    fn finished(&mut self, self_: Resource<task::Task>) -> bool {
+        let _ = self_;
+        false
+    }
+
+    fn drop(&mut self, rep: Resource<task::Task>) -> Result<()> {
+        let _ = rep;
+        Ok(())
     }
 }
 
@@ -74,7 +144,9 @@ pub fn run(part: Part) -> Result<()> {
     let mut linker = Linker::new(&engine);
     // wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
     console::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
-    key::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
+    // key::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
+    storage::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
+    task::add_to_linker(&mut linker, |state: &mut MyState| &mut state.host)?;
     // Use provided file.
     let component_bytes = part.read_bytes("app.wasm")?;
     // let component_c: &[u8] = include_bytes!("../../examples/c/hi/out/hi-component.wasm");
@@ -87,7 +159,7 @@ pub fn run(part: Part) -> Result<()> {
     // let component_rust = Component::from_binary(&engine, component_rust)?;
     // let taca_rust = Taca::instantiate(&mut store, &component_rust, &linker)?;
     // let app_rust = taca_rust.taca_core_app();
-    app_c.call_update(&mut store, app::EventKind::Frame)?;
+    app_c.call_update(&mut store, app::Event::Frame(0.0))?;
     // app_rust.call_update(&mut store, app::EventKind::Frame)?;
     Ok(())
 }
