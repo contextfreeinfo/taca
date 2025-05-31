@@ -216,7 +216,9 @@ fn ensure_private_key(app_info: &AppInfo) -> Result<SigningKeyInfo> {
 
 pub fn user_data_dir_ensure(name: &str) -> Result<PathBuf> {
     let dirs = ProjectDirs::from("", "", "Taca").ok_or_else(|| anyhow!("no data dir"))?;
-    let path = dirs.data_local_dir().join(name);
+    let mut path = dirs.data_local_dir().join(name);
+    // TODO Ok to have profile dirs like "default" right under taca dir?
+    path.push("default");
     let mut builder = DirBuilder::new();
     // For now on windows, rely on local data dir being available only to user.
     // TODO Use windows crate and ACLs to ensure?

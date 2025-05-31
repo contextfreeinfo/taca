@@ -1,5 +1,5 @@
+use crate::wasm::Runtime;
 use std::sync::Arc;
-
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -162,7 +162,7 @@ impl ApplicationHandler for App {
     }
 }
 
-pub fn run() {
+pub fn run(runtime: Runtime) {
     let event_loop = EventLoop::new().unwrap();
 
     // When the current loop iteration finishes, immediately begin a new

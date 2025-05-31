@@ -5,6 +5,7 @@ use std::path::PathBuf;
 mod archive;
 mod build;
 mod display;
+mod storage;
 mod wasm;
 
 #[derive(Parser)]
@@ -41,10 +42,27 @@ fn main() -> Result<()> {
                 .as_ref()
                 .unwrap_or_else(|| cli.run.as_ref().unwrap());
             let archive = archive::Archive::from_path(path)?;
-            wasm::run(archive).unwrap();
+            let runtime = wasm::run(archive).unwrap();
             // TODO Open window only if wanted?
-            display::run();
+            display::run(runtime);
         }
     }
     Ok(())
 }
+
+// use std::thread;
+// use tokio::runtime::Runtime;
+// fn main() {
+//     let io_thread = thread::spawn(|| {
+//         let rt = Runtime::new().unwrap();
+//         rt.block_on(async {
+//             // async I/O loop
+//             loop {
+//                 // await something, e.g., socket.read()
+//                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+//                 println!("I/O thread tick");
+//             }
+//         });
+//     });
+//     io_thread.join().unwrap();
+// }
