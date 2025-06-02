@@ -1,4 +1,5 @@
-use crate::wasm::Runtime;
+use crate::wasm::{Runtime, Task};
+use anyhow::Result;
 use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
@@ -125,7 +126,7 @@ struct App {
     state: Option<State>,
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<Task> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Create window object
         let window = Arc::new(
@@ -162,8 +163,8 @@ impl ApplicationHandler for App {
     }
 }
 
-pub fn run(runtime: Runtime) {
-    let event_loop = EventLoop::new().unwrap();
+pub fn run(runtime: Runtime) -> Result<()> {
+    let event_loop = EventLoop::<Task>::with_user_event().build()?;
 
     // When the current loop iteration finishes, immediately begin a new
     // iteration regardless of whether or not new events are available to
@@ -178,5 +179,6 @@ pub fn run(runtime: Runtime) {
     // event_loop.set_control_flow(ControlFlow::Wait);
 
     let mut app = App::default();
-    event_loop.run_app(&mut app).unwrap();
+    event_loop.run_app(&mut app)?;
+    Ok(())
 }

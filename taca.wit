@@ -9,14 +9,16 @@ interface app {
     variant event {
         none,
 
+        start,
+
         // Time delta in seconds.
         frame(f32),
 
         key(key-event),
 
-        tasks-all-done,
-
         task-done(borrow<task>),
+
+        tasks-all-done,
     }
 }
 
@@ -49,23 +51,46 @@ interface key {
 interface storage {
     use task.{task};
 
-    resource store;
+    // resource request {
+    //     access: func() -> option<store>;
+    //     task: func() -> option<task>;
+    // }
 
-    // TODO Returns none if access not granted.
-    // access: func(owner: string, app: string, db: string) -> result<store>;
+    resource store {
+        // TODO get-info: func(name: string) -> info; // struct
 
-    get: func(store: option<store>, key: string) -> task;
-    get-bytes: func(task: borrow<task>) -> option<list<u8>>;
-    get-text: func(task: borrow<task>) -> option<string>;
+        get-bytes: func(name: string) -> bytes;
+        get-text: func(name: string) -> text;
 
-    // Operations return an id for checking status.
-    put-bytes: func(store: option<store>, key: string, value: list<u8>) -> task;
-    put-text: func(store: option<store>, key: string, value: string) -> task;
+        // TODO Append option?
+
+        set-bytes: func(name: string, value: list<u8>) -> task;
+        set-text: func(name: string, value: string) -> task;
+    }
+
+    // record info { changed_at, ... }
+
+    resource bytes {
+        take: func() -> option<list<u8>>;
+        task: func() -> option<task>;
+    }
+
+    resource text {
+        take: func() -> option<string>;
+        task: func() -> option<task>;
+    }
+
+    // Access the storage dedicated to this app.
+    access: func() -> store;
+
+    // Request access to the storage of a different app.
+    // request: func(owner: string, app: string) -> request;
 }
 
 interface task {
     resource task {
-        finished: func() -> bool;
+        done: func() -> bool;
+        failed: func() -> bool;
     }
 }
 

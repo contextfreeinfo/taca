@@ -44,7 +44,7 @@ fn main() -> Result<()> {
             let archive = archive::Archive::from_path(path)?;
             let runtime = wasm::run(archive).unwrap();
             // TODO Open window only if wanted?
-            display::run(runtime);
+            display::run(runtime)?;
         }
     }
     Ok(())

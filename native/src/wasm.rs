@@ -1,99 +1,75 @@
 use crate::archive::Archive;
+use anyhow::Result;
 use exports::taca::core::app;
-use std::any::Any;
 use std::sync::{Arc, Mutex};
 use taca::core::{archive, console, storage, task};
 use wasmtime::{
-    Config, Engine, Result, Store,
+    Config, Engine,
     component::{Component, Linker, Resource, ResourceTable, bindgen},
 };
 // use wasmtime_wasi::p2::bindings::sync::Command;
 // use wasmtime_wasi::p2::{IoView, WasiCtx, WasiCtxBuilder, WasiView};
 
 // Generate bindings of the guest and host components.
-bindgen!("taca" in "../taca.wit");
+bindgen!({
+    path: "../taca.wit",
+    world: "taca",
+    trappable_imports: true,
+    with: {
+        "taca:core/storage/bytes": crate::wasm::Task,
+        "taca:core/storage/store": crate::wasm::Store,
+    },
+});
 
 struct TacaCoreHost {
     archive: Archive,
     table: ResourceTable,
 }
 
-enum Task {
-    StorageGet(StorageGet),
+pub enum Task {
+    StorageGetBytes(StorageGet<Vec<u8>>),
+    StorageGetText(StorageGet<String>),
     StoragePut(StoragePut),
 }
 
-struct StorageGet {
-    value: Arc<Mutex<dyn Any>>,
-    task: Resource<task::Task>,
+#[derive(Default)]
+pub struct StorageGet<T> {
+    value: Arc<Mutex<Option<T>>>,
+    // task: Resource<task::Task>,
 }
 
-struct StoragePut {
+#[derive(Default)]
+pub struct StoragePut {
     value: Arc<Mutex<bool>>,
-    task: Resource<task::Task>,
+    // task: Resource<task::Task>,
 }
 
 impl archive::Host for TacaCoreHost {
-    fn get_bytes(&mut self, name: String) -> Option<Vec<u8>> {
+    fn get_bytes(&mut self, name: String) -> Result<Option<Vec<u8>>> {
         // TODO Log if error rather than missing?
-        self.archive.read_bytes(&name).ok()
+        Ok(self.archive.read_bytes(&name).ok())
     }
 
-    fn get_text(&mut self, name: String) -> Option<String> {
+    fn get_text(&mut self, name: String) -> Result<Option<String>> {
         // TODO Log if error rather than missing?
-        self.archive.read_string(&name).ok()
+        Ok(self.archive.read_string(&name).ok())
     }
 }
 
 impl console::Host for TacaCoreHost {
-    fn print(&mut self, text: String) {
+    fn print(&mut self, text: String) -> Result<()> {
         println!("{text}");
+        Ok(())
     }
 }
 
+pub struct Store {
+    // TODO Wrap each around an Arc/Mutex or Rc/RefCell.
+}
+
 impl storage::Host for TacaCoreHost {
-    fn get(
-        &mut self,
-        store: Option<Resource<storage::Store>>,
-        key: String,
-    ) -> Resource<task::Task> {
-        let _ = store;
-        let _ = key;
-        panic!()
-    }
-
-    fn get_bytes(&mut self, task: Resource<task::Task>) -> Option<Vec<u8>> {
-        let _ = task;
-        None
-    }
-
-    fn get_text(&mut self, task: Resource<task::Task>) -> Option<String> {
-        let _ = task;
-        None
-    }
-
-    fn put_bytes(
-        &mut self,
-        store: Option<Resource<storage::Store>>,
-        key: String,
-        value: Vec<u8>,
-    ) -> Resource<task::Task> {
-        let _ = store;
-        let _ = key;
-        let _ = value;
-        panic!()
-    }
-
-    fn put_text(
-        &mut self,
-        store: Option<Resource<storage::Store>>,
-        key: String,
-        value: String,
-    ) -> Resource<task::Task> {
-        let _ = store;
-        let _ = key;
-        let _ = value;
-        panic!()
+    fn access(&mut self) -> Result<Resource<storage::Store>> {
+        Ok(self.table.push(Store {})?)
     }
 }
 
@@ -102,14 +78,97 @@ impl storage::HostStore for TacaCoreHost {
         let _ = rep;
         Ok(())
     }
+
+    fn get_bytes(
+        &mut self,
+        self_: Resource<storage::Store>,
+        name: String,
+    ) -> Result<Resource<storage::Bytes>> {
+        let _ = self_;
+        let _ = name;
+        Ok(self.table.push(Task::StorageGetBytes(Default::default()))?)
+    }
+
+    fn get_text(
+        &mut self,
+        self_: Resource<storage::Store>,
+        name: String,
+    ) -> Result<Resource<storage::Text>> {
+        let _ = self_;
+        let _ = name;
+        panic!()
+    }
+
+    fn set_bytes(
+        &mut self,
+        self_: Resource<storage::Store>,
+        name: String,
+        value: Vec<u8>,
+    ) -> Result<Resource<task::Task>> {
+        let _ = self_;
+        let _ = name;
+        let _ = value;
+        panic!()
+    }
+
+    fn set_text(
+        &mut self,
+        self_: Resource<storage::Store>,
+        name: String,
+        value: String,
+    ) -> Result<Resource<task::Task>> {
+        let _ = self_;
+        let _ = name;
+        let _ = value;
+        panic!()
+    }
+}
+
+impl storage::HostBytes for TacaCoreHost {
+    fn task(&mut self, self_: Resource<storage::Bytes>) -> Result<Option<Resource<task::Task>>> {
+        let _ = self_;
+        Ok(None)
+    }
+
+    fn take(&mut self, self_: Resource<storage::Bytes>) -> Result<Option<Vec<u8>>> {
+        let _ = self_;
+        Ok(None)
+    }
+
+    fn drop(&mut self, rep: Resource<storage::Bytes>) -> Result<()> {
+        let _ = rep;
+        Ok(())
+    }
+}
+
+impl storage::HostText for TacaCoreHost {
+    fn task(&mut self, self_: Resource<storage::Text>) -> Result<Option<Resource<task::Task>>> {
+        let _ = self_;
+        Ok(None)
+    }
+
+    fn take(&mut self, self_: Resource<storage::Text>) -> Result<Option<String>> {
+        let _ = self_;
+        Ok(None)
+    }
+
+    fn drop(&mut self, rep: Resource<storage::Text>) -> Result<()> {
+        let _ = rep;
+        Ok(())
+    }
 }
 
 impl task::Host for TacaCoreHost {}
 
 impl task::HostTask for TacaCoreHost {
-    fn finished(&mut self, self_: Resource<task::Task>) -> bool {
+    fn done(&mut self, self_: Resource<task::Task>) -> Result<bool> {
         let _ = self_;
-        false
+        Ok(false)
+    }
+
+    fn failed(&mut self, self_: Resource<task::Task>) -> Result<bool> {
+        let _ = self_;
+        Ok(false)
     }
 
     fn drop(&mut self, rep: Resource<task::Task>) -> Result<()> {
@@ -142,7 +201,7 @@ struct TacaState {
 
 pub struct Runtime {
     engine: Engine,
-    store: Store<TacaState>,
+    store: wasmtime::Store<TacaState>,
     taca: Taca,
 }
 
@@ -155,7 +214,7 @@ pub fn run(archive: Archive) -> Result<Runtime> {
     //     .allow_tcp(false)
     //     .allow_udp(false)
     //     .build();
-    let mut store = Store::new(
+    let mut store = wasmtime::Store::new(
         &engine,
         TacaState {
             taca_core: TacaCoreHost {
