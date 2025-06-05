@@ -13,11 +13,11 @@ opt-level = "s"
 [dependencies]
 anyhow = "1.0.98"
 base64 = "0.22.1"
+blake3 = "1.8.2"
 clap = { version = "4.5.38", features = ["derive"] }
 directories = "6.0.0"
 ed25519-dalek = { version = "2.1.1", features = ["digest", "rand_core"] }
 env_logger = "0.11.8"
-hex = "0.4.3"
 jiff = { version = "0.2.14", features = ["serde"] }
 log = "0.4.27"
 pollster = "0.4.0"
@@ -28,6 +28,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 serde_rusqlite = "0.39.0"
 sha2 = "0.10.9"
+tempfile = "3.20.0"
 wasmtime = "33.0.0"
 wasmtime-wasi = "33.0.0"
 wgpu = "25.0.2"

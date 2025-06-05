@@ -1,45 +1,51 @@
 // TODO S3 storage or some such.
 
 use anyhow::Result;
-use sha2::{Digest, Sha512};
-use zip::result;
+use jiff::Timestamp;
+use serde::{Deserialize, Serialize};
+use tempfile::NamedTempFile;
 use std::{
+    fmt::format,
     fs::{DirBuilder, File, OpenOptions},
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 
 pub struct LocalStorage {
-    root: PathBuf,
+    store: PathBuf,
+    tmp: PathBuf,
 }
 
 impl LocalStorage {
     pub fn init(root: impl AsRef<Path>) -> Result<Self> {
-        let root = root.as_ref().to_path_buf();
-        let marker = root.join(MARKER_NAME);
+        // Use awkward names as a marker of usage intent.
+        let store = root.as_ref().join("fskv-store");
         match () {
-            _ if root.exists() => {
-                // Check if we believe we should be in here.
-                anyhow::ensure!(marker.exists());
+            _ if root.as_ref().exists() => {
+                // Check if we believe we should be in here. This is just a
+                // nicety to help avoid accidentally spamming wrong places.
+                anyhow::ensure!(store.exists());
             }
             _ => {
-                if let Some(parent) = root.parent() {
-                    make_dir(parent, true)?;
-                }
-                make_dir(&root, false)?;
-                // Mark that we expect to be in here.
-                make_new_file(&marker)?;
+                // Make the dir. If someone else is fighting to make this dir at
+                // this same moment, hopefully it's for the same purpose.
+                make_dir(&store)?;
             }
         }
-        Ok(Self { root })
+        // Put tmp under same root to expect they're on the same fs.
+        let tmp = root.as_ref().join("fskv-tmp");
+        make_dir(&tmp)?;
+        Ok(Self { store, tmp })
     }
 
     pub fn find_existing_path(&self, key: &str) -> PathBuf {
         panic!()
     }
 
-    fn open_for_write(&self, key: &str) -> Result<(PathBuf, File)> {
-        panic!()
+    fn persist(&self, key: &str, file: NamedTempFile) -> Result<()> {
+        let path: PathBuf = panic!();
+        // See https://github.com/Stebalien/tempfile/pull/111/files#r322282841
+        Ok(file.persist(&path)?.sync_all()?)
     }
 
     pub fn get_bytes(&self, key: &str) -> Option<Vec<u8>> {
@@ -61,16 +67,28 @@ impl LocalStorage {
     }
 }
 
-pub const MARKER_NAME: &str = "hash-storage";
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct EntryInfo {
+    key: String,
+    hash: String,
+    sequence: u32,
+    timestamp: Timestamp,
+}
 
-    pub fn hash_key_for(key: &str) -> String {
-        let mut hasher = Sha512::new();
-        hasher.update(key);
-        let result = hasher.finalize();
-        hex::encode(&result[..16])
-    }
+pub fn hash(bytes: &[u8]) -> String {
+    blake3::hash(bytes).to_string()
+}
 
-fn make_dir(path: &Path, recursive: bool) -> Result<()> {
+pub fn hash_to_u64(bytes: &[u8]) -> u64 {
+    let hash = blake3::hash(bytes);
+    u64::from_le_bytes(hash.as_bytes()[..8].try_into().unwrap())
+}
+
+pub fn hex_u64(n: u64) -> String {
+    format!("{n:016x}")
+}
+
+fn make_dir(path: &Path) -> Result<()> {
     let mut builder = DirBuilder::new();
     // For now on windows, rely on local data dir being available only to user.
     // TODO Use windows crate and ACLs to ensure?
@@ -78,7 +96,7 @@ fn make_dir(path: &Path, recursive: bool) -> Result<()> {
     {
         builder.mode(0o700);
     }
-    builder.recursive(recursive).create(path)?;
+    builder.recursive(true).create(path)?;
     Ok(())
 }
 
