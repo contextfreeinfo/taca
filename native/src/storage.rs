@@ -3,13 +3,13 @@
 use anyhow::Result;
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
-use tempfile::NamedTempFile;
 use std::{
-    fmt::format,
+    fmt::{Write, format},
     fs::{DirBuilder, File, OpenOptions},
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
+use tempfile::NamedTempFile;
 
 pub struct LocalStorage {
     store: PathBuf,
@@ -38,8 +38,31 @@ impl LocalStorage {
         Ok(Self { store, tmp })
     }
 
-    pub fn find_existing_path(&self, key: &str) -> PathBuf {
-        panic!()
+    pub fn find_existing_path(&self, key: &str) -> Result<Option<(PathBuf, EntryInfo)>> {
+        let mut hash = hash_to_u64(key.as_bytes());
+        loop {
+            let mut path = self.path_for(hash);
+            path.set_extension("fskv.json");
+            if !path.exists() {
+                return Ok(None);
+            }
+            let mut file = File::open(&path)?;
+            let info: EntryInfo = serde_json::from_reader(&mut file)?;
+            if info.key == key {
+                path.set_file_name(&info.name);
+                // TODO Check hash.
+                return Ok(Some((path, info)));
+            }
+            hash += 1;
+        }
+    }
+
+    fn path_for(&self, hash: u64) -> PathBuf {
+        let hex = hex_u64(hash);
+        let mut path = self.store.clone();
+        path.push(&hex[..2]);
+        path.push(hex);
+        path
     }
 
     fn persist(&self, key: &str, file: NamedTempFile) -> Result<()> {
@@ -58,24 +81,29 @@ impl LocalStorage {
         None
     }
 
-    pub fn set_bytes(&self, key: &str, value: &[u8]) -> Option<Vec<u8>> {
-        None
+    pub fn remove(&self, key: &str) -> Result<()> {
+        anyhow::bail!("")
     }
 
-    pub fn set_text(&self, key: &str, value: &str) -> Option<String> {
-        None
+    pub fn set_bytes(&self, key: &str, value: &[u8]) -> Result<()> {
+        anyhow::bail!("")
+    }
+
+    pub fn set_text(&self, key: &str, value: &str) -> Result<()> {
+        anyhow::bail!("")
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct EntryInfo {
     key: String,
+    name: String,
     hash: String,
     sequence: u32,
     timestamp: Timestamp,
 }
 
-pub fn hash(bytes: &[u8]) -> String {
+pub fn hash_bytes(bytes: &[u8]) -> String {
     blake3::hash(bytes).to_string()
 }
 
