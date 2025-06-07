@@ -90,17 +90,23 @@ impl LocalStorage {
     }
 
     pub fn set_bytes(&self, key: &str, value: &[u8]) -> Result<()> {
-        let tmp_info_path = NamedTempFile::new_in(&self.tmp)?;
-        let mut tmp_value_path = NamedTempFile::new_in(&self.tmp)?;
-        tmp_value_path.write_all(value)?;
+        let mut tmp_value_file = NamedTempFile::new_in(&self.tmp)?;
+        tmp_value_file.write_all(value)?;
+        let mut tmp_info_file = NamedTempFile::new_in(&self.tmp)?;
         let ext = extract_blob_ext(key, MAX_EXTENSION_LEN);
+        let old = self.find_existing_path(key)?;
         let info = EntryInfo {
             key: key.to_string(),
             ext: ext.to_string(),
             hash: blake3::hash(value).to_string(),
-            sequence: todo!(),
-            timestamp: todo!(),
+            seq: old.map_or(0, |it| it.1.seq + 1),
+            timestamp: Timestamp::now(),
         };
+        serde_json::to_writer(&mut tmp_info_file, &info)?;
+        // TODO Persist them either to old or to new.
+        // TODO Anything better than back-to-back and hope they're good?
+        // TODO Even if we check after one write, someone else might sneak in.
+        // TODO At least we can verify when reading if hash matches, if we care.
         anyhow::bail!("")
     }
 
@@ -117,7 +123,7 @@ pub struct EntryInfo {
     key: String,
     ext: String,
     hash: String,
-    sequence: u32,
+    seq: u32,
     timestamp: Timestamp,
 }
 
