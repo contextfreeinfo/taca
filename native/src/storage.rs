@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Write, format},
     fs::{DirBuilder, File, OpenOptions},
+    io::Write as IoWrite,
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
@@ -42,15 +43,15 @@ impl LocalStorage {
         let mut hash = hash_to_u64(key.as_bytes());
         loop {
             let mut path = self.path_for(hash);
-            path.set_extension("fskv.json");
+            path.set_extension(INFO_EXTENSION);
             if !path.exists() {
                 return Ok(None);
             }
             let mut file = File::open(&path)?;
             let info: EntryInfo = serde_json::from_reader(&mut file)?;
             if info.key == key {
-                path.set_file_name(&info.name);
-                // TODO Check hash.
+                // path.set_file_name(&info.name);
+                // TODO Check hash. Or only when getting content?
                 return Ok(Some((path, info)));
             }
             hash += 1;
@@ -66,6 +67,7 @@ impl LocalStorage {
     }
 
     fn persist(&self, key: &str, file: NamedTempFile) -> Result<()> {
+        let mut hash = hash_to_u64(key.as_bytes());
         let path: PathBuf = panic!();
         // See https://github.com/Stebalien/tempfile/pull/111/files#r322282841
         Ok(file.persist(&path)?.sync_all()?)
@@ -75,7 +77,9 @@ impl LocalStorage {
         None
     }
 
-    // TODO get_info
+    pub fn get_info(&self, key: &str) -> Result<Option<EntryInfo>> {
+        self.find_existing_path(key).map(|it| it.map(|it| it.1))
+    }
 
     pub fn get_text(&self, key: &str) -> Option<String> {
         None
@@ -86,6 +90,17 @@ impl LocalStorage {
     }
 
     pub fn set_bytes(&self, key: &str, value: &[u8]) -> Result<()> {
+        let tmp_info_path = NamedTempFile::new_in(&self.tmp)?;
+        let mut tmp_value_path = NamedTempFile::new_in(&self.tmp)?;
+        tmp_value_path.write_all(value)?;
+        let ext = extract_blob_ext(key, MAX_EXTENSION_LEN);
+        let info = EntryInfo {
+            key: key.to_string(),
+            ext: ext.to_string(),
+            hash: blake3::hash(value).to_string(),
+            sequence: todo!(),
+            timestamp: todo!(),
+        };
         anyhow::bail!("")
     }
 
@@ -94,13 +109,58 @@ impl LocalStorage {
     }
 }
 
+const INFO_EXTENSION: &str = "fskv.json";
+const MAX_EXTENSION_LEN: usize = 12;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct EntryInfo {
+pub struct EntryInfo {
     key: String,
-    name: String,
+    ext: String,
     hash: String,
     sequence: u32,
     timestamp: Timestamp,
+}
+
+fn extract_blob_ext(input: &str, max: usize) -> &str {
+    let mut dot = input.len();
+    while let Some(prev_dot) = input[..dot].rfind('.') {
+        let prev_after = prev_dot + 1;
+        let good = prev_dot > 0
+            && dot - prev_dot > 1
+            && input.len() - prev_dot <= max
+            && &input[prev_after..] != INFO_EXTENSION
+            && input[prev_after..dot]
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric());
+        if !good {
+            break;
+        }
+        dot = prev_dot;
+    }
+    &input[(dot + 1).min(input.len())..]
+}
+
+#[test]
+fn test_extract_ascii_extension() {
+    let max_len = MAX_EXTENSION_LEN;
+    assert_eq!(extract_blob_ext("hi", max_len), "");
+    assert_eq!(extract_blob_ext(".hi", max_len), "");
+    assert_eq!(extract_blob_ext("hi.", max_len), "");
+    assert_eq!(extract_blob_ext("hi..txt", max_len), "txt");
+    assert_eq!(extract_blob_ext("hi.txt", max_len), "txt");
+    assert_eq!(extract_blob_ext(".hi.txt", max_len), "txt");
+    assert_eq!(extract_blob_ext("a.b/c.txt", max_len), "txt");
+    assert_eq!(extract_blob_ext("a.b.c.txt", max_len), "b.c.txt");
+    assert_eq!(extract_blob_ext("hi.tar.gz", max_len), "tar.gz");
+    assert_eq!(extract_blob_ext("hi.fskv.json", max_len), "json");
+    assert_eq!(
+        extract_blob_ext("hi.crazy.long.something", max_len),
+        "something"
+    );
+    assert_eq!(
+        extract_blob_ext("hi.crazy.long.some.thing", max_len),
+        "some.thing"
+    );
 }
 
 pub fn hash_bytes(bytes: &[u8]) -> String {
