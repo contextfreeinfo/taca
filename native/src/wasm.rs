@@ -64,7 +64,7 @@ impl console::Host for TacaCoreHost {
 }
 
 pub struct Store {
-    // TODO Wrap each around an Arc/Mutex or Rc/RefCell.
+    // TODO Wrap each around an Arc/Mutex or Rc/RefCell?
 }
 
 impl storage::Host for TacaCoreHost {
